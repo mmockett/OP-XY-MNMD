@@ -47,15 +47,12 @@ template <class F>
 inline void show(F& frame, u32 path, const Point* points, i32 ox, i32 oy, u32 key, u32 tone, Paint paint = stroke) {
     typename F::path_type& p = frame.paths[path];
     if (p.key != key) {
-        for (u32 i = 0; i < 64; ++i) {
-            p.points[i].x = md::clamp((points[i].x - ox * unit) / 2, -64 * unit, 64 * unit);
-            p.points[i].y = md::clamp((points[i].y - oy * unit) / 2, -64 * unit, 64 * unit);
+        Point local[64];
+        for (u32 i = 0; i < 64; ++i) {   // within reach, leaving room for outline's eighth of a pixel
+            local[i].x = md::clamp((points[i].x - ox * unit) / 2, -63 * unit, 63 * unit);
+            local[i].y = md::clamp((points[i].y - oy * unit) / 2, -63 * unit, 63 * unit);
         }
-        // Distinct points: the device merges repeats.
-        for (u32 i = 1; i < 64; ++i)
-            for (u32 j = 0; j < i; ++j)
-                if (p.points[i].x == p.points[j].x && p.points[i].y == p.points[j].y) { p.points[i].x += 1; j = ~0u; }
-        p.key = key ? key : 1;
+        outline(p, local, 64, key);
     }
     place(frame, path, sx(ox), sy(oy), 2 * unit, tone, paint);
 }

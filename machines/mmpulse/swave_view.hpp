@@ -60,15 +60,12 @@ template <class F>
 inline void commit(F& frame, u32 path, const Pen& pen, i32 ox, i32 oy, u32 key, u32 tone, Paint paint = stroke) {
     typename F::path_type& out = frame.paths[path];
     if (out.key != key && pen.n) {
-        for (u32 i = 0; i < 64; ++i) {
-            const Point& q = pen.p[i < pen.n ? i : pen.n - 1];
-            out.points[i].x = (q.x - ox * unit) / 2;
-            out.points[i].y = (q.y - oy * unit) / 2;
+        Point points[64];
+        for (u32 i = 0; i < pen.n; ++i) {
+            points[i].x = (pen.p[i].x - ox * unit) / 2;
+            points[i].y = (pen.p[i].y - oy * unit) / 2;
         }
-        // Distinct points: nudge any repeat along x.
-        for (u32 i = 1; i < 64; ++i)
-            if (out.points[i].x == out.points[i - 1].x && out.points[i].y == out.points[i - 1].y) out.points[i].x += 1;
-        out.key = key ? key : 1;
+        outline(out, points, pen.n, key);
     }
     place(frame, path, sx(ox), sy(oy), 2 * unit, tone, paint);
 }

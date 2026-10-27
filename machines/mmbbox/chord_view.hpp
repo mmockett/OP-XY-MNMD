@@ -42,10 +42,8 @@ inline void keyboard(F& frame, u32 path, const i32* keys, u32 n) {
     for (u32 i = m; i < 64; ++i) { p[i].x = x0 + static_cast<i32>(63 - i) * 2 * unit + unit; p[i].y = bottom; }
     typename F::path_type& out = frame.paths[path];
     if (out.key != key) {
-        for (u32 i = 0; i < 64; ++i) { out.points[i].x = (p[i].x - 124 * unit) / 2; out.points[i].y = (p[i].y - 68 * unit) / 2; }
-        for (u32 i = 1; i < 64; ++i)
-            if (out.points[i].x == out.points[i - 1].x && out.points[i].y == out.points[i - 1].y) out.points[i].x += 1;
-        out.key = key;
+        for (u32 i = 0; i < 64; ++i) { p[i].x = (p[i].x - 124 * unit) / 2; p[i].y = (p[i].y - 68 * unit) / 2; }
+        outline(out, p, 64, key);
     }
     show_path(frame, path, 124, 68, thin, 2 * unit);
     if (n) place(frame, handle_a, xs[0], sy(0) + bottom + 8 * unit, unit, fill5, fill_and_stroke);

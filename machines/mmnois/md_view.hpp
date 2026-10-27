@@ -100,20 +100,73 @@ inline void show_path(F& frame, u32 path, i32 x, i32 y, u32 shade_index, i32 sca
     place(frame, path, sx(x), sy(y), scale, shade_index, stroke);
 }
 
-// Makes a path a polyline of n points (2..32) out and back, as the device's
-// paths are always closed (md_screen's retrace): `ys` are path-local Q10.
+// Moves q, reached from `from`, an eighth of a pixel to the left of its way in
+// while it lands on one of the m points already placed.
+inline void aside(Point& q, const Point& from, const Point* placed, u32 m) {
+    const i32 side = unit / 8;
+    for (u32 tries = 0; tries < 4; ++tries) {
+        bool seen = false;
+        for (u32 j = 0; j < m && !seen; ++j) seen = placed[j].x == q.x && placed[j].y == q.y;
+        if (!seen) return;
+        const i32 dx = q.x - from.x, dy = q.y - from.y;
+        q.x += dy > 0 ? side : dy < 0 ? -side : 0;
+        q.y += dx > 0 ? -side : dx < 0 ? side : 0;
+    }
+}
+
+// Writes n path-local points (Q10) into a path as an outline the OP-XY draws
+// without streaks: it draws them from an outline with no area, as a line
+// traced out and back over itself, or one that turns straight back at a
+// point. Repeated points go; a point that revisits an earlier one moves an
+// eighth of a pixel to the left of its way in (aside), so a retraced line
+// becomes a thin ribbon and a spike a sliver; the longest edges are halved,
+// each midpoint aside too, until there are 64 points, all distinct. An
+// outline of one point collapses, which draws nothing.
+template <class Path>
+inline void outline(Path& path, const Point* points, u32 n, u32 key) {
+    Point p[64];
+    u32 m = 0;
+    for (u32 i = 0; i < n && i < 64; ++i) {
+        Point q = points[i];
+        if (m && q.x == p[m - 1].x && q.y == p[m - 1].y) continue;
+        if (m) aside(q, p[m - 1], p, m);
+        p[m++] = q;
+    }
+    while (m > 1 && p[m - 1].x == p[0].x && p[m - 1].y == p[0].y) --m;
+    if (!m) p[m++] = Point();
+    // An edge halves to a distinct point while it spans two units on an axis;
+    // edge m - 1 closes the outline.
+    while (m < 64) {
+        u32 at = 0;
+        i32 longest = 0;
+        for (u32 i = 0; i < m && m > 1; ++i) {
+            const Point& next = p[i + 1 < m ? i + 1 : 0];
+            const i32 dx = next.x - p[i].x, dy = next.y - p[i].y;
+            const i32 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, span = ax > ay ? ax : ay;
+            if (span > longest) { longest = span; at = i; }
+        }
+        if (longest < 2) break;
+        const Point a = p[at], b = p[at + 1 < m ? at + 1 : 0];
+        Point mid;
+        mid.x = a.x + (b.x - a.x) / 2;
+        mid.y = a.y + (b.y - a.y) / 2;
+        aside(mid, a, p, m);
+        for (u32 i = m; i > at + 1; --i) p[i] = p[i - 1];
+        p[at + 1] = mid;
+        ++m;
+    }
+    for (u32 i = 0; i < 64; ++i) path.points[i] = p[i < m ? i : m - 1];
+    path.key = key ? key : 1;
+}
+
+// Makes a path a polyline of n points (up to 32), out and back as a thin
+// ribbon (outline). `points` are path-local Q10.
 template <class Path>
 inline void polyline(Path& path, const Point* points, u32 n, u32 key) {
     if (n > 32) n = 32;
-    for (u32 i = 0; i < 32; ++i) path.points[i] = points[i < n ? i : n - 1];
-    for (u32 i = 0; i < 32; ++i) {
-        path.points[63 - i].x = path.points[i].x;
-        path.points[63 - i].y = path.points[i].y + 1;
-    }
-    // Distinct points: nudge any repeat along x.
-    for (u32 i = 1; i < 64; ++i)
-        if (path.points[i].x == path.points[i - 1].x && path.points[i].y == path.points[i - 1].y) path.points[i].x += 1;
-    path.key = key ? key : 1;
+    Point both[64];
+    for (u32 i = 0; i < n; ++i) both[i] = both[2 * n - 1 - i] = points[i];
+    outline(path, both, 2 * n, key);
 }
 
 // The 0..127 readouts the Machinedrum and Monomachine show, for the header.
@@ -150,8 +203,8 @@ inline void begin(F& frame, const Input& input) {
     // Every path needs a shape, used or not.
     for (u32 p = 0; p < path_count; ++p) {
         if (frame.paths[p].key) continue;
-        for (u32 i = 0; i < 64; ++i) { frame.paths[p].points[i].x = (static_cast<i32>(i) - 32) * unit; frame.paths[p].points[i].y = 0; }
-        frame.paths[p].key = 0x7fffffffu;
+        const Point ends[2] = {{-32 * unit, 0}, {31 * unit, 0}};
+        polyline(frame.paths[p], ends, 2, 0x7fffffffu);
     }
 }
 
