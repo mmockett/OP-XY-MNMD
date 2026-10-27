@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "id": "mmnois",
+  "name": "GND-NOIS",
+  "parameters": [
+    {
+      "id": "st",
+      "label": "ST",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "red",
+      "label": "RED",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "ston",
+      "label": "STON",
+      "default": 0.25,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "ON"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "empty4",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "empty5",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "empty6",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "empty7",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "White": {
+      "st": 0.0,
+      "red": 0.0,
+      "ston": 0.25,
+      "tune": 0.503937
+    },
+    "Pink": {
+      "st": 0.0,
+      "red": 0.377953,
+      "ston": 0.25,
+      "tune": 0.503937
+    },
+    "Red": {
+      "st": 0.0,
+      "red": 1.0,
+      "ston": 0.25,
+      "tune": 0.503937
+    },
+    "Loud": {
+      "st": 1.0,
+      "red": 0.503937,
+      "ston": 0.25,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 16,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 31,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

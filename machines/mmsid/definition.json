@@ -1,0 +1,200 @@
+{
+  "schema": 1,
+  "id": "mmsid",
+  "name": "SID-6581",
+  "parameters": [
+    {
+      "id": "pw",
+      "label": "PW",
+      "default": 0.251969,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pwad",
+      "label": "PWAD",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pwrs",
+      "label": "PWRS",
+      "default": 0.25,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "ON"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "wave",
+      "label": "WAVE",
+      "default": 0.3,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "TRI",
+          "SAW",
+          "PULS",
+          "MIX",
+          "NOIS"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "mod",
+      "label": "MOD",
+      "default": 0.125,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "RING",
+          "SYNC",
+          "R+S"
+        ]
+      },
+      "display": "enum",
+      "control": 0
+    },
+    {
+      "id": "msrc",
+      "label": "MSRC",
+      "default": 0.25,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "MFRQ",
+          "PRCH"
+        ]
+      },
+      "display": "enum",
+      "control": 1
+    },
+    {
+      "id": "mfrq",
+      "label": "MFRQ",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Saw": {
+      "pw": 0.251969,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.3,
+      "mod": 0.125,
+      "msrc": 0.25,
+      "mfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Square": {
+      "pw": 0.0,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.5,
+      "mod": 0.125,
+      "msrc": 0.25,
+      "mfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Sweep": {
+      "pw": 0.125984,
+      "pwad": 0.15748,
+      "pwrs": 0.75,
+      "wave": 0.5,
+      "mod": 0.125,
+      "msrc": 0.25,
+      "mfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Sync": {
+      "pw": 0.251969,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.3,
+      "mod": 0.625,
+      "msrc": 0.25,
+      "mfrq": 0.598425,
+      "tune": 0.503937
+    },
+    "Ring": {
+      "pw": 0.251969,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.1,
+      "mod": 0.375,
+      "msrc": 0.25,
+      "mfrq": 0.724409,
+      "tune": 0.503937
+    },
+    "Mixed": {
+      "pw": 0.251969,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.7,
+      "mod": 0.125,
+      "msrc": 0.25,
+      "mfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Noise": {
+      "pw": 0.251969,
+      "pwad": 0.0,
+      "pwrs": 0.25,
+      "wave": 0.9,
+      "mod": 0.125,
+      "msrc": 0.25,
+      "mfrq": 0.503937,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 48,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 32,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

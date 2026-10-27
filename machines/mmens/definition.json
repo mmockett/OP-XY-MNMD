@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "id": "mmens",
+  "name": "SWAVE-ENS",
+  "parameters": [
+    {
+      "id": "pch2",
+      "label": "PCH2",
+      "default": 0.661417,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pch3",
+      "label": "PCH3",
+      "default": 0.779528,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pch4",
+      "label": "PCH4",
+      "default": 0.488189,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "wave",
+      "label": "WAVE",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pw",
+      "label": "PW",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "chrl",
+      "label": "CHRL",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "chrw",
+      "label": "CHRW",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Major": {
+      "pch2": 0.661417,
+      "pch3": 0.779528,
+      "pch4": 0.488189,
+      "wave": 0.0,
+      "pw": 0.503937,
+      "chrl": 0.314961,
+      "chrw": 0.314961,
+      "tune": 0.503937
+    },
+    "Minor": {
+      "pch2": 0.566929,
+      "pch3": 0.779528,
+      "pch4": 0.488189,
+      "wave": 0.0,
+      "pw": 0.503937,
+      "chrl": 0.314961,
+      "chrw": 0.314961,
+      "tune": 0.503937
+    },
+    "Fifths": {
+      "pch2": 0.811024,
+      "pch3": 0.968504,
+      "pch4": 0.0,
+      "wave": 0.0,
+      "pw": 0.503937,
+      "chrl": 0.503937,
+      "chrw": 0.503937,
+      "tune": 0.503937
+    },
+    "Organ": {
+      "pch2": 0.968504,
+      "pch3": 0.0,
+      "pch4": 0.811024,
+      "wave": 1.0,
+      "pw": 0.251969,
+      "chrl": 0.15748,
+      "chrw": 0.23622,
+      "tune": 0.503937
+    },
+    "Seventh": {
+      "pch2": 0.661417,
+      "pch3": 0.779528,
+      "pch4": 0.913386,
+      "wave": 0.314961,
+      "pw": 0.377953,
+      "chrl": 0.393701,
+      "chrw": 0.314961,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 64,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 41,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

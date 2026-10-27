@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "sdk": "1.2",
+  "kind": "synth",
+  "description": "The Monomachine's SWAVE-PULSE: detuned pulses with a sweeping width and sub-octaves, fitted to the original.",
+  "identity": {
+    "engine": 41,
+    "page": 89
+  },
+  "presetDefaults": {
+    "amp": {
+      "attack": 0,
+      "decay": 32767,
+      "sustain": 32767,
+      "release": 4096
+    }
+  }
+}

@@ -1,0 +1,230 @@
+{
+  "schema": 1,
+  "id": "mmvo6",
+  "name": "VO-6",
+  "parameters": [
+    {
+      "id": "voc1",
+      "label": "VOC1",
+      "default": 0.944882,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "voc2",
+      "label": "VOC2",
+      "default": 0.456693,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "v-sw",
+      "label": "V SW",
+      "default": 0.75,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "ON"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "voic",
+      "label": "VOIC",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "cons",
+      "label": "CONS",
+      "default": 0.02381,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "-",
+          "B",
+          "D",
+          "F",
+          "G",
+          "H",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "P",
+          "R",
+          "RR",
+          "S",
+          "SJ",
+          "T",
+          "TJ",
+          "TH",
+          "V",
+          "Z"
+        ]
+      },
+      "display": "enum",
+      "control": 0
+    },
+    {
+      "id": "clen",
+      "label": "CLEN",
+      "default": 0.23622,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "cvol",
+      "label": "CVOL",
+      "default": 0.629921,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Ah": {
+      "voc1": 0.944882,
+      "voc2": 0.456693,
+      "v-sw": 0.75,
+      "voic": 0.0,
+      "cons": 0.02381,
+      "clen": 0.23622,
+      "cvol": 0.629921,
+      "tune": 0.503937
+    },
+    "Ee": {
+      "voc1": 0.251969,
+      "voc2": 0.905512,
+      "v-sw": 0.75,
+      "voic": 0.0,
+      "cons": 0.02381,
+      "clen": 0.23622,
+      "cvol": 0.629921,
+      "tune": 0.503937
+    },
+    "Oh": {
+      "voc1": 0.834646,
+      "voc2": 0.291339,
+      "v-sw": 0.75,
+      "voic": 0.0,
+      "cons": 0.02381,
+      "clen": 0.23622,
+      "cvol": 0.629921,
+      "tune": 0.503937
+    },
+    "Ma": {
+      "voc1": 0.944882,
+      "voc2": 0.456693,
+      "v-sw": 0.75,
+      "voic": 0.0,
+      "cons": 0.452381,
+      "clen": 0.23622,
+      "cvol": 0.629921,
+      "tune": 0.503937
+    },
+    "Sing La": {
+      "voc1": 0.771654,
+      "voc2": 0.779528,
+      "v-sw": 0.75,
+      "voic": 0.15748,
+      "cons": 0.404762,
+      "clen": 0.314961,
+      "cvol": 0.629921,
+      "tune": 0.503937
+    },
+    "Robot Rr": {
+      "voc1": 0.503937,
+      "voc2": 0.629921,
+      "v-sw": 0.75,
+      "voic": 0.0,
+      "cons": 0.642857,
+      "clen": 0.393701,
+      "cvol": 0.787402,
+      "tune": 0.503937
+    },
+    "Whisper": {
+      "voc1": 0.330709,
+      "voc2": 0.322835,
+      "v-sw": 0.75,
+      "voic": 1.0,
+      "cons": 0.261905,
+      "clen": 0.314961,
+      "cvol": 0.708661,
+      "tune": 0.503937
+    },
+    "Tick": {
+      "voc1": 0.503937,
+      "voc2": 0.503937,
+      "v-sw": 0.25,
+      "voic": 0.0,
+      "cons": 0.785714,
+      "clen": 0.0,
+      "cvol": 1.0,
+      "tune": 0.503937
+    },
+    "Hiss": {
+      "voc1": 0.503937,
+      "voc2": 0.503937,
+      "v-sw": 0.25,
+      "voic": 0.0,
+      "cons": 0.690476,
+      "clen": 0.708661,
+      "cvol": 0.866142,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 112,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 34,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

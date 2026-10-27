@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "sdk": "1.2",
+  "kind": "synth",
+  "description": "The Monomachine's SWAVE-SAW: a stack of detuned saws with sub-octaves, fitted to the original.",
+  "identity": {
+    "engine": 40,
+    "page": 88
+  },
+  "presetDefaults": {
+    "amp": {
+      "attack": 0,
+      "decay": 32767,
+      "sustain": 32767,
+      "release": 4096
+    }
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "id": "mmdens",
+  "name": "DPRO-DENS",
+  "parameters": [
+    {
+      "id": "pch2",
+      "label": "PCH2",
+      "default": 0.677165,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pch3",
+      "label": "PCH3",
+      "default": 0.795276,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pch4",
+      "label": "PCH4",
+      "default": 0.488189,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "wave",
+      "label": "WAVE",
+      "default": 0.257812,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "D01",
+          "D02",
+          "D03",
+          "D04",
+          "D05",
+          "D06",
+          "D07",
+          "D08",
+          "D09",
+          "D10",
+          "D11",
+          "D12",
+          "D13",
+          "D14",
+          "D15",
+          "D16",
+          "D17",
+          "D18",
+          "D19",
+          "D20",
+          "D21",
+          "D22",
+          "D23",
+          "D24",
+          "D25",
+          "D26",
+          "D27",
+          "D28",
+          "D29",
+          "D30",
+          "D31",
+          "D32",
+          "D33",
+          "D34",
+          "D35",
+          "D36",
+          "D37",
+          "D38",
+          "D39",
+          "D40",
+          "D41",
+          "D42",
+          "D43",
+          "D44",
+          "D45",
+          "D46",
+          "D47",
+          "D48",
+          "D49",
+          "D50",
+          "D51",
+          "D52",
+          "D53",
+          "D54",
+          "D55",
+          "D56",
+          "D57",
+          "D58",
+          "D59",
+          "D60",
+          "D61",
+          "D62",
+          "D63",
+          "D64"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "empty5",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "chrl",
+      "label": "CHRL",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "chrw",
+      "label": "CHRW",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Major": {
+      "pch2": 0.677165,
+      "pch3": 0.795276,
+      "pch4": 0.488189,
+      "wave": 0.257812,
+      "chrl": 0.314961,
+      "chrw": 0.314961,
+      "tune": 0.503937
+    },
+    "Minor": {
+      "pch2": 0.582677,
+      "pch3": 0.795276,
+      "pch4": 1.0,
+      "wave": 0.257812,
+      "chrl": 0.314961,
+      "chrw": 0.314961,
+      "tune": 0.503937
+    },
+    "Fifths": {
+      "pch2": 0.826772,
+      "pch3": 1.0,
+      "pch4": 0.488189,
+      "wave": 0.007812,
+      "chrl": 0.15748,
+      "chrw": 0.15748,
+      "tune": 0.503937
+    },
+    "Strings": {
+      "pch2": 0.677165,
+      "pch3": 0.795276,
+      "pch4": 1.0,
+      "wave": 0.507812,
+      "chrl": 0.708661,
+      "chrw": 0.472441,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 580,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 41,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

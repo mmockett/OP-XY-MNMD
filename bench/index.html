@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MD XY Bench</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <span class="mark">MD<span class="dot"></span>XY</span>
+  <span class="sub">bench · the device's C++ in WebAssembly</span>
+  <button id="audio" class="primary">Enable audio</button>
+</header>
+
+<main>
+  <section class="device">
+    <div class="screen-frame"><div id="screen" aria-label="OP-XY screen for the selected track"></div></div>
+
+    <div class="encoders" id="encoders" aria-label="Encoders: top row on the encoders, bottom row their alternates"></div>
+
+    <div class="transport">
+      <button id="play" class="play" aria-pressed="false" title="Space">▶</button>
+      <label class="field">BPM <input id="bpm" type="number" min="40" max="300" value="120"></label>
+      <label class="field">SWING <input id="swing" type="range" min="0" max="0.6" step="0.01" value="0"></label>
+      <label class="field">PATTERN <select id="patterns"></select></label>
+      <label class="field">OUT <input id="master" type="range" min="0" max="6" step="0.05" value="3"></label>
+    </div>
+
+    <div id="keyboard" class="keyboard" aria-label="Keys, two octaves from C3"></div>
+    <div id="tracks" class="tracks" aria-label="Tracks"></div>
+    <div id="grid" class="grid" aria-label="The selected track's steps"></div>
+  </section>
+
+  <aside class="side">
+    <section>
+      <h2 id="machine-name">Machine</h2>
+      <p id="machine-text" class="muted"></p>
+      <div id="presets" class="presets"></div>
+    </section>
+    <section>
+      <h2>Keys</h2>
+      <dl class="keys">
+        <dt>1 – 9</dt><dd>select track</dd>
+        <dt>A W S … ;</dt><dd>play the keys, C3 up</dd>
+        <dt>Space</dt><dd>play / stop</dd>
+        <dt>Drag, wheel</dt><dd>turn an encoder; Shift for fine</dd>
+        <dt>Double-click</dt><dd>encoder to its default</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Kit</h2>
+      <button id="export" class="wide">Copy kit as JSON</button>
+      <button id="import" class="wide">Paste kit JSON</button>
+      <p class="muted small">The kit is also kept in this browser between visits.</p>
+    </section>
+    <section class="muted small">
+      <p>Sound and screen are the machines' own C++, as on the OP-XY. The OP-XY's amp envelope, filter, LFOs and
+      effects run after the machine on the device and are not here, nor is device CPU timing.</p>
+    </section>
+  </aside>
+</main>
+<footer><span id="status" role="status">Audio off · enable to play</span></footer>
+<script type="module" src="app.mjs"></script>
+</body>
+</html>

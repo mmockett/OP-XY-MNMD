@@ -1,0 +1,11 @@
+# Builds, previews, bounces and toolchains: never firmware or stock files either.
+local/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Samples and waves captured from the owner's ROMs (docs/FAMILIES.md): never committed.
+machines/*/private_*.hpp
+
+# Private notes for this checkout only.
+private/

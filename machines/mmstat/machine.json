@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "sdk": "1.2",
+  "kind": "synth",
+  "description": "The Monomachine's FM+STAT, fitted to the original: two modulators into one carrier, M1 with its decay and feedback.",
+  "identity": {
+    "engine": 48,
+    "page": 96
+  },
+  "presetDefaults": {
+    "amp": {
+      "attack": 0,
+      "decay": 32767,
+      "sustain": 32767,
+      "release": 4096
+    }
+  }
+}

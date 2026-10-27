@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "id": "mdtrx",
+  "name": "MD TRX",
+  "parameters": [
+    {
+      "id": "ctrl_1",
+      "label": "CTRL 1",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "ctrl_2",
+      "label": "CTRL 2",
+      "default": 0.409449,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "ctrl_3",
+      "label": "CTRL 3",
+      "default": 0.346457,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "ctrl_4",
+      "label": "CTRL 4",
+      "default": 0.283465,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "ctrl_5",
+      "label": "CTRL 5",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "ctrl_6",
+      "label": "CTRL 6",
+      "default": 0.094488,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "ctrl_7",
+      "label": "CTRL 7",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "ctrl_8",
+      "label": "CTRL 8",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {},
+  "resources": {
+    "voiceBytes": 136,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "modelCount": 13,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 176,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "id": "mmsaw",
+  "name": "SWAVE-SAW",
+  "parameters": [
+    {
+      "id": "unil",
+      "label": "UNIL",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "uniw",
+      "label": "UNIW",
+      "default": 0.23622,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "unix",
+      "label": "UNIX",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "empty4",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "subx",
+      "label": "SUBX",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "sub1",
+      "label": "SUB1",
+      "default": 0.23622,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "sub2",
+      "label": "SUB2",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Stack": {
+      "unil": 0.314961,
+      "uniw": 0.23622,
+      "unix": 0.0,
+      "subx": 0.0,
+      "sub1": 0.23622,
+      "sub2": 0.0,
+      "tune": 0.503937
+    },
+    "Super": {
+      "unil": 0.787402,
+      "uniw": 0.472441,
+      "unix": 0.629921,
+      "subx": 0.0,
+      "sub1": 0.314961,
+      "sub2": 0.0,
+      "tune": 0.503937
+    },
+    "Wide": {
+      "unil": 1.0,
+      "uniw": 1.0,
+      "unix": 1.0,
+      "subx": 0.0,
+      "sub1": 0.0,
+      "sub2": 0.0,
+      "tune": 0.503937
+    },
+    "Thin": {
+      "unil": 0.0,
+      "uniw": 0.0,
+      "unix": 0.0,
+      "subx": 0.0,
+      "sub1": 0.0,
+      "sub2": 0.0,
+      "tune": 0.503937
+    },
+    "Sub": {
+      "unil": 0.23622,
+      "uniw": 0.15748,
+      "unix": 0.0,
+      "subx": 0.708661,
+      "sub1": 0.472441,
+      "sub2": 0.314961,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 48,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 31,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

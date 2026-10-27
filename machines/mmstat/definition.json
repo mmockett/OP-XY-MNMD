@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "id": "mmstat",
+  "name": "FM STAT",
+  "parameters": [
+    {
+      "id": "p1frq",
+      "label": "1FRQ",
+      "default": 0.645833,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "1:64",
+          "1:32",
+          "1:16",
+          "3:32",
+          "1:8",
+          "5:32",
+          "3:16",
+          "1:4",
+          "5:16",
+          "3:8",
+          "7:16",
+          "1:2",
+          "5:8",
+          "3:4",
+          "7:8",
+          "1",
+          "1.25",
+          "1.5",
+          "1.75",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "p1fin",
+      "label": "1FIN",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p1env",
+      "label": "1ENV",
+      "default": 0.724409,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p1fb",
+      "label": "1FB",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p2frq",
+      "label": "2FRQ",
+      "default": 0.895833,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "1:64",
+          "1:32",
+          "1:16",
+          "3:32",
+          "1:8",
+          "5:32",
+          "3:16",
+          "1:4",
+          "5:16",
+          "3:8",
+          "7:16",
+          "1:2",
+          "5:8",
+          "3:4",
+          "7:8",
+          "1",
+          "1.25",
+          "1.5",
+          "1.75",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4"
+        ]
+      },
+      "display": "enum",
+      "control": 0
+    },
+    {
+      "id": "p2vol",
+      "label": "2VOL",
+      "default": 0.188976,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "tone",
+      "label": "TONE",
+      "default": 0.629921,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Tine": {
+      "p1frq": 0.645833,
+      "p1fin": 0.503937,
+      "p1env": 0.724409,
+      "p1fb": 0.0,
+      "p2frq": 0.895833,
+      "p2vol": 0.188976,
+      "tone": 0.629921,
+      "tune": 0.503937
+    },
+    "Bell": {
+      "p1frq": 0.9375,
+      "p1fin": 0.551181,
+      "p1env": 0.661417,
+      "p1fb": 0.0,
+      "p2frq": 0.6875,
+      "p2vol": 0.23622,
+      "tone": 0.787402,
+      "tune": 0.503937
+    },
+    "Growl": {
+      "p1frq": 0.645833,
+      "p1fin": 0.503937,
+      "p1env": 0.503937,
+      "p1fb": 0.440945,
+      "p2frq": 0.479167,
+      "p2vol": 0.377953,
+      "tone": 0.503937,
+      "tune": 0.503937
+    },
+    "Wobble": {
+      "p1frq": 0.0625,
+      "p1fin": 0.503937,
+      "p1env": 0.503937,
+      "p1fb": 0.0,
+      "p2frq": 0.645833,
+      "p2vol": 0.314961,
+      "tone": 0.503937,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 48,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 47,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

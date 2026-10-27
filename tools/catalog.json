@@ -1,0 +1,1785 @@
+{
+ "machines": {
+  "GND-SN": {
+   "instrument": "md",
+   "id": 1,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "GND-NS": {
+   "instrument": "md",
+   "id": 2,
+   "slots": [
+    "DEC",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "GND-IM": {
+   "instrument": "md",
+   "id": 3,
+   "slots": [
+    "UP",
+    "UVAL",
+    "DOWN",
+    "DVAL",
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "TRX-BD": {
+   "instrument": "md",
+   "id": 16,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    "STRT",
+    "NOIS",
+    "HARM",
+    "CLIP"
+   ]
+  },
+  "TRX-SD": {
+   "instrument": "md",
+   "id": 17,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "BUMP",
+    "BENV",
+    "SNAP",
+    "TONE",
+    "TUNE",
+    "CLIP"
+   ]
+  },
+  "TRX-XT": {
+   "instrument": "md",
+   "id": 18,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    "DAMP",
+    "DIST",
+    "DTYP",
+    null
+   ]
+  },
+  "TRX-CP": {
+   "instrument": "md",
+   "id": 19,
+   "slots": [
+    "CLPY",
+    "TONE",
+    "HARD",
+    "RICH",
+    "RATE",
+    "ROOM",
+    "RSIZ",
+    "RTUN"
+   ]
+  },
+  "TRX-RS": {
+   "instrument": "md",
+   "id": 20,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "DIST",
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "TRX-CB": {
+   "instrument": "md",
+   "id": 21,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "ENH",
+    "DAMP",
+    "TONE",
+    "BUMP",
+    null,
+    null
+   ]
+  },
+  "TRX-CH": {
+   "instrument": "md",
+   "id": 22,
+   "slots": [
+    "GAP",
+    "DEC",
+    "HPF",
+    "LPF",
+    "MTAL",
+    null,
+    null,
+    null
+   ]
+  },
+  "TRX-OH": {
+   "instrument": "md",
+   "id": 23,
+   "slots": [
+    "GAP",
+    "DEC",
+    "HPF",
+    "LPF",
+    "MTAL",
+    null,
+    null,
+    null
+   ]
+  },
+  "TRX-CY": {
+   "instrument": "md",
+   "id": 24,
+   "slots": [
+    "RICH",
+    "DEC",
+    "TOP",
+    "TTUN",
+    "SIZE",
+    "PEAK",
+    null,
+    null
+   ]
+  },
+  "TRX-MA": {
+   "instrument": "md",
+   "id": 25,
+   "slots": [
+    "ATT",
+    "SUS",
+    "REV",
+    "DAMP",
+    "RATL",
+    "RTYP",
+    "TONE",
+    "HARD"
+   ]
+  },
+  "TRX-CL": {
+   "instrument": "md",
+   "id": 26,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "DUAL",
+    "ENH",
+    "TUNE",
+    "CLIC",
+    null,
+    null
+   ]
+  },
+  "TRX-XC": {
+   "instrument": "md",
+   "id": 27,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    "DAMP",
+    "DIST",
+    "DTYP",
+    null
+   ]
+  },
+  "TRX-B2": {
+   "instrument": "md",
+   "id": 28,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "HOLD",
+    "TICK",
+    "NOIS",
+    "DIRT",
+    "DIST"
+   ]
+  },
+  "EFM-BD": {
+   "instrument": "md",
+   "id": 32,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    "MFB"
+   ]
+  },
+  "EFM-SD": {
+   "instrument": "md",
+   "id": 33,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "NOIS",
+    "NDEC",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    "HPF"
+   ]
+  },
+  "EFM-XT": {
+   "instrument": "md",
+   "id": 34,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "RAMP",
+    "RDEC",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    "CLIC"
+   ]
+  },
+  "EFM-CP": {
+   "instrument": "md",
+   "id": 35,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "CLPS",
+    "CDEC",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    "HPF"
+   ]
+  },
+  "EFM-RS": {
+   "instrument": "md",
+   "id": 36,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "MOD",
+    "HPF",
+    "SNAR",
+    "SPTC",
+    "SDEC",
+    "SMOD"
+   ]
+  },
+  "EFM-CB": {
+   "instrument": "md",
+   "id": 37,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "SNAP",
+    "FB",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    null
+   ]
+  },
+  "EFM-HH": {
+   "instrument": "md",
+   "id": 38,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "TREM",
+    "TFRQ",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    "FB"
+   ]
+  },
+  "EFM-CY": {
+   "instrument": "md",
+   "id": 39,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "FB",
+    "HPF",
+    "MOD",
+    "MFRQ",
+    "MDEC",
+    null
+   ]
+  },
+  "E12-BD": {
+   "instrument": "md",
+   "id": 48,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "SNAP",
+    "SPLN",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-SD": {
+   "instrument": "md",
+   "id": 49,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "RING",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-HT": {
+   "instrument": "md",
+   "id": 50,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-LT": {
+   "instrument": "md",
+   "id": 51,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-CP": {
+   "instrument": "md",
+   "id": 52,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-RS": {
+   "instrument": "md",
+   "id": 53,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "RATL",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-CB": {
+   "instrument": "md",
+   "id": 54,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-CH": {
+   "instrument": "md",
+   "id": 55,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-OH": {
+   "instrument": "md",
+   "id": 56,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "STOP",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-RC": {
+   "instrument": "md",
+   "id": 57,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "BELL",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-CC": {
+   "instrument": "md",
+   "id": 58,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-BR": {
+   "instrument": "md",
+   "id": 59,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "REAL",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-TA": {
+   "instrument": "md",
+   "id": 60,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-TR": {
+   "instrument": "md",
+   "id": 61,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "HPQ",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-SH": {
+   "instrument": "md",
+   "id": 62,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "SLEW",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "E12-BC": {
+   "instrument": "md",
+   "id": 63,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HP",
+    "BC",
+    "STRT",
+    "RTRG",
+    "RTIM",
+    "BEND"
+   ]
+  },
+  "PI-BD": {
+   "instrument": "md",
+   "id": 64,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "HAMR",
+    "TENS",
+    "DAMP",
+    null,
+    null
+   ]
+  },
+  "PI-SD": {
+   "instrument": "md",
+   "id": 65,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "RING",
+    "TENS",
+    "RVOL",
+    "RDEC",
+    null
+   ]
+  },
+  "PI-MT": {
+   "instrument": "md",
+   "id": 66,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "HAMR",
+    "TUNE",
+    "DAMP",
+    "SIZE",
+    "POS"
+   ]
+  },
+  "PI-ML": {
+   "instrument": "md",
+   "id": 67,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "TENS",
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "PI-MA": {
+   "instrument": "md",
+   "id": 68,
+   "slots": [
+    "GRNS",
+    "DEC",
+    "GLEN",
+    null,
+    "SIZE",
+    "HARD",
+    null,
+    null
+   ]
+  },
+  "PI-RS": {
+   "instrument": "md",
+   "id": 69,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "RING",
+    "RVOL",
+    "RDEC",
+    null,
+    null
+   ]
+  },
+  "PI-RC": {
+   "instrument": "md",
+   "id": 70,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "RING",
+    "AG",
+    "AU",
+    "BR",
+    "GRAB"
+   ]
+  },
+  "PI-CC": {
+   "instrument": "md",
+   "id": 71,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "HARD",
+    "RING",
+    "AG",
+    "AU",
+    "BR",
+    "GRAB"
+   ]
+  },
+  "PI-HH": {
+   "instrument": "md",
+   "id": 72,
+   "slots": [
+    "PTCH",
+    "DEC",
+    "CLSN",
+    "RING",
+    "AG",
+    "AU",
+    "BR",
+    "CLOS"
+   ]
+  },
+  "GND-SIN": {
+   "instrument": "mm",
+   "id": 1,
+   "slots": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "TUNE"
+   ]
+  },
+  "GND-NOIS": {
+   "instrument": "mm",
+   "id": 2,
+   "slots": [
+    "ST",
+    "RED",
+    "STON",
+    null,
+    null,
+    null,
+    null,
+    "TUNE"
+   ]
+  },
+  "SID-6581": {
+   "instrument": "mm",
+   "id": 3,
+   "slots": [
+    "PW",
+    "PWAD",
+    "PWRS",
+    "WAVE",
+    "MOD",
+    "MSRC",
+    "MFRQ",
+    "TUNE"
+   ]
+  },
+  "SWAVE-SAW": {
+   "instrument": "mm",
+   "id": 4,
+   "slots": [
+    "UNIL",
+    "UNIW",
+    "UNIX",
+    null,
+    "SUBX",
+    "SUB1",
+    "SUB2",
+    "TUNE"
+   ]
+  },
+  "SWAVE-PULSE": {
+   "instrument": "mm",
+   "id": 5,
+   "slots": [
+    "UNIL",
+    "UNIW",
+    "SUB1",
+    "SUB2",
+    "PW",
+    "PWAD",
+    "PWRS",
+    "TUNE"
+   ]
+  },
+  "DPRO-WAVE": {
+   "instrument": "mm",
+   "id": 6,
+   "slots": [
+    "WAVE",
+    "WP",
+    "WPM",
+    "WPRS",
+    "SYNC",
+    "SFRQ",
+    null,
+    "TUNE"
+   ]
+  },
+  "DPRO-BBOX": {
+   "instrument": "mm",
+   "id": 7,
+   "slots": [
+    "PTCH",
+    "STRT",
+    null,
+    null,
+    "RTRG",
+    "RTIM",
+    null,
+    null
+   ]
+  },
+  "FM+STAT": {
+   "instrument": "mm",
+   "id": 8,
+   "slots": [
+    "1FRQ",
+    "1FIN",
+    "1ENV",
+    "1FB",
+    "2FRQ",
+    "2VOL",
+    "TONE",
+    "TUNE"
+   ]
+  },
+  "FM+PAR": {
+   "instrument": "mm",
+   "id": 9,
+   "slots": [
+    "1FRQ",
+    "1ENV",
+    "2FRQ",
+    "2ENV",
+    "3FRQ",
+    "3ENV",
+    "TONE",
+    "TUNE"
+   ]
+  },
+  "FM+DYN": {
+   "instrument": "mm",
+   "id": 10,
+   "slots": [
+    "1FRQ",
+    "1FEN",
+    "1VOL",
+    "1VEN",
+    "2FRQ",
+    "2ENV",
+    "2FB",
+    "TUNE"
+   ]
+  },
+  "VO-6": {
+   "instrument": "mm",
+   "id": 11,
+   "slots": [
+    "VOC1",
+    "VOC2",
+    "V-SW",
+    "VOIC",
+    "CONS",
+    "CLEN",
+    "CVOL",
+    "TUNE"
+   ]
+  },
+  "SWAVE-ENS": {
+   "instrument": "mm",
+   "id": 14,
+   "slots": [
+    "PCH2",
+    "PCH3",
+    "PCH4",
+    "WAVE",
+    "PW",
+    "CHRL",
+    "CHRW",
+    "TUNE"
+   ]
+  },
+  "DPRO-DDRW": {
+   "instrument": "mm",
+   "id": 32,
+   "slots": [
+    "WAV1",
+    "MIX",
+    "WAV2",
+    "TIME",
+    "BR1",
+    "WID",
+    "BR2",
+    "TUNE"
+   ]
+  },
+  "DPRO-DENS": {
+   "instrument": "mm",
+   "id": 33,
+   "slots": [
+    "PCH2",
+    "PCH3",
+    "PCH4",
+    "WAVE",
+    null,
+    "CHRL",
+    "CHRW",
+    "TUNE"
+   ]
+  }
+ },
+ "engines": {
+  "mdtrx": [
+   "TRX-BD",
+   "TRX-SD",
+   "TRX-XT",
+   "TRX-CP",
+   "TRX-RS",
+   "TRX-CB",
+   "TRX-CH",
+   "TRX-OH",
+   "TRX-CY",
+   "TRX-MA",
+   "TRX-CL",
+   "TRX-XC",
+   "TRX-B2"
+  ],
+  "mdefm": [
+   "GND-SN",
+   "GND-NS",
+   "GND-IM",
+   "EFM-BD",
+   "EFM-SD",
+   "EFM-XT",
+   "EFM-CP",
+   "EFM-RS",
+   "EFM-CB",
+   "EFM-HH",
+   "EFM-CY"
+  ],
+  "mdpi": [
+   "GND-SN",
+   "GND-NS",
+   "GND-IM",
+   "PI-BD",
+   "PI-SD",
+   "PI-MT",
+   "PI-ML",
+   "PI-MA",
+   "PI-RS",
+   "PI-RC",
+   "PI-CC",
+   "PI-HH"
+  ],
+  "mde12": [
+   "E12-BD",
+   "E12-SD",
+   "E12-HT",
+   "E12-LT",
+   "E12-CP",
+   "E12-RS",
+   "E12-CB",
+   "E12-CH",
+   "E12-OH",
+   "E12-RC",
+   "E12-CC",
+   "E12-BR",
+   "E12-TA",
+   "E12-TR",
+   "E12-SH",
+   "E12-BC"
+  ],
+  "mmsaw": [
+   "SWAVE-SAW"
+  ],
+  "mmpulse": [
+   "SWAVE-PULSE"
+  ],
+  "mmens": [
+   "SWAVE-ENS"
+  ],
+  "mmsid": [
+   "SID-6581"
+  ],
+  "mmwave": [
+   "DPRO-WAVE"
+  ],
+  "mmbbox": [
+   "DPRO-BBOX"
+  ],
+  "mmddrw": [
+   "DPRO-DDRW"
+  ],
+  "mmdens": [
+   "DPRO-DENS"
+  ],
+  "mmstat": [
+   "FM+STAT"
+  ],
+  "mmpar": [
+   "FM+PAR"
+  ],
+  "mmdyn": [
+   "FM+DYN"
+  ],
+  "mmvo6": [
+   "VO-6"
+  ],
+  "mmsin": [
+   "GND-SIN"
+  ],
+  "mmnois": [
+   "GND-NOIS"
+  ]
+ },
+ "kits": {
+  "mdtrx": [
+   [
+    "BD",
+    "TRX-BD",
+    {}
+   ],
+   [
+    "SD",
+    "TRX-SD",
+    {}
+   ],
+   [
+    "HT",
+    "TRX-XT",
+    {
+     "PTCH": 90,
+     "DEC": 50
+    }
+   ],
+   [
+    "MT",
+    "TRX-XT",
+    {
+     "PTCH": 66
+    }
+   ],
+   [
+    "LT",
+    "TRX-XT",
+    {
+     "PTCH": 40,
+     "DEC": 64
+    }
+   ],
+   [
+    "CP",
+    "TRX-CP",
+    {}
+   ],
+   [
+    "RS",
+    "TRX-RS",
+    {}
+   ],
+   [
+    "CB",
+    "TRX-CB",
+    {}
+   ],
+   [
+    "CH",
+    "TRX-CH",
+    {}
+   ],
+   [
+    "OH",
+    "TRX-OH",
+    {}
+   ],
+   [
+    "RC",
+    "TRX-CY",
+    {
+     "DEC": 80,
+     "TOP": 72,
+     "SIZE": 100,
+     "PEAK": 84
+    }
+   ],
+   [
+    "CC",
+    "TRX-CY",
+    {
+     "RICH": 100,
+     "DEC": 110,
+     "TTUN": 90,
+     "SIZE": 40
+    }
+   ],
+   [
+    "M1",
+    "TRX-MA",
+    {}
+   ],
+   [
+    "M2",
+    "TRX-CL",
+    {}
+   ],
+   [
+    "M3",
+    "TRX-XC",
+    {
+     "PTCH": 80,
+     "DEC": 36,
+     "DAMP": 70
+    }
+   ],
+   [
+    "M4",
+    "TRX-B2",
+    {}
+   ],
+   [
+    "BD2",
+    "TRX-BD",
+    {
+     "PTCH": 22,
+     "DEC": 96,
+     "RAMP": 30,
+     "RDEC": 70,
+     "NOIS": 0,
+     "CLIP": 10
+    }
+   ],
+   [
+    "SD2",
+    "TRX-SD",
+    {
+     "PTCH": 90,
+     "DEC": 20,
+     "BUMP": 20,
+     "BENV": 10,
+     "SNAP": 100,
+     "TONE": 20,
+     "TUNE": 80
+    }
+   ],
+   [
+    "LC",
+    "TRX-XC",
+    {
+     "PTCH": 60
+    }
+   ],
+   [
+    "HC",
+    "TRX-XC",
+    {
+     "PTCH": 92
+    }
+   ],
+   [
+    "CP2",
+    "TRX-CP",
+    {
+     "CLPY": 110,
+     "TONE": 50,
+     "HARD": 50,
+     "RICH": 60,
+     "RATE": 80,
+     "ROOM": 100,
+     "RSIZ": 90,
+     "RTUN": 50
+    }
+   ],
+   [
+    "PH",
+    "TRX-CH",
+    {
+     "DEC": 8,
+     "HPF": 90,
+     "LPF": 100,
+     "MTAL": 30
+    }
+   ],
+   [
+    "CB2",
+    "TRX-CB",
+    {
+     "PTCH": 127,
+     "ENH": 70,
+     "TONE": 90
+    }
+   ],
+   [
+    "B22",
+    "TRX-B2",
+    {
+     "PTCH": 56,
+     "DEC": 70,
+     "TICK": 90,
+     "DIRT": 80
+    }
+   ]
+  ],
+  "mdefm": [
+   [
+    "BD",
+    "EFM-BD",
+    {
+     "PTCH": 40,
+     "DEC": 60,
+     "RAMP": 56,
+     "RDEC": 36,
+     "MOD": 24,
+     "MFRQ": 32,
+     "MDEC": 40
+    }
+   ],
+   [
+    "SD",
+    "EFM-SD",
+    {
+     "PTCH": 60,
+     "DEC": 40,
+     "NOIS": 80,
+     "NDEC": 56,
+     "MOD": 20,
+     "MFRQ": 48,
+     "MDEC": 40,
+     "HPF": 16
+    }
+   ],
+   [
+    "HT",
+    "EFM-XT",
+    {
+     "PTCH": 100,
+     "DEC": 56,
+     "RAMP": 30,
+     "RDEC": 36,
+     "MOD": 16,
+     "MFRQ": 32,
+     "MDEC": 40,
+     "CLIC": 40
+    }
+   ],
+   [
+    "MT",
+    "EFM-XT",
+    {
+     "PTCH": 76,
+     "DEC": 58,
+     "RAMP": 30,
+     "RDEC": 36,
+     "MOD": 16,
+     "MFRQ": 32,
+     "MDEC": 40,
+     "CLIC": 40
+    }
+   ],
+   [
+    "LT",
+    "EFM-XT",
+    {
+     "PTCH": 52,
+     "DEC": 60,
+     "RAMP": 30,
+     "RDEC": 36,
+     "MOD": 16,
+     "MFRQ": 32,
+     "MDEC": 40,
+     "CLIC": 40
+    }
+   ],
+   [
+    "CP",
+    "EFM-CP",
+    {
+     "PTCH": 72,
+     "DEC": 48,
+     "CLPS": 32,
+     "CDEC": 60,
+     "MOD": 64,
+     "MDEC": 64,
+     "HPF": 32
+    }
+   ],
+   [
+    "RS",
+    "EFM-RS",
+    {
+     "PTCH": 72,
+     "DEC": 30,
+     "MOD": 40,
+     "HPF": 24,
+     "SNAR": 40,
+     "SDEC": 30,
+     "SMOD": 40
+    }
+   ],
+   [
+    "CB",
+    "EFM-CB",
+    {
+     "PTCH": 82,
+     "DEC": 44,
+     "SNAP": 40,
+     "FB": 24,
+     "MOD": 8
+    }
+   ],
+   [
+    "CH",
+    "EFM-HH",
+    {
+     "DEC": 24,
+     "MOD": 48,
+     "MFRQ": 96,
+     "MDEC": 64
+    }
+   ],
+   [
+    "OH",
+    "EFM-HH",
+    {
+     "DEC": 80,
+     "MOD": 48,
+     "MFRQ": 96,
+     "MDEC": 64
+    }
+   ],
+   [
+    "RC",
+    "EFM-CY",
+    {
+     "DEC": 90,
+     "MOD": 40,
+     "MFRQ": 80,
+     "MDEC": 80,
+     "HPF": 40
+    }
+   ],
+   [
+    "CC",
+    "EFM-CY",
+    {
+     "DEC": 105,
+     "MOD": 64,
+     "MFRQ": 100,
+     "MDEC": 90,
+     "HPF": 60
+    }
+   ],
+   [
+    "M1",
+    "GND-SN",
+    {
+     "PTCH": 56,
+     "DEC": 56,
+     "RAMP": 24,
+     "RDEC": 24
+    }
+   ],
+   [
+    "M2",
+    "GND-NS",
+    {
+     "DEC": 48
+    }
+   ],
+   [
+    "M3",
+    "GND-IM",
+    {}
+   ],
+   [
+    "M4",
+    "EFM-BD",
+    {
+     "PTCH": 48,
+     "DEC": 56,
+     "MOD": 100,
+     "MFB": 80,
+     "MDEC": 48
+    }
+   ],
+   [
+    "BD2",
+    "EFM-BD",
+    {
+     "PTCH": 24,
+     "DEC": 100,
+     "RAMP": 48,
+     "RDEC": 48,
+     "MOD": 12
+    }
+   ],
+   [
+    "SD2",
+    "EFM-SD",
+    {
+     "PTCH": 70,
+     "DEC": 30,
+     "NOIS": 110,
+     "NDEC": 64,
+     "MOD": 40,
+     "MFRQ": 64,
+     "HPF": 30
+    }
+   ],
+   [
+    "XT2",
+    "EFM-XT",
+    {
+     "PTCH": 80,
+     "DEC": 64,
+     "RAMP": 40,
+     "MOD": 110,
+     "MFRQ": 48,
+     "MDEC": 48
+    }
+   ],
+   [
+    "CP2",
+    "EFM-CP",
+    {
+     "PTCH": 72,
+     "DEC": 70,
+     "CLPS": 110,
+     "CDEC": 56,
+     "MOD": 64,
+     "MDEC": 64,
+     "HPF": 32
+    }
+   ],
+   [
+    "RS2",
+    "EFM-RS",
+    {
+     "PTCH": 72,
+     "DEC": 30,
+     "MOD": 40,
+     "HPF": 24,
+     "SNAR": 100,
+     "SDEC": 48,
+     "SMOD": 40
+    }
+   ],
+   [
+    "CB2",
+    "EFM-CB",
+    {
+     "PTCH": 112,
+     "DEC": 44,
+     "SNAP": 40,
+     "FB": 24,
+     "MOD": 8
+    }
+   ],
+   [
+    "HH2",
+    "EFM-HH",
+    {
+     "DEC": 70,
+     "TREM": 90,
+     "TFRQ": 80,
+     "MOD": 48,
+     "MFRQ": 96,
+     "MDEC": 64
+    }
+   ],
+   [
+    "SN2",
+    "GND-SN",
+    {
+     "PTCH": 100,
+     "DEC": 48,
+     "RAMP": 16,
+     "RDEC": 16
+    }
+   ]
+  ],
+  "mdpi": [
+   [
+    "BD",
+    "PI-BD",
+    {
+     "DEC": 36,
+     "TENS": 56
+    }
+   ],
+   [
+    "SD",
+    "PI-SD",
+    {
+     "RVOL": 100,
+     "RDEC": 96
+    }
+   ],
+   [
+    "HT",
+    "PI-MT",
+    {
+     "PTCH": 92,
+     "SIZE": 44,
+     "DEC": 40
+    }
+   ],
+   [
+    "MT",
+    "PI-MT",
+    {
+     "PTCH": 64,
+     "DEC": 40
+    }
+   ],
+   [
+    "LT",
+    "PI-MT",
+    {
+     "PTCH": 36,
+     "SIZE": 88,
+     "DEC": 44
+    }
+   ],
+   [
+    "CP",
+    "GND-NS",
+    {
+     "DEC": 30
+    }
+   ],
+   [
+    "RS",
+    "PI-RS",
+    {}
+   ],
+   [
+    "CB",
+    "PI-ML",
+    {
+     "PTCH": 76,
+     "TENS": 24,
+     "DEC": 36
+    }
+   ],
+   [
+    "CH",
+    "PI-HH",
+    {
+     "CLOS": 127
+    }
+   ],
+   [
+    "OH",
+    "PI-HH",
+    {
+     "CLOS": 127,
+     "DEC": 92
+    }
+   ],
+   [
+    "RC",
+    "PI-RC",
+    {
+     "DEC": 100,
+     "HARD": 88,
+     "BR": 44
+    }
+   ],
+   [
+    "CC",
+    "PI-CC",
+    {
+     "DEC": 104,
+     "HARD": 80
+    }
+   ],
+   [
+    "M1",
+    "PI-MA",
+    {}
+   ],
+   [
+    "M2",
+    "GND-SN",
+    {}
+   ],
+   [
+    "M3",
+    "GND-IM",
+    {}
+   ],
+   [
+    "M4",
+    "PI-ML",
+    {
+     "PTCH": 100
+    }
+   ],
+   [
+    "BD2",
+    "PI-BD",
+    {
+     "PTCH": 24,
+     "DEC": 100,
+     "TENS": 90
+    }
+   ],
+   [
+    "SD2",
+    "PI-SD",
+    {
+     "RING": 110,
+     "RVOL": 64,
+     "RDEC": 64
+    }
+   ],
+   [
+    "XT2",
+    "PI-MT",
+    {
+     "SIZE": 110,
+     "PTCH": 50
+    }
+   ],
+   [
+    "RS2",
+    "PI-RS",
+    {
+     "RING": 100
+    }
+   ],
+   [
+    "ML2",
+    "PI-ML",
+    {
+     "PTCH": 40
+    }
+   ],
+   [
+    "MA2",
+    "PI-MA",
+    {
+     "GLEN": 100
+    }
+   ],
+   [
+    "RC2",
+    "PI-RC",
+    {
+     "GRAB": 56,
+     "DEC": 110
+    }
+   ],
+   [
+    "CC2",
+    "PI-CC",
+    {
+     "GRAB": 40,
+     "DEC": 120,
+     "HARD": 100
+    }
+   ]
+  ],
+  "mde12": [
+   [
+    "BD",
+    "E12-BD",
+    {}
+   ],
+   [
+    "SD",
+    "E12-SD",
+    {}
+   ],
+   [
+    "HT",
+    "E12-HT",
+    {}
+   ],
+   [
+    "MT",
+    "E12-HT",
+    {
+     "PTCH": 51
+    }
+   ],
+   [
+    "LT",
+    "E12-LT",
+    {}
+   ],
+   [
+    "CP",
+    "E12-CP",
+    {}
+   ],
+   [
+    "RS",
+    "E12-RS",
+    {}
+   ],
+   [
+    "CB",
+    "E12-CB",
+    {}
+   ],
+   [
+    "CH",
+    "E12-CH",
+    {
+     "DEC": 80
+    }
+   ],
+   [
+    "OH",
+    "E12-OH",
+    {}
+   ],
+   [
+    "RC",
+    "E12-RC",
+    {}
+   ],
+   [
+    "CC",
+    "E12-CC",
+    {}
+   ],
+   [
+    "M1",
+    "E12-BR",
+    {}
+   ],
+   [
+    "M2",
+    "E12-TA",
+    {}
+   ],
+   [
+    "M3",
+    "E12-SH",
+    {}
+   ],
+   [
+    "M4",
+    "E12-BC",
+    {}
+   ],
+   [
+    "BD2",
+    "E12-BD",
+    {
+     "PTCH": 51,
+     "SNAP": 50,
+     "SPLN": 60
+    }
+   ],
+   [
+    "SD2",
+    "E12-SD",
+    {
+     "RING": 127
+    }
+   ],
+   [
+    "LT2",
+    "E12-LT",
+    {
+     "PTCH": 51,
+     "HPQ": 40
+    }
+   ],
+   [
+    "CP2",
+    "E12-CP",
+    {
+     "RTRG": 3,
+     "RTIM": 36
+    }
+   ],
+   [
+    "TR",
+    "E12-TR",
+    {}
+   ],
+   [
+    "RC2",
+    "E12-RC",
+    {
+     "BELL": 127
+    }
+   ],
+   [
+    "CC2",
+    "E12-CC",
+    {
+     "PTCH": 69,
+     "HP": 40
+    }
+   ],
+   [
+    "BR2",
+    "E12-BR",
+    {
+     "PTCH": 53,
+     "REAL": 127
+    }
+   ]
+  ]
+ }
+}

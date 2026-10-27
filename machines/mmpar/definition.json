@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "id": "mmpar",
+  "name": "FM PAR",
+  "parameters": [
+    {
+      "id": "p1frq",
+      "label": "1FRQ",
+      "default": 0.645833,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "1:64",
+          "1:32",
+          "1:16",
+          "3:32",
+          "1:8",
+          "5:32",
+          "3:16",
+          "1:4",
+          "5:16",
+          "3:8",
+          "7:16",
+          "1:2",
+          "5:8",
+          "3:4",
+          "7:8",
+          "1",
+          "1.25",
+          "1.5",
+          "1.75",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "p1env",
+      "label": "1ENV",
+      "default": 0.377953,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p2frq",
+      "label": "2FRQ",
+      "default": 0.8125,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "1:64",
+          "1:32",
+          "1:16",
+          "3:32",
+          "1:8",
+          "5:32",
+          "3:16",
+          "1:4",
+          "5:16",
+          "3:8",
+          "7:16",
+          "1:2",
+          "5:8",
+          "3:4",
+          "7:8",
+          "1",
+          "1.25",
+          "1.5",
+          "1.75",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "p2env",
+      "label": "2ENV",
+      "default": 0.708661,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p3frq",
+      "label": "3FRQ",
+      "default": 0.895833,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "1:64",
+          "1:32",
+          "1:16",
+          "3:32",
+          "1:8",
+          "5:32",
+          "3:16",
+          "1:4",
+          "5:16",
+          "3:8",
+          "7:16",
+          "1:2",
+          "5:8",
+          "3:4",
+          "7:8",
+          "1",
+          "1.25",
+          "1.5",
+          "1.75",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4"
+        ]
+      },
+      "display": "enum",
+      "control": 0
+    },
+    {
+      "id": "p3env",
+      "label": "3ENV",
+      "default": 0.818898,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "tone",
+      "label": "TONE",
+      "default": 0.566929,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Keys": {
+      "p1frq": 0.645833,
+      "p1env": 0.377953,
+      "p2frq": 0.8125,
+      "p2env": 0.708661,
+      "p3frq": 0.895833,
+      "p3env": 0.818898,
+      "tone": 0.566929,
+      "tune": 0.503937
+    },
+    "Organ": {
+      "p1frq": 0.645833,
+      "p1env": 0.314961,
+      "p2frq": 0.8125,
+      "p2env": 0.251969,
+      "p3frq": 0.895833,
+      "p3env": 0.188976,
+      "tone": 0.503937,
+      "tune": 0.503937
+    },
+    "Pluck": {
+      "p1frq": 0.645833,
+      "p1env": 0.755906,
+      "p2frq": 0.8125,
+      "p2env": 0.818898,
+      "p3frq": 0.9375,
+      "p3env": 0.88189,
+      "tone": 0.708661,
+      "tune": 0.503937
+    },
+    "Glass": {
+      "p1frq": 0.895833,
+      "p1env": 0.692913,
+      "p2frq": 0.9375,
+      "p2env": 0.755906,
+      "p3frq": 0.729167,
+      "p3env": 0.661417,
+      "tone": 0.866142,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 68,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 41,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

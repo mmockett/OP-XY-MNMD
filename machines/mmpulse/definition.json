@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "id": "mmpulse",
+  "name": "SWAVE-PULSE",
+  "parameters": [
+    {
+      "id": "unil",
+      "label": "UNIL",
+      "default": 0.23622,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "uniw",
+      "label": "UNIW",
+      "default": 0.15748,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "sub1",
+      "label": "SUB1",
+      "default": 0.23622,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "sub2",
+      "label": "SUB2",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "pw",
+      "label": "PW",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "pwad",
+      "label": "PWAD",
+      "default": 0.15748,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "pwrs",
+      "label": "PWRS",
+      "default": 0.25,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "ON"
+        ]
+      },
+      "display": "enum",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Sweep": {
+      "unil": 0.23622,
+      "uniw": 0.15748,
+      "sub1": 0.23622,
+      "sub2": 0.0,
+      "pw": 0.503937,
+      "pwad": 0.15748,
+      "pwrs": 0.25,
+      "tune": 0.503937
+    },
+    "Square": {
+      "unil": 0.0,
+      "uniw": 0.0,
+      "sub1": 0.0,
+      "sub2": 0.0,
+      "pw": 0.503937,
+      "pwad": 0.0,
+      "pwrs": 0.75,
+      "tune": 0.503937
+    },
+    "Reed": {
+      "unil": 0.0,
+      "uniw": 0.0,
+      "sub1": 0.0,
+      "sub2": 0.0,
+      "pw": 0.125984,
+      "pwad": 0.0,
+      "pwrs": 0.75,
+      "tune": 0.503937
+    },
+    "Strings": {
+      "unil": 0.708661,
+      "uniw": 0.551181,
+      "sub1": 0.0,
+      "sub2": 0.0,
+      "pw": 0.314961,
+      "pwad": 0.094488,
+      "pwrs": 0.75,
+      "tune": 0.503937
+    },
+    "Bass": {
+      "unil": 0.15748,
+      "uniw": 0.07874,
+      "sub1": 0.787402,
+      "sub2": 0.472441,
+      "pw": 0.377953,
+      "pwad": 0.047244,
+      "pwrs": 0.75,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 44,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 31,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

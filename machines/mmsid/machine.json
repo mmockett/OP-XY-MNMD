@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "sdk": "1.2",
+  "kind": "synth",
+  "description": "The Monomachine's SID-6581: triangle, saw, pulse, mixed and noise, with a pulse-width sweep, ring and sync, fitted to the original.",
+  "identity": {
+    "engine": 43,
+    "page": 91
+  },
+  "presetDefaults": {
+    "amp": {
+      "attack": 0,
+      "decay": 32767,
+      "sustain": 32767,
+      "release": 4096
+    }
+  }
+}

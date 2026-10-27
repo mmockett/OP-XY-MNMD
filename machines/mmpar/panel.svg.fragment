@@ -1,0 +1,66 @@
+<g id="mmpar_panel">
+  <path d="M0 20 L480 20 L480 220 L0 220 Z" fill="#000000" stroke="none"/>
+  <path id="mmpar_node_0" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+  <path id="mmpar_node_1" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+  <path id="mmpar_node_2" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+  <path id="mmpar_node_3" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+  <circle id="mmpar_node_4" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+  <circle id="mmpar_node_5" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+  <circle id="mmpar_node_6" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+  <path id="mmpar_node_7" transform="matrix(1 0 0 1 640 320)" d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <path id="mmpar_node_8" transform="matrix(1 0 0 1 640 320)" d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <path id="mmpar_node_9" transform="matrix(1 0 0 1 640 320)" d="M0 -40 L0 40" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+  <path id="mmpar_node_10" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_11" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_12" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_13" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_14" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_15" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_16" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_17" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_18" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_19" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_20" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_21" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_22" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_23" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_24" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_25" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_26" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_27" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_28" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_29" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_30" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+  <path id="mmpar_node_31" d="M-16 -52 L-14.8 -45.9 L-11.3 -40.7 L-6.1 -37.2 L0 -36 L6.1 -37.2 L11.3 -40.7 L14.8 -45.9 L16 -52 L14.8 -58.1 L11.3 -63.3 L6.1 -66.8 L0 -68 L-6.1 -66.8 L-11.3 -63.3 L-14.8 -58.1 L-16 -52 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
+  <path id="mmpar_node_32" d="M-16 0 L-14.8 6.1 L-11.3 11.3 L-6.1 14.8 L0 16 L6.1 14.8 L11.3 11.3 L14.8 6.1 L16 0 L14.8 -6.1 L11.3 -11.3 L6.1 -14.8 L0 -16 L-6.1 -14.8 L-11.3 -11.3 L-14.8 -6.1 L-16 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
+  <path id="mmpar_node_33" d="M-16 52 L-14.8 58.1 L-11.3 63.3 L-6.1 66.8 L0 68 L6.1 66.8 L11.3 63.3 L14.8 58.1 L16 52 L14.8 45.9 L11.3 40.7 L6.1 37.2 L0 36 L-6.1 37.2 L-11.3 40.7 L-14.8 45.9 L-16 52 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
+  <path id="mmpar_node_34" d="M-18.8 0 L-17.4 7.2 L-13.3 13.3 L-7.2 17.4 L0 18.8 L7.2 17.4 L13.3 13.3 L17.4 7.2 L18.8 0 L17.4 -7.2 L13.3 -13.3 L7.2 -17.4 L0 -18.8 L-7.2 -17.4 L-13.3 -13.3 L-17.4 -7.2 L-18.8 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
+  <path id="mmpar_node_35" d="M4 0 L-4 5 L-4 -5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <path id="mmpar_node_36" d="M-17.9 0 L-16.5 6.9 L-12.7 12.7 L-6.9 16.5 L0 17.9 L6.9 16.5 L12.7 12.7 L16.5 6.9 L17.9 0 L16.5 -6.9 L12.7 -12.7 L6.9 -16.5 L0 -17.9 L-6.9 -16.5 L-12.7 -12.7 L-16.5 -6.9 L-17.9 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
+  <path id="mmpar_node_37" d="M4 0 L-4 5 L-4 -5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <path id="mmpar_node_38" d="M-17 0 L-15.7 6.5 L-12 12 L-6.5 15.7 L0 16.9 L6.5 15.7 L12 12 L15.7 6.5 L16.9 0 L15.7 -6.5 L12 -12 L6.5 -15.7 L0 -17 L-6.5 -15.7 L-12 -12 L-15.7 -6.5 L-16.9 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
+  <path id="mmpar_node_39" d="M4 0 L-4 5 L-4 -5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <path id="mmpar_node_40" d="M-95 0 L95 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+  <g><text transform="matrix(1 0 0 1 43 58.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M1</text></g>
+  <g><text transform="matrix(1 0 0 1 183 58.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C1</text></g>
+  <g><text transform="matrix(1 0 0 1 43 110.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M2</text></g>
+  <g><text transform="matrix(1 0 0 1 183 110.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C2</text></g>
+  <g><text transform="matrix(1 0 0 1 43 162.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M3</text></g>
+  <g><text transform="matrix(1 0 0 1 183 162.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C3</text></g>
+  <circle id="mmpar_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
+  <circle id="mmpar_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>
+  <circle id="mmpar_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1.2"/>
+  <circle id="mmpar_palette_3" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#606166" stroke-width="1"/>
+  <circle id="mmpar_palette_4" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#3a3b3f" stroke-width="1"/>
+  <circle id="mmpar_palette_5" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#7a7b80" stroke-width="1"/>
+  <circle id="mmpar_palette_6" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#8c8d92" stroke-width="0.9"/>
+  <circle id="mmpar_palette_7" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#1c1d20" stroke="#1c1d20" stroke-width="0.1"/>
+  <circle id="mmpar_palette_8" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#3a3b40" stroke="#3a3b40" stroke-width="0.1"/>
+  <circle id="mmpar_palette_9" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#66676c" stroke="#66676c" stroke-width="0.1"/>
+  <circle id="mmpar_palette_10" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
+  <circle id="mmpar_palette_11" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
+  <circle id="mmpar_palette_12" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
+  <circle id="mmpar_palette_13" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
+  <circle id="mmpar_palette_14" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
+  <circle id="mmpar_palette_15" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
+</g>

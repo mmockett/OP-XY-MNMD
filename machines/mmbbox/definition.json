@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "id": "mmbbox",
+  "name": "DPRO-BBOX",
+  "parameters": [
+    {
+      "id": "ptch",
+      "label": "PTCH",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "strt",
+      "label": "STRT",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "empty3",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "empty4",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "rtrg",
+      "label": "RTRG",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "rtim",
+      "label": "RTIM",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    }
+  ],
+  "presets": {
+    "Kit": {
+      "ptch": 0.503937,
+      "strt": 0.0,
+      "rtrg": 0.0,
+      "rtim": 0.503937
+    },
+    "Low": {
+      "ptch": 0.314961,
+      "strt": 0.0,
+      "rtrg": 0.0,
+      "rtim": 0.503937
+    },
+    "Roll": {
+      "ptch": 0.503937,
+      "strt": 0.0,
+      "rtrg": 0.031496,
+      "rtim": 0.188976
+    },
+    "Glitch": {
+      "ptch": 0.629921,
+      "strt": 0.314961,
+      "rtrg": 0.125984,
+      "rtim": 0.787402
+    }
+  },
+  "resources": {
+    "voiceBytes": 20,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 55,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

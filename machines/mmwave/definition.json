@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "id": "mmwave",
+  "name": "DPRO-WAVE",
+  "parameters": [
+    {
+      "id": "wave",
+      "label": "WAVE",
+      "default": 0.328125,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "S01",
+          "S02",
+          "S03",
+          "S04",
+          "S05",
+          "S06",
+          "S07",
+          "S08",
+          "S09",
+          "S10",
+          "S11",
+          "S12",
+          "S13",
+          "S14",
+          "S15",
+          "S16",
+          "S17",
+          "S18",
+          "S19",
+          "S20",
+          "S21",
+          "S22",
+          "S23",
+          "S24",
+          "S25",
+          "S26",
+          "S27",
+          "S28",
+          "S29",
+          "S30",
+          "S31",
+          "S32"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "wp",
+      "label": "WP",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "wpm",
+      "label": "WPM",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "wprs",
+      "label": "WPRS",
+      "default": 0.25,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "ON"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "sync",
+      "label": "SYNC",
+      "default": 0.166667,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "OFF",
+          "SFRQ",
+          "PRCH"
+        ]
+      },
+      "display": "enum",
+      "control": 0
+    },
+    {
+      "id": "sfrq",
+      "label": "SFRQ",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "empty7",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Set 11": {
+      "wave": 0.328125,
+      "wp": 0.0,
+      "wpm": 0.0,
+      "wprs": 0.25,
+      "sync": 0.166667,
+      "sfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Morph": {
+      "wave": 0.328125,
+      "wp": 0.503937,
+      "wpm": 0.0,
+      "wprs": 0.25,
+      "sync": 0.166667,
+      "sfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Sweep": {
+      "wave": 0.171875,
+      "wp": 0.0,
+      "wpm": 0.314961,
+      "wprs": 0.75,
+      "sync": 0.166667,
+      "sfrq": 0.503937,
+      "tune": 0.503937
+    },
+    "Sync": {
+      "wave": 0.984375,
+      "wp": 0.0,
+      "wpm": 0.0,
+      "wprs": 0.25,
+      "sync": 0.5,
+      "sfrq": 0.629921,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 20,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 37,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}

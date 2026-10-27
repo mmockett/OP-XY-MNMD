@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "id": "mmdyn",
+  "name": "FM DYN",
+  "parameters": [
+    {
+      "id": "p1frq",
+      "label": "1FRQ",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p1fen",
+      "label": "1FEN",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p1vol",
+      "label": "1VOL",
+      "default": 0.314961,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p1ven",
+      "label": "1VEN",
+      "default": 0.724409,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "p2frq",
+      "label": "2FRQ",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 0
+    },
+    {
+      "id": "p2env",
+      "label": "2ENV",
+      "default": 0.692913,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
+    },
+    {
+      "id": "p2fb",
+      "label": "2FB",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 2
+    },
+    {
+      "id": "tune",
+      "label": "TUNE",
+      "default": 0.503937,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 3
+    }
+  ],
+  "presets": {
+    "Strike": {
+      "p1frq": 0.503937,
+      "p1fen": 0.503937,
+      "p1vol": 0.314961,
+      "p1ven": 0.724409,
+      "p2frq": 0.503937,
+      "p2env": 0.692913,
+      "p2fb": 0.0,
+      "tune": 0.503937
+    },
+    "Zap": {
+      "p1frq": 0.503937,
+      "p1fen": 0.818898,
+      "p1vol": 0.377953,
+      "p1ven": 0.503937,
+      "p2frq": 0.708661,
+      "p2env": 0.0,
+      "p2fb": 0.0,
+      "tune": 0.503937
+    },
+    "Bass": {
+      "p1frq": 0.251969,
+      "p1fen": 0.503937,
+      "p1vol": 0.440945,
+      "p1ven": 0.661417,
+      "p2frq": 0.503937,
+      "p2env": 0.755906,
+      "p2fb": 0.188976,
+      "tune": 0.503937
+    },
+    "Reed": {
+      "p1frq": 0.503937,
+      "p1fen": 0.566929,
+      "p1vol": 0.472441,
+      "p1ven": 0.503937,
+      "p2frq": 0.818898,
+      "p2env": 0.314961,
+      "p2fb": 0.314961,
+      "tune": 0.503937
+    }
+  },
+  "resources": {
+    "voiceBytes": 56,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 16,
+    "outputPeakQ31": 1073741824,
+    "display": {
+      "stateBytes": 16,
+      "stateAlignment": 4,
+      "paths": 4,
+      "points": 64,
+      "nodes": 47,
+      "texts": 0,
+      "palette": 16
+    }
+  }
+}
