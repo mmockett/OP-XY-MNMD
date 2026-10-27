@@ -11,7 +11,7 @@ repository's other tools use. Each engine here can join as its own entry,
 
 | Engines | Ready? | What it needs |
 | --- | --- | --- |
-| `mmdyn` `mmens` `mmpar` `mmpulse` `mmsid` `mmstat` `mmvo6` | Passes the upstream SDK's checks (CI's `upstream` job) | Upstream to discard `.group` records (below), then hardware profiling and a catalog entry |
+| `mmdyn` `mmens` `mmpar` `mmpulse` `mmsid` `mmstat` `mmvo6` | Yes: submitted in etcetc000/open-xy#168, with hardware CPU records | Review and merge |
 | `mmsaw` `mmsin` `mmnois` | No | An empty slot before a real control, which only the fork's `absent` field allows |
 | `mdtrx` `mdefm` `mdpi` | No | The drum kind, etcetc000/open-xy#121 and #143, merged and ported to OS 1.2.1 |
 | `mde12` `mmbbox` `mmddrw` `mmdens` `mmwave` | Never | Samples and waves captured from the owner's ROM, which can't be published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots |
@@ -25,15 +25,19 @@ own copy of the library's namespace (`md_<engine>`, still reached as `md`),
 and `lib/md_tables.hpp` keeps its tables as `static` arrays, one copy in each
 translation unit that reads them.
 
-A large inline function that the compiler keeps out of line still comes in a
-COMDAT group. The upstream SDK keeps each group's record as an inert
-`.group` section, and its linker script doesn't discard them. A firmware
-with two of them, such as one engine's voice and display, then has two
-`.group` sections, and the module check
-refuses it as `Duplicate ELF section`. Adding `.group` to the `/DISCARD/`
-list in `linker/opxy-1.2.1.ld` fixes it: with that change, the seven ready
-engines compile into one module (224.5 of 2040 KiB). Until upstream takes
-that fix, CI's `upstream` job runs without `--firmware`.
+A large inline function that the compiler keeps out of line comes in a COMDAT
+group. Until etcetc000/open-xy#165, the SDK left each group's record in the
+linked module, so a firmware with two of them refused to build as
+`Duplicate ELF section`. CI's `upstream` job checks without `--firmware`,
+since its Linux runner has no release of the pinned Blackfin tools.
+
+## Outlines
+
+The OP-XY draws streaks from an outline with no area: a line traced out and
+back over itself, or one that turns straight back at a point
+(etcetc000/open-xy#167, which `sdk.py test` will warn about). Every view
+writes its paths through `outline()` in `lib/md_view.hpp`, which makes a
+retraced line a thin ribbon and a spike a sliver.
 
 ## Publishing an engine
 
@@ -48,8 +52,8 @@ From etcetc000/open-xy's [submission steps](https://github.com/etcetc000/open-xy
 ## Measuring CPU
 
 `tools/profile_cpu.py` runs upstream's [profiling](https://github.com/etcetc000/open-xy/blob/main/docs/profiling.md)
-for the ready engines. It uses the SDK checkout at `../open-xy-group`, which
-has the `.group` fix, and the Python environment in `../open-xy/.venv`, with
+for the ready engines. It uses a checkout of etcetc000/open-xy's `staging` at
+`../open-xy-staging` and the Python environment in `../open-xy/.venv`, with
 `python-rtmidi` installed. Builds, runs and reports go in
 `~/Library/Application Support/OPXY-MD/cpu`.
 

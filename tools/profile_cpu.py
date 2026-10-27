@@ -32,8 +32,8 @@ STOCK = SUPPORT / "OPXY-SDK" / "private" / "stock-1.2.1" / "os.ldr"
 WORK = SUPPORT / "OPXY-MD" / "cpu"
 # The engines the catalog can take (docs/CATALOG.md); CI's upstream job checks the same list.
 READY = ["mmdyn", "mmens", "mmpar", "mmpulse", "mmsid", "mmstat", "mmvo6"]
-# Upstream's SDK, with the .group fix until etcetc000/open-xy merges it.
-SDK = ROOT.parent / "open-xy-group"
+# A checkout of etcetc000/open-xy's staging branch.
+SDK = ROOT.parent / "open-xy-staging"
 PYTHON = ROOT.parent / "open-xy" / ".venv" / "bin" / "python"
 
 
