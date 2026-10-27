@@ -45,6 +45,33 @@ From etcetc000/open-xy's [submission steps](https://github.com/etcetc000/open-xy
 3. Tag that commit, then change the entry to `draft` or `published` with
    `repository`, `tag`, `commit`, `path` and the generated `cpu` record.
 
+## Measuring CPU
+
+`tools/profile_cpu.py` runs upstream's [profiling](https://github.com/etcetc000/open-xy/blob/main/docs/profiling.md)
+for the ready engines. It uses the SDK checkout at `../open-xy-group`, which
+has the `.group` fix, and the Python environment in `../open-xy/.venv`, with
+`python-rtmidi` installed. Builds, runs and reports go in
+`~/Library/Application Support/OPXY-MD/cpu`.
+
+1. Update the OP-XY to OS 1.2.1 with the official update. Open "mtp mode
+   active", close OpenMTP, then run `python3 tools/profile_cpu.py stock`. It
+   copies the device's stock `os.ldr` and checks it's exactly 1.2.1.
+2. Run `python3 tools/profile_cpu.py build`, from the commit you'll tag. It
+   refuses uncommitted machine changes.
+3. In "mtp mode active", run `python3 tools/profile_cpu.py install --copy`.
+   On the OP-XY, press track 2 (exit) then track 5 (write os), then switch it
+   off and on.
+4. Boot normally, with USB connected, the project saved and playback stopped.
+   Run `python3 tools/profile_cpu.py run` three times without touching the
+   device, then restart it without saving.
+5. `python3 tools/profile_cpu.py report` writes each engine's
+   `catalog-cpu.json`. Its `cpu` member goes in the catalog entry. Keep the
+   runs private, because they hold the device's serial number.
+
+The firmware holds only the ready engines, so the drum kits and other
+engines aren't on the device while it's installed. They need the fork's
+OS 1.2.0 build anyway.
+
 Engine numbers come from each firmware's layout, so `identity` in
 `machine.json` is only a request. Synths share engines 34..62 with every other
 catalog machine.
