@@ -126,6 +126,47 @@ recovered. [docs/DEVICE.md](docs/DEVICE.md) has every step. In short:
 
 To go back to stock, reinstall the official OS 1.2.0 update.
 
+## How to play
+
+### The drum kits
+
+Load MD TRX, MD EFM, MD P-I or MD E12 on a drum track. The 24 keys start as
+the Machinedrum's default kit: BD, SD, three toms, CP, RS, CB, CH, OH, RC, CC
+and four more machines (M1 to M4), then eight variations, such as a second
+kick, snare or cowbell. Each kit's keys are listed in `tools/catalog.py`.
+
+- **Choose a key's machine:** select the key, hold **Shift** and turn
+  **encoder 1**. While Shift is held, the first cell names the machine. Any
+  key can hold any of its kit's machines.
+- **Eight controls a key:** the four encoders hold the machine's first four
+  controls. **Press an encoder** to switch it to its alternate (controls 5
+  to 8), and press it again to switch back. The labels and values follow the
+  selected key's machine. A machine with fewer than eight controls leaves the
+  rest blank, and a blank slot does nothing.
+- **Tuning:** a key's pitch is its PTCH control, as on the Machinedrum. The
+  note you play doesn't change it.
+- **Parameter locks:** hold a step and turn an encoder to lock that control on
+  the step. While you hold the step, the screen shows the values it plays.
+- **Saving:** each key's machine and controls are saved with the project, and
+  in presets.
+
+### The Monomachine engines
+
+Load one on a synth track and play it chromatically.
+
+- **Controls:** the encoders hold the top row of the machine's SYN page.
+  Press an encoder for the control below it on the bottom row.
+- **Fine steps:** hold Shift while turning for a tenth of the rate. Choice
+  controls, such as WAVE or MOD, move one choice a detent.
+- **Presets:** each engine comes with a few presets of its own, in the preset
+  browser: SID-6581 has saw, square, ring, sync and more.
+
+### The screen
+
+The screen draws the selected key's machine, or the Monomachine engine's,
+from its controls. Each note you play strikes it: the drawing moves rather
+than being replaced.
+
 ## Layout
 
 | Path | What |
