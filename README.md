@@ -21,7 +21,20 @@ the Teenage Engineering OP-XY, on the
 | MD EFM | `mdefm` | EFM BD, SD, XT, CP, RS, CB, HH, CY, with GND SN, NS, IM |
 | MD P-I | `mdpi` | P-I BD, SD, MT, ML, MA, RS, RC, CC, HH, with GND |
 | MD E12 | `mde12` | E12's 16 machines, on samples you capture from your own ROM |
-| MNM SWAVE-SAW ... VO-6 | `mmsaw` ... `mmvo6` | one machine each |
+| MNM SWAVE-SAW | `mmsaw` | A stack of detuned saws with sub-octaves |
+| MNM SWAVE-PULSE | `mmpulse` | Detuned pulses with a sweeping width and sub-octaves |
+| MNM SWAVE-ENS | `mmens` | A four-voice chord of saws or pulses, with chorus |
+| MNM SID-6581 | `mmsid` | Triangle, saw, pulse, mixed and noise, with a pulse-width sweep, ring and sync |
+| MNM FM STAT | `mmstat` | Two modulators into one carrier, M1 with its decay and feedback |
+| MNM FM PAR | `mmpar` | Three modulators into one carrier, each with its own depth or decay |
+| MNM FM DYN | `mmdyn` | M1 with pitch and depth envelopes, M2 with its decay and feedback |
+| MNM VO-6 | `mmvo6` | Vowels from two formants, with twenty consonants before them |
+| MNM GND-SIN | `mmsin` | A pure sine at the played key |
+| MNM GND-NOIS | `mmnois` | White noise turning red |
+| MNM DPRO-WAVE | `mmwave` | Its own S-sets, captured from your ROM, moved along WP |
+| MNM DPRO-DDRW | `mmddrw` | Two D-waves, crossfaded, spread and bit-reduced |
+| MNM DPRO-DENS | `mmdens` | A chord of up to four D-waves, each with a chorus |
+| MNM DPRO-BBOX | `mmbbox` | Its 24 drum samples on 24 keys, from your own ROM |
 
 All the DSP is fixed point, because the OP-XY's Blackfin has no floating
 point. **This repository holds no Elektron code, firmware, ROM data or
