@@ -4,6 +4,8 @@ The Elektron Machinedrum and Monomachine, written from scratch as engines for
 the Teenage Engineering OP-XY, on the
 [Open-XY SDK](https://github.com/etcetc000/open-xy).
 
+![Screens of MD TRX's kick and cowbell, and the Monomachine's DPRO-DENS, SWAVE-PULSE, SID-6581, VO-6, DPRO-WAVE and FM STAT](docs/machines.png)
+
 - **The Machinedrum is four drum kits**, one per family. They play like the
   OP-XY's Drumline: each of the 24 keys holds its own machine (kick, snare,
   toms, clap, rim, cowbell, hats, cymbals and more). Shift and the first
