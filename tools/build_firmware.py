@@ -25,13 +25,33 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+import catalog  # noqa: E402
+from make_engine import kit_keys  # noqa: E402
+
 SDK = ROOT.parent / "open-xy"
 SUPPORT = pathlib.Path.home() / "Library" / "Application Support"
 STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / "stock-1.2.0" / "os.ldr"
 BUILDS = SUPPORT / "OPXY-MD" / "builds"
 
 
-def preset(entry, amp, params):
+def kit_region(key, model, controls, choked):
+    """A kit key as a preset region, as the SDK stores it (../open-xy/docs/abi-1.2.0.md,
+    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the eight
+    controls (7 bits each) then the model (4) fill 15 bits of each param; the
+    play mode mute1 chokes, and oneshot, the default, does not."""
+    bits = [(c >> b) & 1 for c in controls for b in range(7)] + [(model >> b) & 1 for b in range(4)]
+    params = [sum(bit << b for b, bit in enumerate(bits[w * 15:w * 15 + 15])) for w in range(4)]
+    region = {"hikey": key, "model": "fm slap", "params": params}
+    return {**region, "playmode": "mute1"} if choked else region
+
+
+def kit_regions(engine):
+    return [kit_region(53 + k, model, controls, role in catalog.CHOKED)
+            for k, (role, _name, model, controls) in enumerate(kit_keys(engine))]
+
+
+def preset(entry, amp, params, regions):
     """A preset in the device's version-4 structure, as the SDK's browser builder
     writes its init presets (../open-xy/builder/core.mjs, defaultPreset)."""
     return {
@@ -48,7 +68,7 @@ def preset(entry, amp, params):
         },
         "fx": {"active": False, "params": [0, 0, 0, 0, 0, 32767, 0, 0], "type": "svf"},
         "lfo": {"active": False, "params": [0, 0, 0, 0, 0, 0, 0, 0], "type": "value"},
-        "octave": 0, "platform": "OP-XY", "regions": [], "type": entry["type"], "version": 4,
+        "octave": 0, "platform": "OP-XY", "regions": regions, "type": entry["type"], "version": 4,
     }
 
 
@@ -60,8 +80,8 @@ def folder_of(engine):
 def write_presets(out, engines):
     """content/presets/<engine>/: default.json, the engine's catalog defaults, and
     one preset per definition preset. Returns the files written."""
-    catalog = json.loads((out / "candidate" / "content" / "op1_factory.json").read_text())
-    entries = {e["type"]: e for e in catalog["engine_types"]}
+    factory = json.loads((out / "candidate" / "content" / "op1_factory.json").read_text())
+    entries = {e["type"]: e for e in factory["engine_types"]}
     written = []
     for engine in engines:
         folder = folder_of(engine)
@@ -78,9 +98,10 @@ def write_presets(out, engines):
         for name, values in definition.get("presets", {}).items():
             params = [round(values.get(i, p["default"]) * 32767) for i, p in zip(ids, definition["parameters"])]
             files[name.lower().replace(" ", "_")] = params + [0] * (8 - len(params))
+        regions = kit_regions(engine) if engine in catalog.KITS else []
         for name, params in files.items():
             path = target / f"{name}.json"
-            path.write_text(json.dumps(preset(entries[engine], amp, params), indent=2) + "\n")
+            path.write_text(json.dumps(preset(entries[engine], amp, params, regions), indent=2) + "\n")
             written.append(path)
     return written
 

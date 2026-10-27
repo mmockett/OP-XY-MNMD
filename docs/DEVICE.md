@@ -75,8 +75,10 @@ Name engines to build only some: `python3 tools/build_firmware.py mdtrx`.
    do this step over MTP (`brew install android-file-transfer-linux`): it
    saves the device's own `os.ldr` and `op1_factory.json` in the build's
    `replaced/` folder, copies the latest build (or the build number given)
-   and reads every file back to check it. Without `--copy` it only lists
-   what it would copy.
+   and reads every file back to check it. It also deletes the presets and
+   screens other builds put there that this build doesn't have, since a
+   stale preset folder still lists a removed engine. Without `--copy` it
+   only lists what it would copy and delete.
 
 3. Press **track 2** ("2. exit").
 4. Press **track 5** ("5. write os to boot partition") with the OP-XY on
@@ -88,7 +90,8 @@ Pick a drum track and choose a kit (MD TRX, MD EFM, MD P-I or MD E12), or a
 synth track for a Monomachine engine. On a kit each key plays its own drum,
 from the drum page's first pad: BD SD HT MT LT CP RS CB CH OH RC CC M1 to M4,
 then the variations. Shift and the first encoder choose the selected key's
-machine; the encoders hold its controls, with their alternates on press.
+machine, and Shift and the second its choke group; the encoders hold its
+controls, with their alternates on press.
 
 ## Going back to stock
 

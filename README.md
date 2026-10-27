@@ -136,8 +136,12 @@ and four more machines (M1 to M4), then eight variations, such as a second
 kick, snare or cowbell. Each kit's keys are listed in `tools/catalog.py`.
 
 - **Choose a key's machine:** select the key, hold **Shift** and turn
-  **encoder 1**. While Shift is held, the first cell names the machine. Any
-  key can hold any of its kit's machines.
+  **encoder 1**. While Shift is held, the screen shows MACHINE with the
+  machine's name, then CHOKE with the key's group. Any key can hold any of
+  its kit's machines.
+- **Choke groups:** hold **Shift** and turn **encoder 2** to put the key in
+  choke group 1, 2 or 3, or none. Keys in the same group cut each other off.
+  A kit starts with CH, OH and RC in group 1 and the other keys in none.
 - **Eight controls a key:** the four encoders hold the machine's first four
   controls. **Press an encoder** to switch it to its alternate (controls 5
   to 8), and press it again to switch back. The labels and values follow the

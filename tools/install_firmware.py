@@ -8,14 +8,18 @@
 It needs aft-mtp-cli (`brew install android-file-transfer-linux`). Without
 --copy it never connects. With --copy it saves the device's own os.ldr and
 op1_factory.json into the build's `replaced/` folder, copies every file of
-the build's `candidate/` to the same path on the OP-XY, replacing those files
-and keeping everything else, then reads each one back and checks it against
-the build. Writing the OS to the boot partition stays on the device: track 2
-("exit"), then track 5.
+the build's `candidate/` to the same path on the OP-XY, replacing those files,
+then reads each one back and checks it against the build. Presets and screens
+that another build puts on the device and this one doesn't have (an engine
+removed or renamed, a preset dropped) are deleted, with their emptied preset
+folders: stale presets still list an engine on the OP-XY. Nothing else on the
+device is touched. Writing the OS to the boot partition stays on the device:
+track 2 ("exit"), then track 5.
 """
 import argparse
 import hashlib
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -37,6 +41,32 @@ def mtp(work, commands):
     result = subprocess.run(["aft-mtp-cli", "-d", DEVICE, *commands], cwd=work, capture_output=True, text=True)
     if result.returncode:
         sys.exit(f"aft-mtp-cli failed:\n{result.stdout}{result.stderr}")
+    return result.stdout
+
+
+def listing(work, folder):
+    """The names in a device folder (none if it doesn't exist)."""
+    result = subprocess.run(["aft-mtp-cli", "-d", DEVICE, f"ls {folder}"], cwd=work, capture_output=True, text=True)
+    return {m.group(1) for m in re.finditer(r"^\d+\s+(.+?)\s*$", result.stdout, re.M)}
+
+
+def ours(candidate):
+    """A candidate's presets and screens, as device paths below /content."""
+    return {p.relative_to(candidate).as_posix() for folder in ("presets", "display")
+            for p in (candidate / "content" / folder).rglob("*")
+            if p.is_file() and not any(part.startswith(".") for part in p.relative_to(candidate).parts)}
+
+
+def stale(build, candidate):
+    """Files other builds install that this one doesn't, and the preset
+    folders they leave."""
+    others = [b / "candidate" for b in build.parent.iterdir()
+              if b.name.isdigit() and b != build and (b / "candidate" / "content").exists()]
+    current = ours(candidate)
+    files = sorted(set().union(*map(ours, others)) - current) if others else []
+    kept = {pathlib.PurePosixPath(p).parent for p in current}
+    folders = sorted({pathlib.PurePosixPath(p).parent for p in files if p.startswith("content/presets/")} - kept)
+    return files, [f.as_posix() for f in folders]
 
 
 def plan(candidate):
@@ -71,11 +101,18 @@ def main():
     files = sorted(p for p in candidate.rglob("*")
                    if p.is_file() and not any(part.startswith(".") for part in p.relative_to(candidate).parts))
     steps = plan(candidate)
+    old_files, old_folders = stale(build, candidate)
 
     print(f"Build {build.name}: {len(files)} files to the OP-XY")
     for folder, entries in steps:
         for entry in entries:
             print(f"  {entry}  ->  {folder.rstrip('/')}/{pathlib.PurePosixPath(entry).name}{'/' if (candidate / entry).is_dir() else ''}")
+    if old_files:
+        print(f"Deleted where the device has them, as other builds' and not this one's: {len(old_files)} files")
+        for path in old_files:
+            print(f"  /{path}")
+        for folder in old_folders:
+            print(f"  /{folder}/ once empty")
     if not args.copy:
         print("\nNothing copied. With the OP-XY in \"mtp mode active\" and OpenMTP closed, add --copy.")
         return
@@ -108,6 +145,19 @@ def main():
             commands += [f"put c/{entry}" for entry in entries]
         mtp(work, commands)
         print("Copied.")
+
+        removed = []
+        for parent in sorted({pathlib.PurePosixPath(p).parent for p in old_files}):
+            present = listing(work, f"/{parent}")
+            gone = [p for p in old_files if pathlib.PurePosixPath(p).parent == parent and pathlib.PurePosixPath(p).name in present]
+            if gone:
+                mtp(work, [f"rm /{p}" for p in gone])
+                removed += gone
+        emptied = [f for f in old_folders if pathlib.PurePosixPath(f).name in listing(work, "/content/presets")
+                   and not listing(work, f"/{f}")]
+        if emptied:
+            mtp(work, [f"rm /{f}" for f in emptied])
+        print(f"Deleted {len(removed)} stale files and {len(emptied)} emptied preset folders.")
 
         for path in files:
             (work / "v" / path.relative_to(candidate)).parent.mkdir(parents=True, exist_ok=True)

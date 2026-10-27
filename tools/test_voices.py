@@ -90,10 +90,55 @@ def slot_problems():
     return problems
 
 
+def preset_problems():
+    """Where a kit preset's region would not load as the key's own machine and
+    controls (the SDK's drum_unpack), or its choke group is not the catalog's."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import catalog
+    import build_firmware
+    from make_engine import kit_keys
+    problems, rows = [], []
+    for engine in catalog.KITS:
+        for region, (role, _name, model, controls) in zip(build_firmware.kit_regions(engine), kit_keys(engine)):
+            if (region.get("playmode") == "mute1") != (role in catalog.CHOKED) or region["model"] != "fm slap":
+                problems.append(f"{engine} {role}: region {region}")
+            rows.append(f'{{"{engine} {role}", {{{", ".join(map(str, region["params"]))}}}, {model}, '
+                        f'{{{", ".join(map(str, controls))}}}}}')
+    out = ROOT / "local" / "voice-tests"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "kit_presets.cpp").write_text("""#include "drum_storage.hpp"
+#include <cstdio>
+using namespace opxy;
+using namespace opxy::platform;
+struct Row { const char* key; u32 params[4]; u32 model; u8 controls[8]; };
+const Row rows[] = {
+%s
+};
+int main() {
+    int failed = 0;
+    for (const Row& r : rows) {
+        i32 words[4];
+        for (int i = 0; i < 4; ++i) words[i] = static_cast<i32>(r.params[i] << 16);
+        u8 model = 99, controls[8] = {};
+        bool ok = drum_unpack(words, &model, controls) && model == r.model;
+        for (int i = 0; i < 8; ++i) ok = ok && controls[i] == r.controls[i];
+        if (!ok) { std::printf("%%s: does not unpack as its key\\n", r.key); ++failed; }
+    }
+    return failed;
+}
+""" % ",\n".join(rows))
+    subprocess.run(["c++", "-std=c++11", f"-I{SDK_INCLUDE}", f"-I{ROOT.parent / 'open-xy' / 'sdk' / 'platform' / 'opxy-1.2.0'}",
+                    str(out / "kit_presets.cpp"), "-o", str(out / "kit_presets")], check=True)
+    result = subprocess.run([str(out / "kit_presets")], capture_output=True, text=True)
+    lines = result.stdout.splitlines()
+    return problems + (lines or ([f"kit_presets exited {result.returncode}"] if result.returncode else []))
+
+
 def main():
     problems = []
     for check, passed, find in (("detents", "every stepped control moves a step a detent", detent_problems),
-                                ("slots", "no engine offers an empty slot as a control", slot_problems)):
+                                ("slots", "no engine offers an empty slot as a control", slot_problems),
+                                ("presets", "every kit preset loads each key as its own sound", preset_problems)):
         found = find()
         for p in found:
             print(f"FAIL {check}: {p}")
@@ -116,7 +161,7 @@ def main():
         if result.returncode:
             failed.append(test.stem)
     if problems:
-        failed.append("detents and slots")
+        failed.append("detents, slots and presets")
     if failed:
         sys.exit(f"failed: {', '.join(failed)}")
 

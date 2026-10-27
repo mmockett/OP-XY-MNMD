@@ -37,7 +37,7 @@ void render(State&, Common&, opxy::Output out,          // one 64-sample block
 - `Common` (md_dsp.hpp) is state every voice of an engine shares, such as
   `closed_hats` for the hat choke. Add a field there, never a global.
 - Output peaks at most half scale (0x40000000), the SDK's ceiling.
-- The machine-code rules in [AGENTS.md](../AGENTS.md) apply: no floats, no
+- Machine code is freestanding C++11 for the Blackfin: no floats, no
   division in audio loops, no 64-bit, no signed shifts, no `#if`, no OS headers.
 - A module includes `<opxy/audio.hpp>` and what it uses from `lib/`.
 
@@ -61,7 +61,10 @@ voices' code and tables: inline functions and template statics
   Machinedrum's default kit (BD SD HT MT LT CP RS CB CH OH RC CC M1..M4), the
   last 8 are variations. A key tuned away from its machine is tuned by its PTCH.
 - **Encoders.** As on stock Drumline, Shift and the first encoder choose the
-  key's machine; while Shift is held the first cell names it. The four
+  key's machine, and Shift and the second its choke group (NONE, 1..3);
+  while Shift is held the first two cells show MACHINE and CHOKE with their
+  values, and the other two are blank and inert; a kit's presets put
+  `catalog.CHOKED` (CH, OH, RC) in group 1 and every other key in none. The four
   encoders hold controls 1..4, and a press switches each to its alternate,
   5..8. The labels and values follow the selected key's machine; a slot the
   machine lacks is blank and does nothing. The track's own eight parameters

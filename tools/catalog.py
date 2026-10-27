@@ -175,6 +175,10 @@ KITS = {
     ],
 }
 
+# The keys a kit preset puts in one choke group, so the hats cut each other off;
+# the others choke nothing. Shift and the second encoder change a key's group.
+CHOKED = ("CH", "OH", "RC")
+
 ENGINES = {
     **{kit: sorted({key[1] for key in keys}, key=list(MACHINES).index) for kit, keys in KITS.items()},
     # The Monomachine: a machine per engine.
@@ -196,6 +200,7 @@ assert len(ENGINES) <= 27, len(ENGINES)
 assert all(len(keys) == 24 for keys in KITS.values())
 assert {m for ms in ENGINES.values() for m in ms} == set(MACHINES), "every machine in an engine"
 for _kit, _keys in KITS.items():
+    assert set(CHOKED) <= {key[0] for key in _keys}, _kit
     for _role, _name, _over in _keys:
         assert set(_over) <= set(MACHINES[_name][2]), (_kit, _role, _over)
 
