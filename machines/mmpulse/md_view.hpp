@@ -14,7 +14,7 @@
 #include <opxy/draw.hpp>
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mmpulse {} namespace md = md_mmpulse; namespace md_mmpulse {
 namespace view {
 using opxy::i16;
 using opxy::u8;

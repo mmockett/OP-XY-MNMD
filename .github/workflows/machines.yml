@@ -41,3 +41,35 @@ jobs:
           for machine in md/machines/*/; do
             python open-xy/sdk.py test --machine "$machine" --cxx clang++ --host-cxx g++ || exit 1
           done
+
+  # The public Open-XY builder ships catalog machines built against etcetc000's
+  # SDK, not the fork. These are the engines it can take as they are: synths
+  # that need no drum kind, absent slot or ROM capture (docs/CATALOG.md).
+  upstream:
+    runs-on: ubuntu-latest
+    env:
+      CATALOG_READY: mmdyn mmens mmpar mmpulse mmsid mmstat mmvo6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: md
+      - uses: actions/checkout@v4
+        with:
+          repository: etcetc000/open-xy
+          ref: staging
+          path: open-xy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preview and host tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang lld
+          python -m pip install numpy==2.3.5
+      - name: Catalog-ready engines against the upstream SDK
+        run: |
+          for engine in $CATALOG_READY; do
+            python open-xy/sdk.py test --machine "md/machines/$engine" --cxx clang++ --host-cxx g++ || exit 1
+          done

@@ -6,7 +6,7 @@
 // sparks) play out over the animation. No floats, no runtime division.
 #include "md_view.hpp"
 
-namespace md {
+namespace md_mmddrw {} namespace md = md_mmddrw; namespace md_mmddrw {
 namespace rig {
 using opxy::u16;
 using opxy::u8;

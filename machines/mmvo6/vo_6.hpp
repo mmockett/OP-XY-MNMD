@@ -18,7 +18,7 @@
 // length and level; with V-SW off the consonant plays alone. TUNE is +-2
 // semitones. The first formant runs as a state-variable filter, the others
 // all-pole, two multiplies each.
-namespace md {
+namespace md_mmvo6 {} namespace md = md_mmvo6; namespace md_mmvo6 {
 namespace vo_6 {
 struct State {
     u32 phase;          // the buzz's phase

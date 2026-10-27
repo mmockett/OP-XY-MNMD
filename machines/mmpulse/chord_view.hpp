@@ -6,7 +6,7 @@
 // ticks, as the runs between ticks lie along that edge.
 #include "md_view.hpp"
 
-namespace md {
+namespace md_mmpulse {} namespace md = md_mmpulse; namespace md_mmpulse {
 namespace chord_view {
 using namespace md::view;
 

@@ -21,7 +21,7 @@
 // either way and BUMP bends the strike up, as much as a fifth, over 10 ms. The
 // Machinedrum's cowbell sits 9 dB under its kicks; here it is lifted to stand
 // with them. The key moves all of it.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_cb {
 struct State {
     u32 bell, voice, line;   // the pulse, the second voice, the line

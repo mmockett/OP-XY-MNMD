@@ -19,7 +19,7 @@
 // 127 (the third harmonic gone, the fifth 14 dB down), so a fading kick
 // crumbles. Lifted 7 dB over the Machinedrum's, to stand with TRX-BD. The key
 // moves the pitch.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_b2 {
 struct State {
     u32 phase;

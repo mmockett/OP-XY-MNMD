@@ -14,7 +14,7 @@
 // modulator at MFRQ / 16 of the lowest sweeps the four loud ones, at the same
 // index for each, MOD's deviation four times EFM-BD's: the cymbal's wash. MDEC takes up
 // to 40% of it away. DEC is the level's decay; HPF is EFM-SD's high-pass.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_cy {
 const unsigned partials = 6;
 struct State {

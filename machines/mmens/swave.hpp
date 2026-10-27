@@ -17,7 +17,7 @@
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mmens {} namespace md = md_mmens; namespace md_mmens {
 namespace swave {
 using md::multiply;
 

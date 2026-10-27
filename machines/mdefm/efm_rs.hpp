@@ -13,7 +13,7 @@
 // (PTCH, DEC, MOD), and the snare under it, 122 Hz to 680 Hz as EFM-SD's
 // (SPTC, SDEC, SMOD), in proportion to SNAR. Both decay as EFM-BD's body does,
 // shorter at the bottom, and pass EFM-SD's high-pass (HPF).
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_rs {
 struct State {
     efm::Pair rim, snare;

@@ -19,7 +19,7 @@
 // sweeps it at a steady rate, from PW at each note when PWRS is on. The
 // edges are band-limited (polyBLEP); the Monomachine's gentle top-end roll-off
 // follows, two one-pole low-passes at 6 kHz.
-namespace md {
+namespace md_mmsid {} namespace md = md_mmsid; namespace md_mmsid {
 namespace sid_6581 {
 struct State {
     u32 phase;      // the oscillator, at the played pitch

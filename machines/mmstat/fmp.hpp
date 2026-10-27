@@ -21,7 +21,7 @@
 //   continuous, 1FRQ = v/64 and 2FRQ = (v/64)^2, with 127 taken as 128.
 // - TONE is a low-pass on the modulators, so it darkens high ratios first and
 //   high notes more than low ones; DYN has a fixed one. TUNE is +-2 semitones.
-namespace md {
+namespace md_mmstat {} namespace md = md_mmstat; namespace md_mmstat {
 namespace fmp {
 using md::multiply;
 

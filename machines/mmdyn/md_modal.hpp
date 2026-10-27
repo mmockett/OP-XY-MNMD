@@ -13,7 +13,7 @@
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mmdyn {} namespace md = md_mmdyn; namespace md_mmdyn {
 namespace modal {
 struct Mode {
     u32 phase;

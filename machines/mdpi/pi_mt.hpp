@@ -19,7 +19,7 @@
 // shell, its upper harmonics most. The beater adds a short burst near 1.8 kHz;
 // HAMR (a heavier beater) lowers and softens it and the shell's upper
 // harmonics. HARD barely moves the Machinedrum's, so it does nothing here.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_mt {
 const unsigned head_count = 4, tube_count = 9, mode_count = head_count + tube_count;
 struct State {

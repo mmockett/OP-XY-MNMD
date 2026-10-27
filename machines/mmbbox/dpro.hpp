@@ -18,7 +18,7 @@
 //   S01..S32  two cycles each, which WP moves through towards the next set:
 //             DPRO-WAVE plays them
 // D08 (RND) is noise that drifts from cycle to cycle, made here rather than stored.
-namespace md {
+namespace md_mmbbox {} namespace md = md_mmbbox; namespace md_mmbbox {
 namespace dpro {
 using md::multiply;
 using dpro_data::table_bits;

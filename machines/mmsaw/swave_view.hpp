@@ -16,7 +16,7 @@
 #include "swave.hpp"   // ENS's intervals
 #include "chord_view.hpp"
 
-namespace md {
+namespace md_mmsaw {} namespace md = md_mmsaw; namespace md_mmsaw {
 namespace swave_view {
 using namespace md::view;
 

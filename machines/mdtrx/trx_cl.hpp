@@ -17,7 +17,7 @@
 // Machinedrum; here it adds a millisecond's click of noise above 3 kHz. The
 // Machinedrum's claves peak 7 dB under its kicks; here they are lifted to
 // stand with them. The key moves the tones.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_cl {
 struct State {
     u32 phase, second;   // the two tones

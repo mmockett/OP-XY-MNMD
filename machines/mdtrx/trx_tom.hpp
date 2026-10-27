@@ -16,7 +16,7 @@
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_tom {
 struct State {
     u32 phase;        // the body's sine

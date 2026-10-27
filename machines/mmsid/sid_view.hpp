@@ -14,7 +14,7 @@
 #include "md_rig.hpp"
 #include "sid_6581.hpp"
 
-namespace md {
+namespace md_mmsid {} namespace md = md_mmsid; namespace md_mmsid {
 namespace sid_6581 {
 namespace draw {
 const i32 left = 12, cy = 80;

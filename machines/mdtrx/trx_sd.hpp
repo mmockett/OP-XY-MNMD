@@ -15,7 +15,7 @@
 // under it either side and a notch around it, swelling in over 5 to 10 ms and decaying
 // with the body (DEC). SNAP adds a 2 .. 7 kHz crack that holds 15 ms. TUNE has no measurable
 // effect on the Machinedrum; here it tunes the wires half an octave either way.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_sd {
 struct State {
     u32 phase;        // the body's sine

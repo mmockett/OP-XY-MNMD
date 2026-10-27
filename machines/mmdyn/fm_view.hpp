@@ -12,7 +12,7 @@
 #include "md_rig.hpp"
 #include "fmp.hpp"
 
-namespace md {
+namespace md_mmdyn {} namespace md = md_mmdyn; namespace md_mmdyn {
 namespace fm_panel {
 using namespace md::view;
 

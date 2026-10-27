@@ -6,7 +6,7 @@
 // the four paths, with trx_view.hpp's helpers.
 #include "trx_view.hpp"
 
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace kit_panel {
 using namespace md::view;
 using namespace md::trx_panel;

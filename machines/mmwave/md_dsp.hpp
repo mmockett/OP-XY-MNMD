@@ -9,7 +9,7 @@
 #include <opxy/q31.hpp>
 #include "md_tables.hpp"
 
-namespace md {
+namespace md_mmwave {} namespace md = md_mmwave; namespace md_mmwave {
 using opxy::q31::multiply;
 const i32 one = opxy::q31::maximum;
 const i32 half_scale = 0x40000000;   // the SDK's output ceiling

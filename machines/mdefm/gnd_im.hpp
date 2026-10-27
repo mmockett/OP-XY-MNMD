@@ -10,7 +10,7 @@
 // Machinedrum's DC blocking): the first lasts UP samples at UVAL's depth, the
 // second DOWN samples at DVAL's; a depth goes as its control squared, to a
 // quarter of full scale at 127.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace gnd_im {
 struct State {
     u32 count;      // samples since the hit

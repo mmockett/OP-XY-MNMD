@@ -14,7 +14,7 @@
 // that falls linearly in Hz over the first 15 to 20 ms, plus RAMP's sweep, which
 // falls exponentially at RDEC's rate. The pitch is the Machinedrum's at middle
 // C; other keys move all of it.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_bd {
 struct State {
     u32 phase;

@@ -19,7 +19,7 @@
 // band-limited (to their 13th harmonic): naive ones fold their aliases into
 // the top octave, which the Machinedrum keeps 44 dB down. Its cymbal peaks near
 // -28 dB; here it is lifted 15 dB, as its hats are. The key moves all of it.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_cy {
 struct State {
     u32 phase[8];

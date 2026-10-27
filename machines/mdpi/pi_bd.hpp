@@ -17,7 +17,7 @@
 // with a burst of the head's upper modes, near 2 kHz, which HAMR (a heavier
 // beater) lowers and softens. HARD and DAMP have no measurable effect on the
 // Machinedrum's (OS 1.63), so none here either.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_bd {
 struct State {
     modal::Mode body, second;

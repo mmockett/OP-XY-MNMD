@@ -14,7 +14,7 @@
 // sine back into its own phase one sample late, adding harmonics, and past
 // FB 80 a buzz at the top of the band, as the Machinedrum's does. DEC is the
 // level's decay; SNAP takes up to 78% of it away over the first 50 ms.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_cb {
 struct State {
     efm::Fed low, high;

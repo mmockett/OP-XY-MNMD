@@ -13,7 +13,7 @@
 // high-pass, so low settings are thinner and the sidebands carry more of it.
 // CLIC starts the carrier up to 0.19 cycle in, from a zero crossing at 0 to
 // near its trough at 127, which the high-pass turns into a click.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_xt {
 struct State {
     efm::Pair fm;

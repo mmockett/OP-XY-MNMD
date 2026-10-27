@@ -15,7 +15,7 @@
 // a 5 ms burst of noise, about 1.7 kHz at PTCH 64 and moving with it, that
 // HARD makes louder. RING brings up the head's ringing mode (2.75 times), and
 // RVOL and RDEC are the snare wires, as on PI-SD.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_rs {
 const unsigned rim_count = 9, mode_count = rim_count + 3;   // the rim, two head modes, the ring
 struct State {

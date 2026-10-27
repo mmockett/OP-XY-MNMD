@@ -15,7 +15,7 @@
 // leave mostly the upper pair. TENS bends every mode up at the strike, to
 // twice the pitch, relaxing in 20 ms (TENS 64) to 120 ms (TENS 127); the
 // highest PTCH does not bend.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_ml {
 const unsigned mode_count = 7;
 struct State {

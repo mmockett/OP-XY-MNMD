@@ -21,7 +21,7 @@
 #include "md_dsp.hpp"
 #include "private_e12.hpp"
 
-namespace md {
+namespace md_mde12 {} namespace md = md_mde12; namespace md_mde12 {
 namespace e12 {
 using md::multiply;
 

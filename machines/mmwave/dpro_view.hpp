@@ -11,7 +11,7 @@
 #include "dpro.hpp"
 #include "chord_view.hpp"
 
-namespace md {
+namespace md_mmwave {} namespace md = md_mmwave; namespace md_mmwave {
 namespace dpro_view {
 using namespace md::view;
 using opxy::i16;

@@ -17,7 +17,7 @@
 // here it loosens the hands' timing, from machine-tight to human. The room is a
 // narrow band from 550 Hz to 3 kHz (RTUN), falling 60 dB in 40 to 500 ms (RSIZ),
 // nearly as loud at any ROOM above a quarter. A clap has no pitch: keys play it alike.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_cp {
 struct State {
     u32 seed;

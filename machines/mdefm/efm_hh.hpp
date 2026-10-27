@@ -16,7 +16,7 @@
 // louder than it: past FB 40 it buzzes at the top of the band, as the
 // Machinedrum's does. TREM is a tremolo, TFRQ its rate (0.95 Hz to 59 Hz). A
 // short hat (DEC under 64) chokes the open ones still ringing.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_hh {
 struct State {
     efm::Fed fm;

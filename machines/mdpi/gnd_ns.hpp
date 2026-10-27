@@ -7,7 +7,7 @@
 // in fixed point and fitted to it (reference/fit_gnd.py). The control:
 //   DEC
 // DEC is the level's decay, as GND-SN's: silent at 0, 214 ms at 64, held from 112.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace gnd_ns {
 struct State {
     i32 level;      // amplitude envelope, Q31

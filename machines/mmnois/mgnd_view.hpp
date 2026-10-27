@@ -9,7 +9,7 @@
 #include "md_view.hpp"
 #include "md_rig.hpp"
 
-namespace md {
+namespace md_mmnois {} namespace md = md_mmnois; namespace md_mmnois {
 namespace mgnd_view {
 using namespace md::view;
 

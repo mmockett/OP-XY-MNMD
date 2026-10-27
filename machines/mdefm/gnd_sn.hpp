@@ -11,7 +11,7 @@
 // the pitch (RAMP / 16)^2 times the pitch above it, an octave at 16, and the
 // excess falls at RDEC's rate (a 3 ms time constant at 0, none to speak of from
 // 80). DEC is the level's decay, from 2 ms at 0 to held from 112.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace gnd_sn {
 struct State {
     u32 phase;

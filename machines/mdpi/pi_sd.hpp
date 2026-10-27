@@ -15,7 +15,7 @@
 // 20 to 280 ms. RING brings up a sixth mode at 2.75 times, which rings on. The
 // strike adds a 5 ms burst of noise; the wires (RVOL, as its square) rattle
 // for RDEC's time, from a few ms to 0.7 s. HARD only tunes the head up 3 %.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_sd {
 const unsigned mode_count = 6;
 struct State {

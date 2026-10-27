@@ -16,7 +16,7 @@
 // semitone a step. STRT starts it later, by up to 0.37 of the sample at 127 (measured
 // on two samples, a 57 ms one and a 295 ms one, a step 5.7 and 47.5 frames).
 // RTRG restarts it that many times, RTIM apart: about 1000 ms / (RTIM + 1).
-namespace md {
+namespace md_mmbbox {} namespace md = md_mmbbox; namespace md_mmbbox {
 namespace dpro_bbox {
 struct State {
     u32 sample;     // which of the 24

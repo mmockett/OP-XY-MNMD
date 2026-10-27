@@ -5,7 +5,7 @@
 #include "md_dsp.hpp"
 #include "md_tables.hpp"
 
-namespace md {
+namespace md_mmdens {} namespace md = md_mmdens; namespace md_mmdens {
 namespace kit {
 const u32 keys = 24;
 const u32 middle_c = 25479004u;   // 261.63 Hz at 44.1 kHz, where the voices are voiced

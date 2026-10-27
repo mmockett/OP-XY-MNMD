@@ -13,7 +13,7 @@
 // RAMP / 16, so 16 is flat, more falls from above and less rises from below,
 // and the multiplier settles to 1 exponentially at RDEC's rate. DEC is the
 // level's decay, over a quiet tail from -20 dB; MDEC the modulation's.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_bd {
 struct State {
     efm::Pair fm;

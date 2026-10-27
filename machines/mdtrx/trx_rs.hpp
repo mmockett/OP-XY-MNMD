@@ -17,7 +17,7 @@
 // keeping the tone's own level. The Machinedrum's rim shot peaks 10 dB under
 // its kicks; here it is lifted 12.5 dB to stand with them, as the kit's clap
 // and hats are. The key moves all of it.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_rs {
 struct State {
     u32 phase;         // the tone's sine

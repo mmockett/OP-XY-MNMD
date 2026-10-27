@@ -6,7 +6,7 @@
 // the four paths, with trx_view.hpp's helpers.
 #include "trx_view.hpp"
 
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace kit_panel {
 using namespace md::view;
 using namespace md::trx_panel;

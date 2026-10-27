@@ -17,7 +17,7 @@
 // - Both oscillators start 0.11 cycle in, the carrier heading down.
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mmsin {} namespace md = md_mmsin; namespace md_mmsin {
 namespace efm {
 const u32 start_phase = 0x1c28f5c3u;   // 0.11 cycle
 

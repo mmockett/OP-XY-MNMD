@@ -19,7 +19,7 @@
 // sand to seeds. The Machinedrum's maracas peak 33 dB down; here they are
 // lifted 26 dB, to stand with its hats. Like the clap, they have no pitch:
 // keys play them alike.
-namespace md {
+namespace md_mdtrx {} namespace md = md_mdtrx; namespace md_mdtrx {
 namespace trx_ma {
 struct State {
     i32 rise;        // ATT's envelope, Q31 (rises to one)

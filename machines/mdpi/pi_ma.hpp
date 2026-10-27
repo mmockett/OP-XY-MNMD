@@ -15,7 +15,7 @@
 // raises and HARD lowers. As measured: more and longer grains are smoother
 // and louder, SIZE moves the brightness from 3.2 to 6 kHz and HARD from 5.2
 // down to 2.3 kHz.
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_ma {
 struct State {
     i32 shake;      // the shake's energy, Q31

@@ -134,7 +134,16 @@ def with_includes(headers):
     return out
 
 
-def copy_private(headers, folder):
+def copy_scoped(source, folder, engine):
+    """Copies a library or module header into the engine with its namespace md
+    made the engine's own (md_<engine>, reached as md): firmware links every
+    machine together, so two engines' copies of an inline function must not
+    share a name."""
+    scoped = f"namespace md_{engine} {{}} namespace md = md_{engine}; namespace md_{engine} {{"
+    (folder / source.name).write_text(source.read_text().replace("namespace md {", scoped))
+
+
+def copy_private(headers, folder, engine):
     """Copies each private_<name>.hpp the modules include into the engine: the
     capture from this Mac's private folder, else the silent stand-in in
     voices/silent. Returns whether every one was a capture."""
@@ -143,7 +152,7 @@ def copy_private(headers, folder):
         for name in sorted(set(re.findall(r'#include "(private_\w+\.hpp)"', (VOICES / f"{h}.hpp").read_text()))):
             found = sorted(PRIVATE.glob(f"*/{name}"))
             captured = captured and bool(found)
-            shutil.copy(found[0] if found else VOICES / "silent" / name, folder / name)
+            copy_scoped(found[0] if found else VOICES / "silent" / name, folder, engine)
     return captured
 
 
@@ -280,8 +289,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     # --- headers: the library and the modules
     modules = with_includes(headers)
     for source in sorted((ROOT / "lib").glob("*.hpp")) + [VOICES / f"{h}.hpp" for h in modules]:
-        shutil.copy(source, folder / source.name)
-    captured = copy_private(modules, folder)
+        copy_scoped(source, folder, engine)
+    captured = copy_private(modules, folder, engine)
 
     # --- definition.json
     slots = catalog.MACHINES[name][2]
@@ -609,8 +618,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 
     # --- headers
     for source in sorted((ROOT / "lib").glob("*.hpp")) + [VOICES / f"{h}.hpp" for h in [*headers, *view_headers]]:
-        shutil.copy(source, folder / source.name)
-    captured = copy_private(headers, folder)
+        copy_scoped(source, folder, engine)
+    captured = copy_private(headers, folder, engine)
 
     # --- definition.json: the eight controls; their defaults are the first key's
     first = [int(v) for v in rows[0].split("{")[1].split("}")[0].split(", ")]

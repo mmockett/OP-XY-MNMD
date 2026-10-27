@@ -24,7 +24,7 @@
 #include "md_dsp.hpp"
 #include "md_modal.hpp"
 
-namespace md {
+namespace md_mdpi {} namespace md = md_mdpi; namespace md_mdpi {
 namespace pi_cymbal {
 const unsigned partial_count = 16;
 struct State {

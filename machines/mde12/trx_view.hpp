@@ -6,7 +6,7 @@
 #include "md_view.hpp"
 #include "md_rig.hpp"
 
-namespace md {
+namespace md_mde12 {} namespace md = md_mde12; namespace md_mde12 {
 namespace trx_panel {
 using namespace md::view;
 

@@ -6,7 +6,7 @@
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
-namespace md {
+namespace md_mmsin {} namespace md = md_mmsin; namespace md_mmsin {
 namespace gnd_sin {
 struct State {
     u32 phase;

@@ -14,7 +14,7 @@
 // sidebands. NOIS adds a bright noise (white, through two 2.5 kHz high-passes)
 // in proportion, with NDEC its decay; both pass a one-pole high-pass that HPF
 // sweeps from off to 3.3 kHz.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_sd {
 struct State {
     efm::Pair fm;

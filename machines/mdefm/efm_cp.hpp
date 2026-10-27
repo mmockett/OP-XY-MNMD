@@ -14,7 +14,7 @@
 // struck at full level and falling 18 dB before the next. The tail then starts
 // at full level and falls at DEC's rate, as EFM-BD's body does. HPF is
 // EFM-SD's high-pass.
-namespace md {
+namespace md_mdefm {} namespace md = md_mdefm; namespace md_mdefm {
 namespace efm_cp {
 struct State {
     efm::Pair fm;

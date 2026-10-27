@@ -19,12 +19,10 @@ def q31(x):
 
 def table(name, kind, values, per_line=8):
     n = len(values)
-    lines = [f"template <int> struct {name}_data {{ static const {kind} values[{n}]; }};",
-             f"template <int N> const {kind} {name}_data<N>::values[{n}] = {{"]
+    lines = [f"static const {kind} {name}[{n}] = {{"]
     for i in range(0, len(values), per_line):
         lines.append("    " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
     lines.append("};")
-    lines.append(f"static const {kind} (&{name})[{n}] = {name}_data<0>::values;")
     return "\n".join(lines)
 
 
@@ -68,9 +66,9 @@ namespace md {{
 using opxy::i32;
 using opxy::u32;
 
-// Each table is a template's static member, which the linker keeps once for
-// every translation unit and engine that includes this header (a static array
-// would be copied into each).
+// Each table is a static array, a copy in each translation unit that reads it:
+// firmware links every machine's objects together and refuses a definition
+// that two of them repeat, as a template's shared static member would be.
 
 // Sine, Q31, 1024 steps per cycle and a guard entry.
 {table("sine_table", "i32", sine)}
