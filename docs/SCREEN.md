@@ -81,7 +81,9 @@ labels such as "gap 40".
   --headless=new --window-size=1300,900 --screenshot=out.png
   "http://127.0.0.1:8930/?track=0"`.
 - The SDK's `test` runs the drawing smoke checks; `tools/check_frame.cpp`
-  validates a frame on the host.
+  validates a frame on the host, including what the device does beyond the
+  SDK's rules: neighbouring points within an eighth of a pixel merge, and a
+  closing edge under a quarter of a pixel draws as a sliver.
 
 ## What the device's SVG parser takes
 

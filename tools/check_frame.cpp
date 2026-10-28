@@ -20,6 +20,21 @@ void report(const EngineFrame& f, const char* when) {
                 std::printf("%s: path %u point %u at (%d, %d) Q10, beyond +-64 px\n", when, p, i, q.x, q.y); ++failures; break;
             }
         }
+        // What the device does with a shown outline, beyond the SDK's rules: it
+        // merges neighbouring points within an eighth of a pixel, and draws a
+        // closing edge under a quarter of a pixel as a long sliver.
+        if (f.nodes[p].x >= hidden_x * unit) continue;
+        Point xy[EngineFrame::point_count];
+        opxy::u32 m = 0;
+        for (opxy::u32 i = 0; i < EngineFrame::point_count; ++i) {
+            const Point& q = f.paths[p].points[i];
+            if (!m || q.x != xy[m - 1].x || q.y != xy[m - 1].y) xy[m++] = q;   // a repeated last point pads
+        }
+        for (opxy::u32 i = 0; i + 1 < m; ++i)
+            if (md::view::near(xy[i], xy[i + 1])) { std::printf("%s: path %u points %u and %u merge\n", when, p, i, i + 1); ++failures; break; }
+        const opxy::i32 dx = xy[0].x - xy[m - 1].x, dy = xy[0].y - xy[m - 1].y;
+        const opxy::i32 closing = (dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy) ? (dx < 0 ? -dx : dx) : (dy < 0 ? -dy : dy);
+        if (m > 2 && closing < 2 * md::view::apart) { std::printf("%s: path %u closes over %d Q10\n", when, p, closing); ++failures; }
     }
     for (opxy::u32 i = 0; i < EngineFrame::node_count; ++i) {
         const Node& n = f.nodes[i];
