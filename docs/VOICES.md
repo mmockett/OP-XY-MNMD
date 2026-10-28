@@ -83,8 +83,9 @@ voices' code and tables: inline functions and template statics
   layout (the machine in value 0); these read those keys as their defaults.
 
 **Monomachine engines** (`mmsaw`, `mmsid` ...): one machine each, played
-chromatically. The top row of the SYN page sits on the encoders and the
-bottom row on their alternates; the definition is the machine's own eight
+chromatically. The SYN page's top row is page 1 of the encoders and its
+bottom row page 2 (`"press": "page"`): a press of any encoder switches all
+four, and the screen draws both pages in its header. The definition is the machine's own eight
 controls with its defaults and presets.
 
 **Sample engines** (`mde12`, `mmbbox`) play samples captured from the owner's

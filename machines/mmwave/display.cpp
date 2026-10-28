@@ -7,6 +7,7 @@ namespace mmwave {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
@@ -15,19 +16,21 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     const md::view::Moment moment = {state.hit.age, input.reduced_motion};
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
     md::dpro_wave::view(frame, input.slots, moment);
+    // The header last: both pages, the one the encoders edit on its bar.
+    static const char* const titles[8] = {"wave", "wp", "wpm", "wprs", "sync", "sfrq", "", "tune"};
+    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 2, 7}};
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
     static const char* const steps0[32] = {"S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18", "S19", "S20", "S21", "S22", "S23", "S24", "S25", "S26", "S27", "S28", "S29", "S30", "S31", "S32"};
+    opxy::draw::copy(values[0], opxy::draw::header_capacity,
+                     steps0[(static_cast<u32>(md::positive(input.slots[0])) >> 16) * 32u >> 15]);
     static const char* const steps3[2] = {"OFF", "ON"};
+    opxy::draw::copy(values[3], opxy::draw::header_capacity,
+                     steps3[(static_cast<u32>(md::positive(input.slots[3])) >> 16) * 2u >> 15]);
     static const char* const steps4[3] = {"OFF", "SFRQ", "PRCH"};
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 0) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps0[(static_cast<u32>(md::positive(input.slots[0])) >> 16) * 32u >> 15]);
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 3) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps3[(static_cast<u32>(md::positive(input.slots[3])) >> 16) * 2u >> 15]);
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 4) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 3u >> 15]);
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 6) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity, " ");
+    opxy::draw::copy(values[4], opxy::draw::header_capacity,
+                     steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 3u >> 15]);
+    values[6][0] = 0;
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
 }
 }

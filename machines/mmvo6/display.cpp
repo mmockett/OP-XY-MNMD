@@ -7,6 +7,7 @@ namespace mmvo6 {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
@@ -15,13 +16,17 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     const md::view::Moment moment = {state.hit.age, input.reduced_motion};
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
     md::vo_6::view(frame, input.slots, moment);
+    // The header last: both pages, the one the encoders edit on its bar.
+    static const char* const titles[8] = {"voc1", "voc2", "v sw", "voic", "cons", "clen", "cvol", "tune"};
+    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}};
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
     static const char* const steps2[2] = {"OFF", "ON"};
+    opxy::draw::copy(values[2], opxy::draw::header_capacity,
+                     steps2[(static_cast<u32>(md::positive(input.slots[2])) >> 16) * 2u >> 15]);
     static const char* const steps4[21] = {"-", "B", "D", "F", "G", "H", "J", "K", "L", "M", "N", "P", "R", "RR", "S", "SJ", "T", "TJ", "TH", "V", "Z"};
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 2) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps2[(static_cast<u32>(md::positive(input.slots[2])) >> 16) * 2u >> 15]);
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 4) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 21u >> 15]);
+    opxy::draw::copy(values[4], opxy::draw::header_capacity,
+                     steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 21u >> 15]);
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
 }
 }

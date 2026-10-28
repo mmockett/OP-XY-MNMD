@@ -9,8 +9,9 @@ the design draws, within the SDK's limits.
 
 | Area | Stage coordinates | Screen |
 | --- | --- | --- |
-| Header | | y 0 to 28: four name and value cells, drawn by the SDK from the definition |
-| Stage | x 0 to 480, y 0 to 160 | y 30 to 190 (`md::view::stage_y`); the design's info line below is left out |
+| Header, drum kits | | y 0 to 20: four name and value cells, drawn by the SDK from the definition |
+| Header, Monomachine | | y 0 to 38: both pages, drawn by the engine with the SDK's `opxy/page_header.hpp` over the stock header |
+| Stage | x 0 to 480, y 0 to 160 | y 30 to 190 on a drum kit, y 46 to 206 on a Monomachine engine (`md::view::stage_y`), leaving the same gap under each header; the design's info line below is left out |
 
 The SDK's frame (`opxy::draw::Frame`) allows 4 mutable paths of exactly 64
 points, at most 256 nodes in all, 16 palette entries and artwork of at most
@@ -36,7 +37,8 @@ a nonzero key; a node's scale is at most 2. The first 31 nodes are common
    draws only past a control's middle (E12-BC's tom) are parts shown only there.
 3. `tools/art/build.mjs` writes `panel.svg.fragment` (the nodes and palette)
    and `art.h` (each part's pivot, shade and effects). Labels are drawn in an
-   original stroke font (`tools/art/font.mjs`), not text slots. Parts that
+   original stroke font (`tools/art/font.mjs`), not text slots (the
+   Monomachine engines' header takes all 16). Parts that
    move together merge, and identical parts are shared between machines.
 4. On the device, `md::rig::draw` (`lib/md_rig.hpp`) places each part from
    the controls, and a view module draws the free layers.
@@ -95,6 +97,11 @@ subpaths and 288 points each; every machine known to run on the device draws
   the SDK's own header does; only labels that move use the stroke font, and
   each of their strokes costs a node;
 - draws outlines as one line, retracing edges;
+- draws a design circle (an FM operator, a drum's beater) as a `<circle>`
+  node, round at any size, pivoted on its own centre unless its part scales
+  or turns; and keeps more points on the curved runs of other outlines (an
+  ellipse, a drum's hoop), which Douglas-Peucker would otherwise cut to a
+  polygon: 0.12 px from the design on a curve, 0.6 px on straight runs;
 - draws a filled design part as its outline's stroke when the design draws a
   view's layer over it: a view's paths come before every art node, and a
   node's paint changes a fill's colour but never removes it.
@@ -111,6 +118,7 @@ Keep to this in any view or art change; the host checks do not catch it.
 
 ## Known SDK issues
 
-- **Text slots.** `tooling/native.py` (line 564 on `staging`) tests
-  `{'x', 'y'} & node.keys()` on an ElementTree element, which fails for any
-  text slot, so no engine here uses text slots. Worth an upstream fix.
+- **Text slots.** Before etcetc000/open-xy#125, `tooling/native.py` tested
+  `{'x', 'y'} & node.keys()` on an ElementTree element, which failed for any
+  text slot. The fix is on `staging` and the fork's `two-page-synths`, and the
+  Monomachine engines' two-page header uses 16.

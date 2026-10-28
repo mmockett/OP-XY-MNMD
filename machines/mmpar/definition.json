@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmpar",
   "name": "FM PAR",
+  "press": "page",
   "parameters": [
     {
       "id": "p1frq",
@@ -217,12 +218,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 41,
-      "texts": 0,
+      "nodes": 49,
+      "texts": 16,
       "palette": 16
     }
   }

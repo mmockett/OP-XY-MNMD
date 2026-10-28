@@ -12,8 +12,8 @@ the Teenage Engineering OP-XY, on the
   encoder choose a key's machine, the encoders hold that machine's eight
   controls, and the project saves them.
 - **Each Monomachine machine is its own engine**, played chromatically, with
-  its SYN page's top row on the encoders and the bottom row on their
-  alternates.
+  its SYN page's two rows as two pages of four encoders. A press of any
+  encoder switches between them, as on the SDK's Macro Osc.
 
 | Engine | ID | Machines |
 | --- | --- | --- |
@@ -54,7 +54,9 @@ have not been profiled on the device yet.
 - The Open-XY SDK with drum-kit support. That support is in pull request
   [#121](https://github.com/etcetc000/open-xy/pull/121), plus the device fixes
   in [#143](https://github.com/etcetc000/open-xy/pull/143) on top
-  of it. Until both are merged, use the fork's branch below.
+  of it, and the two-page synth controls from upstream `staging`
+  (#125 and its follow-ups). Until those are merged, use the fork's branch
+  below.
 - To put the engines on a device: an OP-XY on **OS 1.2.0** exactly, a USB
   cable, and the Open-XY Blackfin toolchain.
 - Only for E12 and DPRO's sounds, or for comparing against the originals:
@@ -68,7 +70,7 @@ Clone this repository and the SDK side by side:
 
 ```bash
 git clone https://github.com/mmockett/OP-XY-MNMD
-git clone -b drum-synthesis-device-fixes https://github.com/mmockett/open-xy
+git clone -b two-page-synths https://github.com/mmockett/open-xy
 cd OP-XY-MNMD
 ```
 
@@ -171,8 +173,11 @@ kick, snare or cowbell. Each kit's keys are listed in `tools/catalog.py`.
 
 Load one on a synth track and play it chromatically.
 
-- **Controls:** the encoders hold the top row of the machine's SYN page.
-  Press an encoder for the control below it on the bottom row.
+- **Controls:** two pages of four. Page 1 is the top row of the machine's SYN
+  page, page 2 the bottom row. Press any encoder to switch all four. The
+  header shows both pages in place: the page you're editing at full size on
+  the stepped bar, the other small and grey under or over it. Where the
+  bottom row has no control, page 2 repeats the one above it.
 - **Fine steps:** hold Shift while turning for a tenth of the rate. Choice
   controls, such as WAVE or MOD, move one choice a detent.
 - **Presets:** each engine comes with a few presets of its own, in the preset

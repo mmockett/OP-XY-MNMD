@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmvo6",
   "name": "VO-6",
+  "press": "page",
   "parameters": [
     {
       "id": "voc1",
@@ -218,12 +219,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 34,
-      "texts": 0,
+      "nodes": 42,
+      "texts": 16,
       "palette": 16
     }
   }

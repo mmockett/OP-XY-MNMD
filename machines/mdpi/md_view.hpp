@@ -29,7 +29,7 @@ enum Shade : u32 {
 };
 
 // The stage: design coordinates (0..480, 0..160) start at screen y 30.
-const i32 stage_y = 30;
+const i32 stage_y = 30;   // a paged engine's is 46, under its two-row header (make_engine.py)
 const i32 panel_x = 248, panel_w = 224;   // the Machinedrum family panel
 inline i32 sx(i32 x) { return x * unit; }
 inline i32 sy(i32 y) { return (stage_y + y) * unit; }

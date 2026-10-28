@@ -11,7 +11,7 @@ repository's other tools use. Each engine here can join as its own entry,
 
 | Engines | Ready? | What it needs |
 | --- | --- | --- |
-| `mmdyn` `mmens` `mmpar` `mmpulse` `mmsid` `mmstat` `mmvo6` | Yes: submitted in etcetc000/open-xy#168, with hardware CPU records | Review and merge |
+| `mmdyn` `mmens` `mmpar` `mmpulse` `mmsid` `mmstat` `mmvo6` | Yes: submitted in etcetc000/open-xy#168, with hardware CPU records | A new tag with the two-page controls the review asked for (`"press": "page"`, SDK 1.3), profiled again at its commit, then review and merge |
 | `mmsaw` `mmsin` `mmnois` | No | An empty slot before a real control, which only the fork's `absent` field allows |
 | `mdtrx` `mdefm` `mdpi` | No | The drum kind, etcetc000/open-xy#121 and #143, merged and ported to OS 1.2.1 |
 | `mde12` `mmbbox` `mmddrw` `mmdens` `mmwave` | Never | Samples and waves captured from the owner's ROM, which can't be published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots |

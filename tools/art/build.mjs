@@ -6,6 +6,10 @@
 //
 //   node tools/art/build.mjs <engine> mm:SID-6581
 //   node tools/art/build.mjs --pads <kit> md:TRX-BD ...   a drum kit, a machine at a time
+//
+// A Monomachine engine pages its eight controls ("press": "page"): its artwork
+// starts with the SDK's two-page header block, which covers the stock header
+// down to y 38, and its stage moves down to PAGED_STAGE_Y to clear it.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -32,6 +36,13 @@ const SHADE = { line: 0, thin: 1, mid: 2, dim: 3, faint: 4, dash: 5, label: 6, f
 const FILLED = s => SHADE[s] >= 7;
 const KIND = { rest: 0, struck: 1, hit: 2 };
 const COMMON_NODES = 4 + 3 + 3 + 21;   // md_view.hpp: 4 paths, 3 rings, 2 handles, a cursor and the readout's 21 segments
+// The stage's top on the screen (md_view.hpp's stage_y): under the stock
+// header, or under the two-page header, which ends at y 38, with the same gap.
+export const STAGE_Y = 30, PAGED_STAGE_Y = 46;
+export const HEADER_NODES = 8;   // the two-page header's bar steps (opxy/page_header.hpp)
+// How far a simplified outline strays from the design's: straight runs lose
+// their in-between points, and curves keep enough to look round on the device.
+const TOLERANCE = 0.6, CURVE_TOLERANCE = 0.12;
 
 const num = v => { const s = (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, ''); return s === '-0' ? '0' : s; };
 
@@ -59,8 +70,24 @@ function dashed(polys) {
   return out;
 }
 
+// A flattened arc or curve: a run of short edges turning one way. Douglas-Peucker
+// at TOLERANCE leaves a small circle a polygon; such runs keep CURVE_TOLERANCE.
+function curved(pts) {
+  if (pts.length < 6) return false;
+  let turns = 0, sign = 0;
+  for (let k = 1; k < pts.length - 1; k++) {
+    const [ax, ay] = pts[k - 1], [bx, by] = pts[k], [cx, cy] = pts[k + 1];
+    const cross = (bx - ax) * (cy - by) - (by - ay) * (cx - bx);
+    if (Math.abs(cross) < 1e-6) continue;
+    if (sign && Math.sign(cross) !== sign) return false;
+    sign = Math.sign(cross); ++turns;
+  }
+  return turns >= pts.length - 3;
+}
+
 function simplify(pts, tol) {
   if (pts.length < 3) return pts;
+  if (tol === TOLERANCE && curved(pts)) tol = CURVE_TOLERANCE;
   // A loop whose ends meet: simplify each half from the point farthest from the ends.
   const [fx, fy] = pts[0], [lx, ly] = pts[pts.length - 1];
   if (Math.hypot(fx - lx, fy - ly) < 1e-6 && pts.length > 3) {
@@ -96,7 +123,7 @@ function bounds(polys) {
 function pathData(polys, cx, cy) {
   let d = '';
   for (const p of polys) {
-    const pts = simplify(p.pts, 0.6);
+    const pts = simplify(p.pts, TOLERANCE);
     if (pts.length < 2) continue;
     d += 'M' + pts.map(([x, y], k) => (k ? 'L' : '') + num(x - cx) + ' ' + num(y - cy)).join(' ').replace(/^/, '') + (p.closed ? ' Z ' : ' ');
   }
@@ -107,6 +134,15 @@ function pathData(polys, cx, cy) {
 const sig = e => [e.control, e.end, e.absent ? 'x' : e.only ? 'o' : [num(e.dx), num(e.dy), (e.s ?? 1).toFixed(3), (e.turn ?? 0).toFixed(3)].join(',')].join(':');
 const pure = effects => effects.every(e => e.absent || e.only || (Math.abs((e.s ?? 1) - 1) < 0.002 && Math.abs(e.turn ?? 0) < 0.002));
 
+// A closed outline that is a circle: every point the same distance from its
+// centre, to a hundredth. It becomes a <circle> node, drawn round at any size.
+function circle(poly) {
+  if (!poly.closed || poly.pts.length < 12) return null;
+  const { cx, cy } = bounds([poly]);
+  const radii = poly.pts.map(([x, y]) => Math.hypot(x - cx, y - cy)), r = radii.reduce((a, b) => a + b) / radii.length;
+  return r > 1 && radii.every(q => Math.abs(q - r) < 0.01 * r + 0.05) ? { cx, cy, r } : null;
+}
+
 // One subpath per path, at most 64 points: the OP-XY's SVG parser takes no more
 // (every machine known to run on the device draws this way). A part's shape is
 // split into several nodes that share its pivot and its movement.
@@ -114,7 +150,9 @@ const MAX_POINTS = 64;
 function subpaths(shape) {
   const out = [];
   for (const p of shape) {
-    const pts = simplify(p.pts, 0.6);
+    const round = circle(p);
+    if (round) { out.push({ closed: true, pts: p.pts, circle: round }); continue; }
+    const pts = simplify(p.pts, TOLERANCE);
     if (pts.length < 2) continue;
     if (p.closed && pts.length <= MAX_POINTS) { out.push({ closed: true, pts }); continue; }
     const line = p.closed ? [...pts, pts[0]] : pts;
@@ -256,7 +294,12 @@ export function build(engine, members, pads = false) {
     for (const g of groups.values()) {
       const b = bounds(g.shape);
       for (const sub of subpaths(g.shape)) {
-        const node = { ...g, shape: [sub], cx: b.cx, cy: b.cy, d: pathData([sub], b.cx, b.cy) };
+        // A circle that only moves with its part pivots on its own centre, as the
+        // SDK's rings do; one that scales or turns keeps the part's pivot.
+        const still = pure(g.effects) && !g.motion && (!g.strike || Math.abs(g.strike.s - 1) < 0.002 && Math.abs(g.strike.turn) < 0.002);
+        const at = sub.circle && still ? { cx: sub.circle.cx, cy: sub.circle.cy } : b;
+        const node = { ...g, shape: [sub], cx: at.cx, cy: at.cy,
+                       d: sub.circle ? `circle ${num(sub.circle.cx - at.cx)} ${num(sub.circle.cy - at.cy)} ${num(sub.circle.r)}` : pathData([sub], b.cx, b.cy) };
         // Machines drawn the same way share the node (CH and OH, XT and XC ...).
         const id = [node.kind, node.style, node.d, Math.round(node.cx * 4), Math.round(node.cy * 4), node.struckBy ? 1 : 0,
                     JSON.stringify(node.effects.map(sig).sort()), JSON.stringify(node.motion ?? null), JSON.stringify(node.strike ?? null)].join('/');
@@ -316,9 +359,19 @@ function header(engine, art) {
   return lines.join('\n');
 }
 
-function panel(engine, art) {
+// The SDK's two-page header (sdk/templates/shared/page_header.svg.in), its bar
+// on nodes `first`..`first + 7` and its text in slots 0..15.
+function pageHeader(engine, first) {
+  const template = readFileSync(path.join(root, '..', 'open-xy', 'sdk', 'templates', 'shared', 'page_header.svg.in'), 'utf8');
+  return template.replace(/@ID@/g, engine).replace(/@NODE_(\d)@/g, (_, k) => String(first + Number(k)))
+    .trim().split('\n').filter(l => !l.startsWith('<!--')).map(l => '  ' + l);
+}
+
+function panel(engine, art, paged) {
   const out = [`<g id="${engine}_panel">`];
-  out.push('  <path d="M0 20 L480 20 L480 220 L0 220 Z" fill="#000000" stroke="none"/>');
+  const stageY = paged ? PAGED_STAGE_Y : STAGE_Y;
+  if (paged) out.push(...pageHeader(engine, COMMON_NODES + art.nodes.length));
+  out.push(`  <path d="M0 ${paged ? 38 : 20} L480 ${paged ? 38 : 20} L480 220 L0 220 Z" fill="#000000" stroke="none"/>`);
   const park = 'transform="matrix(1 0 0 1 640 320)"';
   // Nodes 0..3: the mutable paths, 64 distinct points each.
   const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * 0.5)}`);
@@ -339,12 +392,17 @@ function panel(engine, art) {
   art.nodes.forEach((n, i) => {
     const [fill, stroke, width] = PALETTE[SHADE[n.style]];
     // Art nodes are authored about their pivots and placed by the first frame, so they need no parking transform.
+    const round = n.d.match(/^circle (\S+) (\S+) (\S+)$/);
+    if (round) {
+      out.push(`  <circle id="${engine}_node_${COMMON_NODES + i}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`);
+      return;
+    }
     out.push(`  <path id="${engine}_node_${COMMON_NODES + i}" d="${n.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${fill === 'none' ? ' stroke-linejoin="round"' : ''}/>`);
   });
   // Static labels, in the device's font: screen coordinates, baseline in the transform.
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const t of art.texts ?? [])
-    out.push(`  <g><text transform="matrix(1 0 0 1 ${num(t.x)} ${num(30 + t.y + t.fs * 0.83)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(t.fs)}px">${esc(t.t)}</text></g>`);
+    out.push(`  <g><text transform="matrix(1 0 0 1 ${num(t.x)} ${num(stageY + t.y + t.fs * 0.83)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(t.fs)}px">${esc(t.t)}</text></g>`);
   PALETTE.forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
@@ -356,10 +414,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [engine, ...specs] = pads ? args.slice(1) : args;
   const art = build(engine, specs.map(s => s.split(':')), pads);
   const dir = path.join(root, 'machines', engine);
-  const svg = panel(engine, art);
+  const svg = panel(engine, art, !pads);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
   writeFileSync(path.join(dir, 'art.h'), header(engine, art));
-  const nodes = COMMON_NODES + art.nodes.length;
+  const nodes = COMMON_NODES + art.nodes.length + (pads ? 0 : HEADER_NODES);
   console.log(`${engine}: ${art.machines.length} machines, ${nodes} nodes, ${svg.length} bytes of artwork` +
               (nodes > 256 ? '  OVER 256 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
   for (const m of art.machines) if (m.free.length) console.log(`  ${m.name}: the view draws ${m.free.map(f => f.key + ' (' + f.controls.join(' ') + ')').join(', ')}`);
