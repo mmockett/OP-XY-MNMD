@@ -2,7 +2,6 @@
   "schema": 1,
   "id": "mmbbox",
   "name": "DPRO-BBOX",
-  "press": "page",
   "parameters": [
     {
       "id": "ptch",
@@ -27,30 +26,6 @@
       "display": "percent"
     },
     {
-      "id": "empty3",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
-      "id": "empty4",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
       "id": "rtrg",
       "label": "RTRG",
       "default": 0.0,
@@ -59,8 +34,7 @@
         "minimum": 0,
         "maximum": 1
       },
-      "display": "percent",
-      "control": 0
+      "display": "percent"
     },
     {
       "id": "rtim",
@@ -71,8 +45,7 @@
         "minimum": 0,
         "maximum": 1
       },
-      "display": "percent",
-      "control": 1
+      "display": "percent"
     }
   ],
   "presets": {
@@ -108,12 +81,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 36,
+      "stateBytes": 16,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 63,
-      "texts": 16,
+      "nodes": 55,
+      "texts": 0,
       "palette": 16
     }
   }

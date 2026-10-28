@@ -6,6 +6,12 @@ inline void initialize(Voice& voice, Shared& shared, u32 owner) { md::dpro_bbox:
 inline void start(Voice& voice, Shared& shared, u32) { md::dpro_bbox::trigger(voice.state, shared.common); }
 inline void destroy(Voice&, Shared&, u32) {}
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch pitch) {
-    md::dpro_bbox::render(voice.state, shared.common, output, parameters, pitch);
+    // The machine's eight slots from the definition's 4 (definition.json).
+    i32 own[8] = {};
+    own[0] = parameters[0];
+    own[1] = parameters[1];
+    own[4] = parameters[2];
+    own[5] = parameters[3];
+    md::dpro_bbox::render(voice.state, shared.common, output, own, pitch);
 }
 }

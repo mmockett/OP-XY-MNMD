@@ -7,24 +7,18 @@ namespace mmbbox {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
-    state.header.reset();
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
     md::view::begin(frame, input);
     state.hit.update(input);
     const md::view::Moment moment = {state.hit.age, input.reduced_motion};
-    md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
-    md::dpro_bbox::view(frame, input.slots, moment);
-    // The header last: both pages, the one the encoders edit on its bar.
-    static const char* const titles[8] = {"ptch", "strt", "", "", "rtrg", "rtim", "", ""};
-    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 2, 3}};
-    char values[8][opxy::draw::header_capacity];
-    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
-    values[2][0] = 0;
-    values[3][0] = 0;
-    values[6][0] = 0;
-    values[7][0] = 0;
-    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
+    i32 own[8] = {};
+    own[0] = input.slots[0];
+    own[1] = input.slots[1];
+    own[4] = input.slots[2];
+    own[5] = input.slots[3];
+    md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], own, moment);
+    md::dpro_bbox::view(frame, own, moment);
 }
 }

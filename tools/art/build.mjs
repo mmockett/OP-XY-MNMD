@@ -7,7 +7,7 @@
 //   node tools/art/build.mjs <engine> mm:SID-6581
 //   node tools/art/build.mjs --pads <kit> md:TRX-BD ...   a drum kit, a machine at a time
 //
-// A Monomachine engine pages its eight controls ("press": "page"): its artwork
+// A Monomachine engine pages its controls ("press": "page"): its artwork
 // starts with the SDK's two-page header block, which covers the stock header
 // down to y 38, and its stage moves down to PAGED_STAGE_Y to clear it.
 import { writeFileSync } from 'node:fs';
@@ -367,6 +367,13 @@ function pageHeader(engine, first) {
     .trim().split('\n').filter(l => !l.startsWith('<!--')).map(l => '  ' + l);
 }
 
+// UniversNextPro-Light's advance widths and cap height, in ems (approximate):
+// enough to centre a short label.
+const ADVANCE = { M: 0.8, C: 0.66, W: 0.9, I: 0.25, ' ': 0.28 }, DIGIT = 0.556, CAP_HEIGHT = 0.71;
+const width = (text, fs) => [...text].reduce((w, ch) => w + (ADVANCE[ch] ?? (/\d/.test(ch) ? DIGIT : 0.55)), 0) * fs;
+// A label in a circle is this fraction of its radius tall (em): 12 px in a 20 px operator.
+const LABEL_SCALE = 0.6;
+
 function panel(engine, art, paged) {
   const out = [`<g id="${engine}_panel">`];
   const stageY = paged ? PAGED_STAGE_Y : STAGE_Y;
@@ -401,8 +408,16 @@ function panel(engine, art, paged) {
   });
   // Static labels, in the device's font: screen coordinates, baseline in the transform.
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  for (const t of art.texts ?? [])
-    out.push(`  <g><text transform="matrix(1 0 0 1 ${num(t.x)} ${num(stageY + t.y + t.fs * 0.83)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(t.fs)}px">${esc(t.t)}</text></g>`);
+  const circles = art.nodes.map(n => n.d.match(/^circle (\S+) (\S+) (\S+)$/))
+    .map((m, i) => m && { cx: art.nodes[i].cx + Number(m[1]), cy: art.nodes[i].cy + Number(m[2]), r: Number(m[3]) }).filter(Boolean);
+  for (const t of art.texts ?? []) {
+    // A label inside a circle (an FM operator's M1, C ...) is drawn larger and
+    // centred in it, from the font's advance widths: the device may not take text-anchor.
+    const w = width(t.t, t.fs), ring = circles.find(c => Math.hypot(t.x + w / 2 - c.cx, t.y + t.fs / 2 - c.cy) < c.r);
+    const fs = ring ? Math.round(ring.r * LABEL_SCALE) : t.fs;
+    const x = ring ? ring.cx - width(t.t, fs) / 2 : t.x, baseline = ring ? ring.cy + fs * CAP_HEIGHT / 2 : t.y + t.fs * 0.83;
+    out.push(`  <g><text transform="matrix(1 0 0 1 ${num(x)} ${num(stageY + baseline)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(fs)}px">${esc(t.t)}</text></g>`);
+  }
   PALETTE.forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
@@ -410,14 +425,15 @@ function panel(engine, art, paged) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2), pads = args[0] === '--pads';
-  const [engine, ...specs] = pads ? args.slice(1) : args;
+  // --one-row: a Monomachine engine with at most four controls, on the stock header.
+  const args = process.argv.slice(2), pads = args[0] === '--pads', oneRow = args[0] === '--one-row';
+  const [engine, ...specs] = pads || oneRow ? args.slice(1) : args;
   const art = build(engine, specs.map(s => s.split(':')), pads);
   const dir = path.join(root, 'machines', engine);
-  const svg = panel(engine, art, !pads);
+  const paged = !pads && !oneRow, svg = panel(engine, art, paged);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
   writeFileSync(path.join(dir, 'art.h'), header(engine, art));
-  const nodes = COMMON_NODES + art.nodes.length + (pads ? 0 : HEADER_NODES);
+  const nodes = COMMON_NODES + art.nodes.length + (paged ? HEADER_NODES : 0);
   console.log(`${engine}: ${art.machines.length} machines, ${nodes} nodes, ${svg.length} bytes of artwork` +
               (nodes > 256 ? '  OVER 256 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
   for (const m of art.machines) if (m.free.length) console.log(`  ${m.name}: the view draws ${m.free.map(f => f.key + ' (' + f.controls.join(' ') + ')').join(', ')}`);

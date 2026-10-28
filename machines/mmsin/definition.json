@@ -2,7 +2,6 @@
   "schema": 1,
   "id": "mmsin",
   "name": "GND-SIN",
-  "press": "page",
   "parameters": [
     {
       "id": "empty1",
@@ -41,54 +40,6 @@
       "absent": true
     },
     {
-      "id": "empty4",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
-      "id": "empty5",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
-      "id": "empty6",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
-      "id": "empty7",
-      "label": "",
-      "default": 0,
-      "mapping": {
-        "kind": "linear",
-        "minimum": 0,
-        "maximum": 1
-      },
-      "display": "percent",
-      "absent": true
-    },
-    {
       "id": "tune",
       "label": "TUNE",
       "default": 0.503937,
@@ -97,8 +48,7 @@
         "minimum": 0,
         "maximum": 1
       },
-      "display": "percent",
-      "control": 3
+      "display": "percent"
     }
   ],
   "presets": {
@@ -113,12 +63,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 36,
+      "stateBytes": 16,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 45,
-      "texts": 16,
+      "nodes": 37,
+      "texts": 0,
       "palette": 16
     }
   }

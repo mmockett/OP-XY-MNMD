@@ -122,7 +122,8 @@
         "maximum": 1
       },
       "display": "percent",
-      "absent": true
+      "absent": true,
+      "control": 0
     },
     {
       "id": "chrl",

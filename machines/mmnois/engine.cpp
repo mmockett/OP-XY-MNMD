@@ -6,6 +6,12 @@ inline void initialize(Voice& voice, Shared& shared, u32 owner) { md::gnd_nois::
 inline void start(Voice& voice, Shared& shared, u32) { md::gnd_nois::trigger(voice.state, shared.common); }
 inline void destroy(Voice&, Shared&, u32) {}
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch pitch) {
-    md::gnd_nois::render(voice.state, shared.common, output, parameters, pitch);
+    // The machine's eight slots from the definition's 4 (definition.json).
+    i32 own[8] = {};
+    own[0] = parameters[0];
+    own[1] = parameters[1];
+    own[2] = parameters[2];
+    own[7] = parameters[3];
+    md::gnd_nois::render(voice.state, shared.common, output, own, pitch);
 }
 }

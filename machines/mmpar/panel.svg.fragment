@@ -66,12 +66,12 @@
   <circle id="mmpar_node_38" cx="0" cy="0" r="16.9" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
   <path id="mmpar_node_39" d="M4 0 L-4 5 L-4 -5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
   <path id="mmpar_node_40" d="M-95 0 L95 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-  <g><text transform="matrix(1 0 0 1 43 74.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M1</text></g>
-  <g><text transform="matrix(1 0 0 1 183 74.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C1</text></g>
-  <g><text transform="matrix(1 0 0 1 43 126.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M2</text></g>
-  <g><text transform="matrix(1 0 0 1 183 126.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C2</text></g>
-  <g><text transform="matrix(1 0 0 1 43 178.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M3</text></g>
-  <g><text transform="matrix(1 0 0 1 183 178.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C3</text></g>
+  <g><text transform="matrix(1 0 0 1 43.2 75.6)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="10px">M1</text></g>
+  <g><text transform="matrix(1 0 0 1 183.4 75.9)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="11px">C1</text></g>
+  <g><text transform="matrix(1 0 0 1 43.2 127.6)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="10px">M2</text></g>
+  <g><text transform="matrix(1 0 0 1 183.3 127.9)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="11px">C2</text></g>
+  <g><text transform="matrix(1 0 0 1 43.2 179.6)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="10px">M3</text></g>
+  <g><text transform="matrix(1 0 0 1 184 179.6)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="10px">C3</text></g>
   <circle id="mmpar_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
   <circle id="mmpar_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>
   <circle id="mmpar_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1.2"/>
