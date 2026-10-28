@@ -214,7 +214,7 @@
   "resources": {
     "voiceBytes": 68,
     "voiceAlignment": 4,
-    "voiceCapacity": 16,
+    "voiceCapacity": 8,
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
