@@ -3,7 +3,7 @@
 // Audio and sequencing run in worklet.mjs; this page draws the selected
 // track's OP-XY screen with the engine's own compiled display code.
 import { PreviewDisplay, SvgDisplay, headerSvg } from './sdk/display.mjs';
-import { shownControls } from './sdk/controls.mjs';
+import { controlPositions, editedShown, shownControls } from './sdk/controls.mjs';
 
 const $ = id => document.getElementById(id);
 const STEPS = 16;
@@ -71,8 +71,9 @@ function drawScreen(now) {
   } catch (error) { status(`Display stopped: ${error.message}`); return; }
   const titles = t.shown.map(i => p[i].label.toLowerCase());
   const values = t.shown.map((i, k) => t.scene.header[k] || String(t.values[i]));
+  // The stock header under the artwork, as the device draws it: a paged engine covers it with its own.
   $('screen').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220" role="img">
-    <rect width="480" height="220" fill="#000"/>${t.scene.svg()}${headerSvg(titles, values)}</svg>`;
+    <rect width="480" height="220" fill="#000"/>${headerSvg(titles, values)}${t.scene.svg()}</svg>`;
   requestAnimationFrame(drawScreen);
 }
 
@@ -120,13 +121,18 @@ function refreshEncoders() {
     knob.querySelector('.arc').setAttribute('d', arc(v));
     knob.querySelector('.needle').setAttribute('transform', `rotate(${-135 + v / 127 * 270} 24 24)`);
     knob.setAttribute('aria-valuenow', v);
-    knob.classList.toggle('shown', t.shown[i % 4] === i);
+    knob.classList.toggle('shown', t.shown.includes(i));
   }
+}
+// The positions show the control last touched: on a paged engine, its whole page.
+function showControl(t, index) {
+  const d = t.machine.definition;
+  t.shown = editedShown(t.shown, controlPositions(d.parameters), index, d.press === 'page');
 }
 function setValue(index, value) {
   const t = tracks[selected];
   t.values[index] = Math.max(0, Math.min(127, Math.round(value)));
-  t.shown[index % 4] = index;   // as on the device: the screen shows what was last turned
+  showControl(t, index);   // as on the device: the screen shows what was last turned
   send({ type: 'parameters', track: selected, value: words(t) });
   refreshEncoders(); refreshPresets(); persist();
 }
@@ -134,7 +140,7 @@ function attachKnob(knob, index) {
   let startY = 0, startV = 0;
   knob.addEventListener('pointerdown', e => {
     knob.setPointerCapture(e.pointerId); startY = e.clientY; startV = tracks[selected].values[index];
-    tracks[selected].shown[index % 4] = index; refreshEncoders();
+    showControl(tracks[selected], index); refreshEncoders();
   });
   knob.addEventListener('pointermove', e => {
     if (!knob.hasPointerCapture(e.pointerId)) return;

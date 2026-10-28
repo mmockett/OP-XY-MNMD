@@ -7,6 +7,7 @@ namespace mmstat {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
@@ -15,13 +16,17 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     const md::view::Moment moment = {state.hit.age, input.reduced_motion};
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
     md::fmpstat::view(frame, input.slots, moment);
+    // The header last: both pages, the one the encoders edit on its bar.
+    static const char* const titles[8] = {"1frq", "1fin", "1env", "1fb", "2frq", "2vol", "tone", "tune"};
+    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}};
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
     static const char* const steps0[24] = {"1:64", "1:32", "1:16", "3:32", "1:8", "5:32", "3:16", "1:4", "5:16", "3:8", "7:16", "1:2", "5:8", "3:4", "7:8", "1", "1.25", "1.5", "1.75", "2", "2.5", "3", "3.5", "4"};
+    opxy::draw::copy(values[0], opxy::draw::header_capacity,
+                     steps0[(static_cast<u32>(md::positive(input.slots[0])) >> 16) * 24u >> 15]);
     static const char* const steps4[24] = {"1:64", "1:32", "1:16", "3:32", "1:8", "5:32", "3:16", "1:4", "5:16", "3:8", "7:16", "1:2", "5:8", "3:4", "7:8", "1", "1.25", "1.5", "1.75", "2", "2.5", "3", "3.5", "4"};
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 0) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps0[(static_cast<u32>(md::positive(input.slots[0])) >> 16) * 24u >> 15]);
-    for (u32 i = 0; i < 4; ++i)
-        if (input.shown[i] == 4) opxy::draw::copy(frame.header[i], opxy::draw::header_capacity,
-                                                  steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 24u >> 15]);
+    opxy::draw::copy(values[4], opxy::draw::header_capacity,
+                     steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 24u >> 15]);
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
 }
 }

@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmsaw",
   "name": "SWAVE-SAW",
+  "press": "page",
   "parameters": [
     {
       "id": "unil",
@@ -151,12 +152,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 31,
-      "texts": 0,
+      "nodes": 39,
+      "texts": 16,
       "palette": 16
     }
   }

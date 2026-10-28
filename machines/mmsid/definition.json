@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmsid",
   "name": "SID-6581",
+  "press": "page",
   "parameters": [
     {
       "id": "pw",
@@ -188,12 +189,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 32,
-      "texts": 0,
+      "nodes": 40,
+      "texts": 16,
       "palette": 16
     }
   }

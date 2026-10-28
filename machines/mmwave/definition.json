@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmwave",
   "name": "DPRO-WAVE",
+  "press": "page",
   "parameters": [
     {
       "id": "wave",
@@ -178,12 +179,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 37,
-      "texts": 0,
+      "nodes": 45,
+      "texts": 16,
       "palette": 16
     }
   }

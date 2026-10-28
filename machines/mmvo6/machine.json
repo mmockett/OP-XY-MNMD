@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.2",
+  "sdk": "1.3",
   "kind": "synth",
   "description": "The Monomachine's VO-6 formant voice: vowels from two formants, twenty consonants before them, fitted to the original.",
   "identity": {

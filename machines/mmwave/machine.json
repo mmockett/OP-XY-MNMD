@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.2",
+  "sdk": "1.3",
   "kind": "synth",
   "description": "The Monomachine's DPRO-WAVE: its own S-sets, captured from the owner's ROM, moved along WP.",
   "identity": {

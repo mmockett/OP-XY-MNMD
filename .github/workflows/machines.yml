@@ -7,7 +7,7 @@ permissions:
   contents: read
 env:
   OPEN_XY_REPO: mmockett/open-xy
-  OPEN_XY_REF: drum-synthesis-device-fixes
+  OPEN_XY_REF: two-page-synths
 jobs:
   machines:
     runs-on: ubuntu-latest

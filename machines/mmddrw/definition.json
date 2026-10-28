@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmddrw",
   "name": "DPRO-DDRW",
+  "press": "page",
   "parameters": [
     {
       "id": "wav1",
@@ -273,12 +274,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 16,
+      "stateBytes": 36,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 33,
-      "texts": 0,
+      "nodes": 41,
+      "texts": 16,
       "palette": 16
     }
   }
