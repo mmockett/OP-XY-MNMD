@@ -200,6 +200,7 @@ inline i32 run(Op& op) {
     return y;
 }
 inline i32 run(Op& op, i32 fb) {
+    if (!fb) return op.history[0] = run(op);   // the same sample, without solving the loop
     const i32 first = md::sine(op.phase + (static_cast<u32>(multiply(op.history[0], fb)) << 4));
     const i32 y = md::sine(op.phase + (static_cast<u32>(multiply(first, fb)) << 4));
     op.history[0] = y;

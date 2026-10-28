@@ -136,6 +136,11 @@ def with_includes(headers):
 
 # The stage's top under the two-page header (tools/art/build.mjs PAGED_STAGE_Y).
 PAGED_STAGE_Y = 46
+# Notes an engine sounds at once, shared by the tracks playing it. Each voice
+# costs about 2-3.4% of the OP-XY's audio budget on the heaviest engines, so
+# those stop at 8; the lightest, a tenth of their cost, run to 32.
+VOICE_CAPACITY = {"mmens": 8, "mmdens": 8, "mmstat": 8, "mmdyn": 8, "mmpar": 8,
+                  "mmsin": 32, "mmwave": 32, "mmbbox": 32, "mmnois": 32, "mmsid": 32}
 
 
 def copy_scoped(source, folder, engine, paged=False):
@@ -374,8 +379,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     # Two rows: a press of any encoder switches all four between the SYN page's rows.
     definition = {"schema": 1, "id": engine, "name": re.sub(r"[^A-Za-z0-9 _-]", " ", name),   # FM+STAT shows as FM STAT
                   **({} if one_row else {"press": "page"}), "parameters": params, "presets": presets,
-                  "resources": {"voiceBytes": 4, "voiceAlignment": 4, "voiceCapacity": 16, "sharedBytes": 16,
-                                "outputPeakQ31": 1073741824,
+                  "resources": {"voiceBytes": 4, "voiceAlignment": 4, "voiceCapacity": VOICE_CAPACITY.get(engine, 16),
+                                "sharedBytes": 16, "outputPeakQ31": 1073741824,
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
                                             "nodes": 0, "texts": 0, "palette": 16}}}
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
