@@ -109,6 +109,11 @@ inline bool near(const Point& a, const Point& b) {
     const i32 dx = a.x - b.x, dy = a.y - b.y;
     return dx > -apart && dx < apart && dy > -apart && dy < apart;
 }
+// An edge's length on its longer axis.
+inline i32 span(const Point& a, const Point& b) {
+    const i32 dx = b.x - a.x, dy = b.y - a.y, ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
+    return ax > ay ? ax : ay;
+}
 
 // Moves q, reached from `from`, an eighth of a pixel to the left of its way in
 // while it lands near one of the m points already placed.
@@ -166,7 +171,20 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
         p[at + 1] = mid;
         ++m;
     }
-    for (u32 i = 0; i < 64; ++i) path.points[i] = p[i < m ? i : m - 1];
+    // The outline is a loop, so it may start anywhere: start it where both its
+    // edges are longest. The device draws a closing edge only an eighth of a
+    // pixel long (a ribbon's end, on a level or upright line) as a long sliver
+    // along the next edge.
+    u32 start = 0;
+    i32 best = -1;
+    for (u32 i = 0; i < m && m > 2; ++i) {
+        const Point& a = p[i ? i - 1 : m - 1];
+        const Point& b = p[i];
+        const Point& c = p[i + 1 < m ? i + 1 : 0];
+        const i32 in = span(a, b), out = span(b, c), shorter = in < out ? in : out;
+        if (shorter > best) { best = shorter; start = i; }
+    }
+    for (u32 i = 0; i < 64; ++i) path.points[i] = p[i < m ? (start + i) % m : (start + m - 1) % m];
     path.key = key ? key : 1;
 }
 

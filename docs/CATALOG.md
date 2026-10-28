@@ -37,7 +37,10 @@ The OP-XY draws streaks from an outline with no area: a line traced out and
 back over itself, or one that turns straight back at a point
 (etcetc000/open-xy#167, which `sdk.py test` will warn about). Every view
 writes its paths through `outline()` in `lib/md_view.hpp`, which makes a
-retraced line a thin ribbon and a spike a sliver.
+retraced line a thin ribbon and a spike a sliver. It also starts each
+outline where both its edges are longest: on the device, a closing edge only
+an eighth of a pixel long (a ribbon's end on a level or upright line, as
+SID-6581's steps) draws as a long sliver along the next edge.
 
 ## Publishing an engine
 
