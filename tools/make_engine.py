@@ -206,21 +206,54 @@ def generate(engine, index):
     headers = [sound_header(name), view_header(name)]
     enums = ENUMS.get(name, {})
     slots = catalog.MACHINES[name][2]
-    # The two-page header (opxy/page_header.hpp): page 1 is the SYN page's top
-    # row, page 2 its bottom row, under it. A bottom-row slot the machine lacks
-    # repeats the control above it, as the SDK's two-page synths do; a top-row
-    # slot it lacks is blank. Each value reads 0..127, or a stepped control's
-    # step name, as the original's does.
     named = [label or "" for label in (list(slots) + [""] * 8)[:8]]
-    second = [4 + c if named[4 + c] else c for c in range(4)]
-    titles = ", ".join(f'"{control(label, 0)["label"].lower() if label else ""}"' for label in named)
-    captions = "".join(f"""
+    real = [i for i, label in enumerate(named) if label]
+    # A machine with at most four controls has one row: no pages, on the stock
+    # header. Each control keeps its column on the SYN page when no two share
+    # one (GND-NOIS's TUNE under its fourth), else they go left to right.
+    # `layout` is the machine slot of each definition slot (None: empty), and
+    # `own` rebuilds the machine's eight slots for the sound and the screen.
+    one_row = len(real) <= 4
+    if not one_row:
+        layout = [i if named[i] else None for i in range(max(real[-1] + 1, 4))]
+    elif len({i % 4 for i in real}) == len(real):
+        layout = [next((i for i in real if i % 4 == c), None) for c in range(4)]
+    else:
+        layout = real + [None] * (4 - len(real))
+    remapped = any(m is not None and m != k for k, m in enumerate(layout))
+    own = "".join(f"""
+    own[{m}] = {{source}}[{k}];""" for k, m in enumerate(layout) if m is not None)
+    if one_row:
+        # The stock header: a stepped control shows its step's name, an empty slot nothing.
+        captions = "".join(f"""
+    static const char* const steps{k}[{len(enums[named[m]])}] = {{{", ".join(f'"{n}"' for n in enums[named[m]])}}};
+    opxy::draw::copy(frame.header[{k}], opxy::draw::header_capacity,
+                     steps{k}[(static_cast<u32>(md::positive(input.parameters[{k}])) >> 16) * {len(enums[named[m]])}u >> 15]);"""
+                           for k, m in enumerate(layout) if m is not None and named[m] in enums)
+        captions += "".join(f"""
+    opxy::draw::copy(frame.header[{k}], opxy::draw::header_capacity, " ");""" for k, m in enumerate(layout) if m is None)
+        header = captions
+    else:
+        # The two-page header (opxy/page_header.hpp): page 1 is the SYN page's top
+        # row, page 2 its bottom row, under it. A slot the machine lacks is blank
+        # on either row, and its encoder turns nothing. Each value reads 0..127,
+        # or a stepped control's step name, as the original's does.
+        second = [4 + c for c in range(4)]
+        titles = ", ".join(f'"{control(label, 0)["label"].lower() if label else ""}"' for label in named)
+        captions = "".join(f"""
     static const char* const steps{i}[{len(enums[label])}] = {{{", ".join(f'"{n}"' for n in enums[label])}}};
     opxy::draw::copy(values[{i}], opxy::draw::header_capacity,
                      steps{i}[(static_cast<u32>(md::positive(input.slots[{i}])) >> 16) * {len(enums[label])}u >> 15]);"""
-                       for i, label in enumerate(named) if label in enums)
-    captions += "".join(f"""
+                           for i, label in enumerate(named) if label in enums)
+        captions += "".join(f"""
     values[{i}][0] = 0;""" for i, label in enumerate(named) if not label)
+        header = f"""
+    // The header last: both pages, the one the encoders edit on its bar.
+    static const char* const titles[8] = {{{titles}}};
+    static const opxy::u8 pages[2][4] = {{{{0, 1, 2, 3}}, {{{", ".join(map(str, second))}}}}};
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);{captions}
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);"""
 
     # --- core.h
     (folder / "core.h").write_text(f"""#pragma once
@@ -250,14 +283,16 @@ namespace {engine} {{
 inline void initialize(Voice& voice, Shared& shared, u32 owner) {{ md::{s}::reset(voice.state, shared.common, owner); }}
 inline void start(Voice& voice, Shared& shared, u32) {{ md::{s}::trigger(voice.state, shared.common); }}
 inline void destroy(Voice&, Shared&, u32) {{}}
-inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch pitch) {{
-    md::{s}::render(voice.state, shared.common, output, parameters, pitch);
+inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch pitch) {{{f'''
+    // The machine's eight slots from the definition's {len(layout)} (definition.json).
+    i32 own[8] = {{}};{own.format(source="parameters")}''' if remapped else ""}
+    md::{s}::render(voice.state, shared.common, output, {"own" if remapped else "parameters"}, pitch);
 }}
 }}
 """)
 
     # --- artwork
-    subprocess.run(["node", "tools/art/build.mjs", engine, f"mm:{name}"], cwd=ROOT, check=True)
+    subprocess.run(["node", "tools/art/build.mjs", *(["--one-row"] if one_row else []), engine, f"mm:{name}"], cwd=ROOT, check=True)
 
     # --- display.h / display.cpp
     (folder / "display.h").write_text(f"""#pragma once
@@ -278,6 +313,21 @@ struct DisplayState {{
     opxy::draw::PageHeader header;
 }};
 }}
+""" if not one_row else f"""#pragma once
+// Generated by tools/make_engine.py.
+#include <opxy/draw.hpp>
+#include "md_view.hpp"
+#include "art.h"
+
+namespace {engine} {{
+using opxy::i32;
+using opxy::u32;
+// One row of controls, on the stock header.
+using Frame = opxy::draw::Frame<4, 64, md::view::art_first + art::node_count, 0, 16>;
+struct DisplayState {{
+    md::view::Hit hit;
+}};
+}}
 """)
     (folder / "display.cpp").write_text(f"""#include "display.h"
 #include "{headers[1]}.hpp"
@@ -287,22 +337,17 @@ struct DisplayState {{
 namespace {engine} {{
 inline void display_reset(DisplayState& state) {{
     state.hit.initialized = 0;
-    state.hit.age = 1 << 20;
-    state.header.reset();
+    state.hit.age = 1 << 20;{"" if one_row else '''
+    state.header.reset();'''}
 }}
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {{
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {{state.hit.age, input.reduced_motion}};
-    md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
-    md::{s}::view(frame, input.slots, moment);
-    // The header last: both pages, the one the encoders edit on its bar.
-    static const char* const titles[8] = {{{titles}}};
-    static const opxy::u8 pages[2][4] = {{{{0, 1, 2, 3}}, {{{", ".join(map(str, second))}}}}};
-    char values[8][opxy::draw::header_capacity];
-    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);{captions}
-    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
+    const md::view::Moment moment = {{state.hit.age, input.reduced_motion}};{f'''
+    i32 own[8] = {{}};{own.format(source="input.slots")}''' if remapped else ""}
+    md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], {"own" if remapped else "input.slots"}, moment);
+    md::{s}::view(frame, {"own" if remapped else "input.slots"}, moment);{header}
 }}
 }}
 """)
@@ -310,24 +355,25 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     # --- headers: the library and the modules
     modules = with_includes(headers)
     for source in sorted((ROOT / "lib").glob("*.hpp")) + [VOICES / f"{h}.hpp" for h in modules]:
-        copy_scoped(source, folder, engine, paged=True)
+        copy_scoped(source, folder, engine, paged=not one_row)
     captured = copy_private(modules, folder, engine)
 
     # --- definition.json
     d = defaults(name)
     mapping = lambda label: {"kind": "enum", "labels": enums[label]} if label in enums else None
-    # An empty slot before a real one keeps its place, absent (the SDK's placeholder:
-    # no label, no encoder, no preset), so every control sits where the original
-    # has it and projects keep their values; empty slots at the end are left off.
-    used = max(i for i, label in enumerate(slots) if label) + 1
-    params = [control(label, enum_value(name, label, d[i]), None if i < 4 else i - 4, mapping(label)) if label else
-              {"id": f"empty{i + 1}", "label": "", "default": 0, "mapping": {"kind": "linear", "minimum": 0, "maximum": 1},
-               "display": "percent", "absent": True} for i, label in enumerate(slots[:max(used, 4)])]
-    presets = {k: {p["id"]: round(enum_value(name, slots[i], v[i]) / 127, 6) for i, p in enumerate(params) if not p.get("absent")}
-               for k, v in PRESETS.get(name, {}).get("presets", {}).items()}
-    # A press of any encoder switches all four between the SYN page's rows.
+    # Each definition slot holds its layout's control. An empty slot before a
+    # real one keeps its place, absent (the SDK's placeholder: no label, no
+    # preset), so every control sits where the original has it; on the bottom
+    # row of two it is its encoder's page 2, blank, rather than page 1 again.
+    empty = lambda k: {"id": f"empty{k + 1}", "label": "", "default": 0, "mapping": {"kind": "linear", "minimum": 0, "maximum": 1},
+                       "display": "percent", "absent": True, **({"control": k - 4} if k >= 4 and not one_row else {})}
+    params = [control(named[m], enum_value(name, named[m], d[m]), None if k < 4 else k - 4, mapping(named[m])) if m is not None else
+              empty(k) for k, m in enumerate(layout)]
+    presets = {key: {p["id"]: round(enum_value(name, named[m], v[m]) / 127, 6) for p, m in zip(params, layout) if m is not None}
+               for key, v in PRESETS.get(name, {}).get("presets", {}).items()}
+    # Two rows: a press of any encoder switches all four between the SYN page's rows.
     definition = {"schema": 1, "id": engine, "name": re.sub(r"[^A-Za-z0-9 _-]", " ", name),   # FM+STAT shows as FM STAT
-                  "press": "page", "parameters": params, "presets": presets,
+                  **({} if one_row else {"press": "page"}), "parameters": params, "presets": presets,
                   "resources": {"voiceBytes": 4, "voiceAlignment": 4, "voiceCapacity": 16, "sharedBytes": 16,
                                 "outputPeakQ31": 1073741824,
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
@@ -335,9 +381,9 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
     voice_bytes, shared_bytes, display_bytes = sizes(engine)
     # The 31 common nodes, the art's, then the two-page header's eight and its 16 text slots.
-    nodes = int(re.search(r"node_count = (\d+);", (folder / "art.h").read_text()).group(1)) + 31 + 8
+    nodes = int(re.search(r"node_count = (\d+);", (folder / "art.h").read_text()).group(1)) + 31 + (0 if one_row else 8)
     definition["resources"].update({"voiceBytes": voice_bytes, "sharedBytes": shared_bytes})
-    definition["resources"]["display"].update({"stateBytes": display_bytes, "nodes": nodes, "texts": 16})
+    definition["resources"]["display"].update({"stateBytes": display_bytes, "nodes": nodes, "texts": 0 if one_row else 16})
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
 
     # --- machine.json

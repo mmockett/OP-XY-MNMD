@@ -61,7 +61,7 @@ inline void show(F& frame, u32 path, const Point* points, i32 ox, i32 oy, u32 ke
 template <class F>
 inline void single(F& frame, u32 path, const Point* row32, i32 ox, i32 oy, u32 key, u32 tone) {
     Point p[64];
-    for (u32 i = 0; i < 32; ++i) { p[i] = row32[i]; p[63 - i].x = row32[i].x; p[63 - i].y = row32[i].y + 1; }
+    for (u32 i = 0; i < 32; ++i) p[i] = p[63 - i] = row32[i];   // outline() makes the way back a ribbon
     show(frame, path, p, ox, oy, key, tone);
 }
 template <class F>

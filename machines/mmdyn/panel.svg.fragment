@@ -72,9 +72,9 @@
   <path id="mmdyn_node_44" d="M4.5 -6 L-4.5 -3.3 L-1.9 -12.9 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
   <path id="mmdyn_node_45" d="M4.5 6 L-1.9 12.9 L-4.5 3.3 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
   <path id="mmdyn_node_46" d="M-95 0 L95 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-  <g><text transform="matrix(1 0 0 1 43 88.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M1</text></g>
-  <g><text transform="matrix(1 0 0 1 43 168.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">M2</text></g>
-  <g><text transform="matrix(1 0 0 1 195 128.5)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="9px">C</text></g>
+  <g><text transform="matrix(1 0 0 1 41.9 90.3)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="12px">M1</text></g>
+  <g><text transform="matrix(1 0 0 1 41.9 170.3)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="12px">M2</text></g>
+  <g><text transform="matrix(1 0 0 1 195.4 131)" fill="#8c8d92" font-family="UniversNextPro-Light" font-size="14px">C</text></g>
   <circle id="mmdyn_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
   <circle id="mmdyn_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>
   <circle id="mmdyn_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1.2"/>

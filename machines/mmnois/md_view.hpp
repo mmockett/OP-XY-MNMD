@@ -29,7 +29,7 @@ enum Shade : u32 {
 };
 
 // The stage: design coordinates (0..480, 0..160) start at screen y 30.
-const i32 stage_y = 46;   // under the two-page header
+const i32 stage_y = 30;   // a paged engine's is 46, under its two-row header (make_engine.py)
 const i32 panel_x = 248, panel_w = 224;   // the Machinedrum family panel
 inline i32 sx(i32 x) { return x * unit; }
 inline i32 sy(i32 y) { return (stage_y + y) * unit; }
@@ -100,13 +100,23 @@ inline void show_path(F& frame, u32 path, i32 x, i32 y, u32 shade_index, i32 sca
     place(frame, path, sx(x), sy(y), scale, shade_index, stroke);
 }
 
+// The device's SVG loader merges points that (nearly) repeat, leaving a path
+// fewer points than the frame binds, and then it stops reshaping that path:
+// its old shape stays on screen. Points closer than an eighth of a pixel on
+// both axes count as one.
+const i32 apart = unit / 8;
+inline bool near(const Point& a, const Point& b) {
+    const i32 dx = a.x - b.x, dy = a.y - b.y;
+    return dx > -apart && dx < apart && dy > -apart && dy < apart;
+}
+
 // Moves q, reached from `from`, an eighth of a pixel to the left of its way in
-// while it lands on one of the m points already placed.
+// while it lands near one of the m points already placed.
 inline void aside(Point& q, const Point& from, const Point* placed, u32 m) {
-    const i32 side = unit / 8;
+    const i32 side = apart;
     for (u32 tries = 0; tries < 4; ++tries) {
         bool seen = false;
-        for (u32 j = 0; j < m && !seen; ++j) seen = placed[j].x == q.x && placed[j].y == q.y;
+        for (u32 j = 0; j < m && !seen; ++j) seen = near(placed[j], q);
         if (!seen) return;
         const i32 dx = q.x - from.x, dy = q.y - from.y;
         q.x += dy > 0 ? side : dy < 0 ? -side : 0;
@@ -117,25 +127,26 @@ inline void aside(Point& q, const Point& from, const Point* placed, u32 m) {
 // Writes n path-local points (Q10) into a path as an outline the OP-XY draws
 // without streaks: it draws them from an outline with no area, as a line
 // traced out and back over itself, or one that turns straight back at a
-// point. Repeated points go; a point that revisits an earlier one moves an
-// eighth of a pixel to the left of its way in (aside), so a retraced line
-// becomes a thin ribbon and a spike a sliver; the longest edges are halved,
-// each midpoint aside too, until there are 64 points, all distinct. An
-// outline of one point collapses, which draws nothing.
+// point. Repeated points go (near: within an eighth of a pixel); a point that
+// revisits an earlier one moves an eighth of a pixel to the left of its way in
+// (aside), so a retraced line becomes a thin ribbon and a spike a sliver; the
+// longest edges are halved, each midpoint aside too, until there are 64
+// points, each at least an eighth of a pixel from the others. An outline of
+// one point collapses, which draws nothing.
 template <class Path>
 inline void outline(Path& path, const Point* points, u32 n, u32 key) {
     Point p[64];
     u32 m = 0;
     for (u32 i = 0; i < n && i < 64; ++i) {
         Point q = points[i];
-        if (m && q.x == p[m - 1].x && q.y == p[m - 1].y) continue;
+        if (m && near(q, p[m - 1])) continue;
         if (m) aside(q, p[m - 1], p, m);
         p[m++] = q;
     }
-    while (m > 1 && p[m - 1].x == p[0].x && p[m - 1].y == p[0].y) --m;
+    while (m > 1 && near(p[m - 1], p[0])) --m;
     if (!m) p[m++] = Point();
-    // An edge halves to a distinct point while it spans two units on an axis;
-    // edge m - 1 closes the outline.
+    // An edge halves while it spans two eighths of a pixel on an axis, so its
+    // midpoint stays apart from both ends; edge m - 1 closes the outline.
     while (m < 64) {
         u32 at = 0;
         i32 longest = 0;
@@ -145,7 +156,7 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
             const i32 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, span = ax > ay ? ax : ay;
             if (span > longest) { longest = span; at = i; }
         }
-        if (longest < 2) break;
+        if (longest < 2 * apart) break;
         const Point a = p[at], b = p[at + 1 < m ? at + 1 : 0];
         Point mid;
         mid.x = a.x + (b.x - a.x) / 2;

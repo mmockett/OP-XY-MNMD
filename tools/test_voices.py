@@ -63,26 +63,32 @@ def detent_problems():
 def slot_problems():
     """Where an engine's definition still offers an empty slot as a control.
 
-    An empty catalog slot is the SDK's absent placeholder (no label, no
-    encoder position, no preset entry) when a real slot follows it, else left
-    off; a real slot is never absent."""
+    Every real catalog control is in the definition exactly once, and an empty
+    slot is the SDK's absent placeholder (no label, no preset entry). On a
+    two-page engine an empty bottom-row slot sits on its encoder's page 2,
+    blank and inert; on any other, no encoder reaches it. No empty slots
+    follow the last control."""
     sys.path.insert(0, str(ROOT / "tools"))
     import catalog
+    from make_engine import control
     problems = []
     for engine, names in catalog.ENGINES.items():
         folder = ROOT / "machines" / engine
         if len(names) != 1 or not (folder / "definition.json").exists():
             continue
         definition = json.loads((folder / "definition.json").read_text())
-        slots = catalog.MACHINES[names[0]][2]
+        paged = definition.get("press") == "page"
+        real = [control(label, 0)["id"] for label in catalog.MACHINES[names[0]][2] if label]
+        ids = [parameter["id"] for parameter in definition["parameters"] if not parameter.get("absent")]
+        if sorted(ids) != sorted(real):
+            problems.append(f"{engine}: controls {ids}, not the machine's {real}")
         for i, parameter in enumerate(definition["parameters"]):
             if "spare" in parameter["id"].lower() or parameter["label"].lower() == "spare":
                 problems.append(f"{engine} slot {i + 1}: a spare control")
-            if slots[i] and parameter.get("absent"):
-                problems.append(f"{engine} slot {i + 1}: {slots[i]} is absent")
-            if not slots[i] and not (parameter.get("absent") and parameter["label"] == "" and "control" not in parameter):
+            if parameter.get("absent") and (parameter["label"] or ("control" in parameter and not (paged and i >= 4))):
                 problems.append(f"{engine} slot {i + 1}: an empty slot an encoder can reach")
-        if len(definition["parameters"]) > max(4, max(i for i, s in enumerate(slots) if s) + 1):
+        last = max(i for i, parameter in enumerate(definition["parameters"]) if not parameter.get("absent"))
+        if len(definition["parameters"]) > max(4, last + 1):
             problems.append(f"{engine}: empty slots declared after the last control")
         for preset, values in definition["presets"].items():
             if set(values) != {p["id"] for p in definition["parameters"] if not p.get("absent")}:

@@ -18,7 +18,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     md::dpro_wave::view(frame, input.slots, moment);
     // The header last: both pages, the one the encoders edit on its bar.
     static const char* const titles[8] = {"wave", "wp", "wpm", "wprs", "sync", "sfrq", "", "tune"};
-    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 2, 7}};
+    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}};
     char values[8][opxy::draw::header_capacity];
     for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
     static const char* const steps0[32] = {"S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18", "S19", "S20", "S21", "S22", "S23", "S24", "S25", "S26", "S27", "S28", "S29", "S30", "S31", "S32"};
