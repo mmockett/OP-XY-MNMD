@@ -60,6 +60,22 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
         }
         draw32(frame, side ? view::wave : view::contour, xs, ys, side ? 380 : 196, 80, key_of(s[7], ph + 1, 7, 1 + side), view::line);
     }
+    // The orb's radius, its tip and the tip's projection turn with the wave's
+    // start, about the orb's centre (the design's line#rad, its node and
+    // dash#pj), in place of the rig's straight-line struck pose. At rest they
+    // are where the art puts them.
+    const i32 c = md::sine(turn + 0x40000000u), n = md::sine(turn);           // Q31
+    const i32 cx = 52 * unit, cy = sy(80);
+    const i32 tx = cx + multiply(c, 40 * unit), ty = cy - multiply(n, 40 * unit);
+    const Point at[4] = {{cx + multiply(c, 20 * unit), cy - multiply(n, 20 * unit)}, {tx, ty},
+                         {(tx + wx) / 2 - 3 * unit / 2, ty}, {(tx + wx) / 2 - 3 * unit / 2, ty}};
+    for (u32 i = 0; i < 4; ++i) {
+        opxy::draw::Node& node = frame.nodes[art_first + 2 + i];
+        node.x = at[i].x; node.y = at[i].y; node.scale = unit;
+        node.cos = unit; node.sin = 0;
+    }
+    // Clockwise is positive on the stage; the design's radius turns anticlockwise.
+    opxy::draw::turn(frame, art_first + 2, opxy::draw::Turn{((c >> 20) + 1) >> 1, -(((n >> 20) + 1) >> 1)});
 }
 }
 
@@ -69,12 +85,13 @@ namespace gnd_nois {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace mgnd_view;
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
+    // The noise moves for as long as the note sounds: held, then the hit's length after release.
+    const i32 run = m.running(md::rig::drum.length);
     const i32 red = md::positive(s[1]), st = md::positive(s[0]);
     const bool stereo = s[2] >= 0x40000000 && st > 0x028f5c29;
     const i32 k = md::one - multiply(red, 0x75c28f5c);                      // the design's 1 - 0.92 red
     const i32 tall = 44 * unit + multiply(red, 44 * unit);
-    const u32 shift = ph > 0 ? static_cast<u32>(ph) / 26 : 0u;              // the design's v.ph x 40, as a table offset
+    const u32 shift = run > 0 ? static_cast<u32>(run) * 77u >> 10 : 0u;     // the design's 40 steps a hit (77 a second), as a table offset
     for (u32 trace = 0; trace < (stereo ? 2u : 1u); ++trace) {
         const i32 cy = (80 * unit) + (stereo ? (trace ? 1 : -1) * multiply(st, 24 * unit) : 0);
         const u32 seed = trace ? 29u : 3u;

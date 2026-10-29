@@ -12,7 +12,7 @@ inline void display_reset(DisplayState& state) {
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {state.hit.age, input.reduced_motion};
+    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet};
     i32 own[8] = {};
     own[0] = input.slots[0];
     own[1] = input.slots[1];

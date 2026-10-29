@@ -349,7 +349,7 @@ inline void display_reset(DisplayState& state) {{
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {{
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {{state.hit.age, input.reduced_motion}};{f'''
+    const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet}};{f'''
     i32 own[8] = {{}};{own.format(source="input.slots")}''' if remapped else ""}
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], {"own" if remapped else "input.slots"}, moment);
     md::{s}::view(frame, {"own" if remapped else "input.slots"}, moment);{header}
@@ -669,7 +669,7 @@ inline void display_reset(DisplayState& state) {{
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {{
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {{state.hit.age, input.reduced_motion}};
+    const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet}};
     const u32 selected = input.model < kit::models ? input.model : 0;
     i32 own[8];
     kit::controls(selected, input.slots, own);
