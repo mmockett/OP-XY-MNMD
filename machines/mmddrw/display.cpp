@@ -13,7 +13,7 @@ inline void display_reset(DisplayState& state) {
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {state.hit.age, input.reduced_motion};
+    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet};
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], input.slots, moment);
     md::dpro_ddrw::view(frame, input.slots, moment);
     // The header last: both pages, the one the encoders edit on its bar.

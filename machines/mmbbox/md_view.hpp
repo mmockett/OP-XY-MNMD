@@ -46,11 +46,19 @@ enum Common : u32 { ring_first = path_count, ring_count = 3, handle_a = ring_fir
 struct Moment {
     i32 age;              // Q10 seconds since the note started; large when idle
     u32 reduced_motion;
+    i32 quiet;            // Q10 seconds since a note was last held (Hit::quiet)
     // 0 .. 1 (Q10 unit) through an animation of `length` Q10 seconds, or -1 when
     // done; `speed` is 2^20 / length, a constant, so there is no runtime division.
     i32 phase(i32 length, i32 speed) const {
         if (reduced_motion || age >= length) return -1;
         return md::clamp((age * speed) >> 10, 0, unit - 1);
+    }
+    // Q10 seconds since the note started, while a note is held and for `tail`
+    // after the last release, for motion that lasts as long as the note does;
+    // -1 when still.
+    i32 running(i32 tail) const {
+        if (reduced_motion || quiet >= tail) return -1;
+        return age;
     }
 };
 
@@ -58,15 +66,22 @@ struct Moment {
 struct Hit {
     u32 serial, track, initialized;
     i32 age;
+    // Q10 seconds since a note was last held, or since the note started when the
+    // SDK can't say which notes are held (held_notes beyond 128).
+    i32 quiet;
     bool update(const Input& input) {
         const bool baseline = !initialized || track != input.track;
         const bool fresh = !baseline && input.note_serial != serial;
+        const bool held = input.held_notes && input.held_notes <= 128;
+        const i32 step = md::clamp(input.elapsed, 0, 1024);
         serial = input.note_serial;
         track = input.track;
         initialized = 1;
-        if (baseline) age = 1 << 20;
-        else if (fresh) age = 0;
-        else age = md::clamp(age + md::clamp(input.elapsed, 0, 1024), 0, 1 << 20);
+        if (baseline) age = quiet = 1 << 20;
+        else {
+            age = fresh ? 0 : md::clamp(age + step, 0, 1 << 20);
+            quiet = fresh || held ? 0 : md::clamp(quiet + step, 0, 1 << 20);
+        }
         return fresh;
     }
 };
