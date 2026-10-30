@@ -15,7 +15,8 @@
 // and shorter (on the crash, a soft stick is far quieter and rings long). GRAB
 // below 80 grabs the cymbal after 40 to 135 ms. On the hat, CLOS is the pedal:
 // at 127 it is closed and rings for DEC's time; below, the hat rings open for
-// 35 ms (CLOS 0) to 2.25 s (112), then closes. PTCH moves the partials 0.1 to
+// 5 ms (CLOS 0) to 2.2 s (112) and 4.6 s (126), doubling every 12.7 steps as
+// the emulator's does, then closes with a chick. PTCH moves the partials 0.1 to
 // 0.15 octaves either way. A closed hat (CLOS 127, DEC under 64) chokes the open
 // ones, as on a drum machine. All three sit 12 dB over the emulator's main mix (the
 // other P-I machines 2 dB): the Machinedrum leaves its cymbals far under its drums,
@@ -77,8 +78,8 @@ const i32 tilt_centre = 239000;
 // Headroom for the level tables' peaks: everything is reckoned 3 octaves (18 dB) down.
 const i32 headroom = 3 * 65536;
 // A grabbed cymbal or a closed hat dies 60 dB in 0.12 s; the pedal's chick
-// strikes the hat again 17 dB under the hit.
-const i32 grab_ring = 810654, chick = 0x0f000000;
+// strikes the hat again, on top of what still rings, about 8 dB under the hit.
+const i32 grab_ring = 810654, chick = 0x28000000;
 // Each hit's balance: every partial's level times 0.5 .. 1, at random.
 const i32 vary_low = 0x40000000, vary_span = 0x40000000;
 
@@ -124,7 +125,8 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
             md::noise(voice.seed);
             voice.partials[k].level = vary_low + multiply(static_cast<i32>(voice.seed >> 1), vary_span);
         }
-        voice.held = static_cast<u32>(md::table9(plate.holds, p[plate.choke]));
+        // The hat at CLOS 127 never closes: its table's last step is 126's time.
+        voice.held = plate.hat && p[plate.choke] >= (127 << 24) ? 0 : static_cast<u32>(md::table9(plate.holds, p[plate.choke]));
         voice.waiting = voice.held ? 1 : 0;
         // As on a drum machine, a closed hat (the pedal down, a short DEC) chokes the
         // open ones on any voice of the engine.
@@ -151,7 +153,7 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
             // The hat's pedal closing strikes it again, softly: the chick.
             if (plate.hat)
                 for (unsigned k = 0; k < partial_count; ++k)
-                    if (voice.partials[k].level < chick) voice.partials[k].level = chick;
+                    voice.partials[k].level = md::add(voice.partials[k].level, chick);
         }
     } else if (voice.held) {
         step = md::decay(grab_ring);
@@ -230,7 +232,7 @@ const Plate hh = {
             17695}, {0, 7864, 7864, 11796, 19005, 27525, 34734, 39322, 51773}, {-23593, -26214, -20972, -6554, 0,
                 7864, 17039, 28836, 47186}, {0, 0, 0, 0, 0, 0, 0, 0, 0}},
     {-6554, -4915, -3277, -1638, 0, 1638, 3277, 4915, 6554},
-    7, {1100, 1764, 2426, 3969, 7938, 18522, 42336, 99225, 0}, 828546, true, 903568607, 20972};
+    7, {221, 526, 1176, 2859, 7021, 17098, 40112, 94725, 203918}, 828546, true, 903568607, 20972};
 }
 }
 

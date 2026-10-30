@@ -58,7 +58,7 @@ const i32 tail_start = 214748365, tail_time = 876190;
 // time constant (-60 dB in 59 ms).
 const u32 click_cycle = 220, body_in = 88;           // samples
 const u32 click_increment = 19522579;                // 2^32 / 220
-const i32 click_level = 1288490189;                  // 1.2 x, at half
+const i32 click_level = 644245094;                   // 1.2 x, at a quarter: STRT's 1.57 x of it stays under one
 const i32 boost_start = 1288490189, boost_time = 743076;
 // NOIS: a burst falling 60 dB in 5 .. 120 ms, louder and longer with the control;
 // its level follows (p + p^2) / 2, as measured.
@@ -203,7 +203,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         mixed += multiply(burst, body_level) * 2;
         mixed = b.clip.run(mixed, voice.highpass);
         if (voice.age < click_cycle) {
-            mixed -= multiply(md::sine(voice.click_phase), multiply(body_level, b.click) * 2);
+            mixed -= multiply(md::sine(voice.click_phase), multiply(body_level, b.click) * 4);
             voice.click_phase += click_increment;
         } else if (voice.age < click_cycle + body_in) {
             voice.gate += gate_step;
