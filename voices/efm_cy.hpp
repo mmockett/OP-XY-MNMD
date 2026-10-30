@@ -67,7 +67,7 @@ struct Block {
         fb = multiply(efm::feedback(p[FB]), fb_scale);
         index = md::span(p[MOD], index_low, index_low + index_span);
         // MFRQ / 16 + 0.5 of each sine, halved to fit Q28.
-        ratio = (efm::sixteenths(p[MFRQ]) + 0x08000000) / 2;
+        ratio = efm::sixteenths(p[MFRQ]) / 2 + 0x04000000;
         depth_step = md::table9(mdec_steps, p[MDEC]);
         hpf = md::table9(hpf_coefficients, p[HPF]);
     }
