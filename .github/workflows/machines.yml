@@ -48,7 +48,7 @@ jobs:
   upstream:
     runs-on: ubuntu-latest
     env:
-      CATALOG_READY: mmdyn mmens mmpar mmpulse mmsid mmstat mmvo6
+      CATALOG_READY: mmdyn mmens mmpar mmpulse mmsid mmstat mmvo6 mmsaw mmsin mmnois
     steps:
       - uses: actions/checkout@v4
         with:
