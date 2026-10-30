@@ -397,6 +397,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         "description": (PRESETS.get(name, {}).get("description") or f"The Monomachine's {name}, fitted to the original.")[:160],
         "identity": {"engine": 36 + index, "page": 84 + index},
         "presetDefaults": {"amp": {"attack": 0, "decay": 32767, "sustain": 32767, "release": 4096}},
+        **({"presets": "presets"} if (folder / "presets").is_dir() else {}),
     }, indent=2) + "\n")
 
     # --- tests: the module's own checks run through tools/test_voices.py; this checks the engine
