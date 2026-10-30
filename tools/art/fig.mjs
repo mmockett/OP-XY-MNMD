@@ -44,7 +44,7 @@ add('speaker', 'o2', [0, 0], [[-16, -15], [-4, -15], [-4, -9], [4, -16], [4, 16]
 add('mic', 'o2', [0, 0], rect(-6, -12, 12, 18));
 add('stand', 'mid', [0, 0], [[-0.8, 6], [0.8, 6], [0.8, 68], [10, 68], [10, 70], [-10, 70], [-10, 68], [-0.8, 68]]);
 // Wavefronts of a clap, facing right from the pivot.
-for (let k = 0; k < 4; k++) add(`front${k}`, k ? 'mid' : 'thin', [0, 0], arc(12, -0.85, 0.85), false);
+for (let k = 0; k < 4; k++) add(`front${k}`, k ? 'mid' : 'thin', [0, 0], arc(24, -0.85, 0.85), false);
 // A shaker's beads.
 for (let k = 0; k < 8; k++) ring(`bead${k}`, 'f4', [0, 0], 2.6);
 
@@ -72,6 +72,20 @@ add('leg_l', 'mid', [0, 0], [[0, 0], [3, 0], [-8, 26], [-11, 26]]);
 add('leg_r', 'mid', [0, 0], [[0, 0], [-3, 0], [8, 26], [11, 26]]);
 add('pillow', 'o2', [0, 0], [[-34, 0], [-30, -7], [-14, -11], [14, -11], [30, -7], [34, 0]]);
 add('felt2', 'o2', [0, 0], [[-11, -2.5], [11, -2.5], [13, 0], [11, 2.5], [-11, 2.5], [-13, 0]]);
+// A spray's strokes, each its own small closed part (a spray on one reshaping
+// path broke up on the device), pointing right from the pivot.
+for (let k = 0; k < 8; k++) add(`spark${k}`, 'mid', [0, 0], [[0, -0.6], [11, -0.3], [11, 0.3], [0, 0.6]]);
+// A clap's rings behind its fronts, and its fronts harder: halfway to a chevron, then one.
+for (let k = 0; k < 4; k++) add(`echo${k}`, 'dim', [0, 0], arc(24, -0.85, 0.85), false);
+const front = hard => Array.from({ length: 7 }, (_, i) => {
+  const r = 24, ap = 0.85, a = -ap + 2 * ap * i / 6;
+  const x = r * Math.cos(a) * (1 - hard) + (r * Math.cos(ap) + r * (1 - Math.cos(ap)) * (1 - Math.abs(a) / ap) * 2.6) * hard;
+  return [Math.round(x * 2) / 2, Math.round(r * Math.sin(a) * 2) / 2];
+});
+for (let k = 0; k < 4; k++) add(`frontb${k}`, k ? 'mid' : 'thin', [0, 0], front(0.5), false);
+for (let k = 0; k < 4; k++) add(`frontc${k}`, k ? 'mid' : 'thin', [0, 0], front(1), false);
+// What a bell hangs from: short, so it stops under the header.
+add('hanger', 'dim', [0, 0], rect(-1, -30, 2, 30));
 const kit = parts.splice(0);
 
 // ---- MD E12: a strip of tape on a splicing block, seen from above ----

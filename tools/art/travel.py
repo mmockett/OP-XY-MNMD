@@ -19,8 +19,8 @@ another is up, such as EFM's MFRQ under MOD, is heard). A step's change is the
 mean difference in band energy (dB, 8 bands by 16 windows, the windows weighted
 by loudness, bands floored 60 dB under the case's loudest) between neighbouring
 values; a control's change is the larger of its two sums. Full travel is FULL_DB
-or more; less travel is proportional, down to MINIMUM, so every control still
-reads at a glance.
+or more; less follows the square root of the change (mid-sized changes aren't
+timid), down to MINIMUM, so every control still moves plainly as it is turned.
 """
 import collections
 import json
@@ -38,7 +38,7 @@ from make_engine import defaults, slug, sound_header  # noqa: E402
 from test_voices import private_includes  # noqa: E402
 
 FULL_DB = 24.0     # a change this large or larger moves its part all the way
-MINIMUM = 0.2      # the least travel, a fifth of the full
+MINIMUM = 0.5      # the least travel, half the full: the quietest control still plainly moves
 STEPS = (0, 32, 64, 96, 127)
 VIEW = ROOT / "voices" / "mdkit_view.hpp"
 
@@ -110,7 +110,7 @@ def main():
         rows = []
         for name in catalog.ENGINES[kit]:
             labels = catalog.MACHINES[name][2]
-            k = [0 if not labels[slot] else round(max(MINIMUM, min(1.0, db[(name, slot)] / FULL_DB)) * 256) for slot in range(8)]
+            k = [0 if not labels[slot] else round(max(MINIMUM, min(1.0, (db[(name, slot)] / FULL_DB) ** 0.5)) * 256) for slot in range(8)]
             rows.append((name, k, [f"{labels[s]} {db[(name, s)]:.1f}" for s in range(8) if labels[s]]))
         for name, k, shown in rows:
             print(f"{name:7s} " + "  ".join(shown))
@@ -121,7 +121,7 @@ def main():
         table_name, marker = TABLES[kit]
         table = [f"// {marker}:begin (tools/art/travel.py writes this table: edit the tool, then run it)",
                  "// How far each control moves its part, Q8 (256 = all the way), in proportion to",
-                 f"// the change it makes to the sound (full at {FULL_DB:.0f} dB of band energy, at least {MINIMUM}).",
+                 f"// the change it makes to the sound (the root of its share of {FULL_DB:.0f} dB of band energy, at least {MINIMUM}).",
                  f"static const opxy::u16 {table_name}[{len(rows)}][8] = {{"]
         table += [f"    {{{', '.join(str(v) for v in k)}}},   // {name}: {', '.join(shown)}" for name, k, shown in rows]
         table += ["};", f"// {marker}:end"]

@@ -1,13 +1,13 @@
 <g id="mdkit_panel">
 <path d="M0,0 L480,0 L480,38 L0,38 Z" fill="#000000"/>
-<path id="mdkit_node_42" transform="matrix(1 0 0 1 0 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#000000" stroke="#000000" stroke-width="0.5"/>
-<path id="mdkit_node_43" transform="matrix(1 0 0 1 60 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#323232" stroke="#323232" stroke-width="0.5"/>
-<path id="mdkit_node_44" transform="matrix(1 0 0 1 120 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#4B4B4B" stroke="#4B4B4B" stroke-width="0.5"/>
-<path id="mdkit_node_45" transform="matrix(1 0 0 1 180 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#646464" stroke="#646464" stroke-width="0.5"/>
-<path id="mdkit_node_46" transform="matrix(1 0 0 1 240 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#7D7D7D" stroke="#7D7D7D" stroke-width="0.5"/>
-<path id="mdkit_node_47" transform="matrix(1 0 0 1 300 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#969696" stroke="#969696" stroke-width="0.5"/>
-<path id="mdkit_node_48" transform="matrix(1 0 0 1 360 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#AFAFAF" stroke="#AFAFAF" stroke-width="0.5"/>
-<path id="mdkit_node_49" transform="matrix(1 0 0 1 420 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#CDCDCD" stroke="#CDCDCD" stroke-width="0.5"/>
+<path id="mdkit_node_63" transform="matrix(1 0 0 1 0 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#000000" stroke="#000000" stroke-width="0.5"/>
+<path id="mdkit_node_64" transform="matrix(1 0 0 1 60 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#323232" stroke="#323232" stroke-width="0.5"/>
+<path id="mdkit_node_65" transform="matrix(1 0 0 1 120 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#4B4B4B" stroke="#4B4B4B" stroke-width="0.5"/>
+<path id="mdkit_node_66" transform="matrix(1 0 0 1 180 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#646464" stroke="#646464" stroke-width="0.5"/>
+<path id="mdkit_node_67" transform="matrix(1 0 0 1 240 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#7D7D7D" stroke="#7D7D7D" stroke-width="0.5"/>
+<path id="mdkit_node_68" transform="matrix(1 0 0 1 300 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#969696" stroke="#969696" stroke-width="0.5"/>
+<path id="mdkit_node_69" transform="matrix(1 0 0 1 360 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#AFAFAF" stroke="#AFAFAF" stroke-width="0.5"/>
+<path id="mdkit_node_70" transform="matrix(1 0 0 1 420 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#CDCDCD" stroke="#CDCDCD" stroke-width="0.5"/>
 <text id="mdkit_text_0" transform="matrix(1 0 0 1 5 10)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="10px">-</text>
 <text id="mdkit_text_1" transform="matrix(1 0 0 1 125 10)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="10px">-</text>
 <text id="mdkit_text_2" transform="matrix(1 0 0 1 245 10)" fill="#000000" font-family="UniversNextPro-Light" font-size="10px">-</text>
@@ -44,10 +44,10 @@
 <path id="mdkit_node_16" d="M-16 -15 L-4 -15 L-4 -9 L4 -16 L4 16 L-4 9 L-4 15 L-16 15 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_17" d="M-6 -12 L6 -12 L6 6 L-6 6 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_18" d="M-0.8 6 L0.8 6 L0.8 68 L10 68 L10 70 L-10 70 L-10 68 L-0.8 68 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
-<path id="mdkit_node_19" d="M8 -9 L10 -6.5 L11.5 -3.5 L12 0 L11.5 3.5 L10 6.5 L8 9" fill="none" stroke="#f7f5f5" stroke-width="1"/>
-<path id="mdkit_node_20" d="M8 -9 L10 -6.5 L11.5 -3.5 L12 0 L11.5 3.5 L10 6.5 L8 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
-<path id="mdkit_node_21" d="M8 -9 L10 -6.5 L11.5 -3.5 L12 0 L11.5 3.5 L10 6.5 L8 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
-<path id="mdkit_node_22" d="M8 -9 L10 -6.5 L11.5 -3.5 L12 0 L11.5 3.5 L10 6.5 L8 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_19" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#f7f5f5" stroke-width="1"/>
+<path id="mdkit_node_20" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_21" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_22" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <circle id="mdkit_node_23" cx="0" cy="0" r="2.6" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <circle id="mdkit_node_24" cx="0" cy="0" r="2.6" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <circle id="mdkit_node_25" cx="0" cy="0" r="2.6" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
@@ -67,6 +67,27 @@
 <path id="mdkit_node_39" d="M0 0 L-3 0 L8 26 L11 26 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_40" d="M-34 0 L-30 -7 L-14 -11 L14 -11 L30 -7 L34 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_41" d="M-11 -2.5 L11 -2.5 L13 0 L11 2.5 L-11 2.5 L-13 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
+<path id="mdkit_node_42" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_43" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_44" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_45" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_46" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_47" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_48" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_49" d="M0 -0.6 L11 -0.3 L11 0.3 L0 0.6 Z" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_50" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_51" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_52" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_53" d="M16 -18 L20 -13 L23 -6.5 L24 0 L23 6.5 L20 13 L16 18" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_54" d="M16 -18 L21.5 -13 L26.5 -6.5 L30.5 0 L26.5 6.5 L21.5 13 L16 18" fill="none" stroke="#f7f5f5" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_55" d="M16 -18 L21.5 -13 L26.5 -6.5 L30.5 0 L26.5 6.5 L21.5 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_56" d="M16 -18 L21.5 -13 L26.5 -6.5 L30.5 0 L26.5 6.5 L21.5 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_57" d="M16 -18 L21.5 -13 L26.5 -6.5 L30.5 0 L26.5 6.5 L21.5 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_58" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#f7f5f5" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_59" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_60" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_61" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_62" d="M-1 -30 L1 -30 L1 0 L-1 0 Z" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
 <circle id="mdkit_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
 <circle id="mdkit_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>
 <circle id="mdkit_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1.2"/>

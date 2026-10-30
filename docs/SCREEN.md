@@ -103,8 +103,8 @@ the block's end.
 How far a control moves its part follows how much it changes the sound:
 `tools/art/travel.py` plays each member with each control swept (at its
 defaults and with every control at 64), measures the band-energy change and
-writes the tables (MD KIT's and MD E12's) in `voices/mdkit_view.hpp` (full travel at 24 dB, at least a
-fifth of it). Run it again after a voice changes.
+writes the tables (MD KIT's and MD E12's) in `voices/mdkit_view.hpp` (the square root of its share of 24 dB,
+at least half of full travel). Run it again after a voice changes.
 
 The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespaces
 `fig` and `fig_e12`), laid out about x 362 and drawn shifted to the centre
@@ -113,11 +113,9 @@ at scale 2 may reach. Their fixed parts (rings, a rod, a hand, clamps, a
 loudspeaker, wavefronts, beads; E12's block, slots, blade and patches:
 `tools/art/fig.mjs`) take the common nodes' places, which these kits never use
 otherwise; `build.mjs` drops every design part for the kits in `FIG_KITS`
-(MD KIT and MD E12, each with its parts in `FIGS`). MD KIT is 50 nodes and about 12.7 KB of artwork (its hardware parts
+(MD KIT and MD E12, each with its parts in `FIGS`). MD KIT is 71 nodes and about 16 KB of artwork (its hardware parts
 follow the common nodes, and each view hides them first); MD E12 is 39 nodes
-and about 11 KB. A hit animates in sixteen
-steps, so the right side redraws a few times a hit rather than every frame.
-
+and about 11 KB. 
 MD E12 draws its sample as a strip of tape on a splicing block, seen from
 above (namespace `fig_e12`), its recording developed into stripes across it,
 each machine its own recording:
@@ -138,6 +136,42 @@ each machine its own recording:
 A hit runs the tape left through the block. Its travel table needs the E12
 capture on this Mac (`tools/art/travel.py` refuses to write it from the silent
 stand-in); only the measured travel goes in the table, never sample data.
+
+### Keeping the kits' lines whole, and their controls alive
+
+Lessons from the device (build 039), for any view on a reshaping path:
+
+- **A line is a real thin closed shape.** `fig::draw(..., ribbon)` offsets both
+  edges a quarter of a local pixel apart. A line traced out and back over itself
+  (`polyline`), most of all one that turns sharply, broke up on the device even
+  when every host check passed.
+- **Never draw several separate strokes on one path.** TRX-BD's NOIS spray broke
+  up that way: the strokes and the joins between them doubled back at every tip.
+  Use fixed nodes (`spark0`..), which cannot change shape.
+- **An outline must not cross itself.** A beater's ball started from the far side
+  of the ball: the crossing cancelled its area at some settings ("has no area",
+  TRX-B2 at RAMP 80..82), and drew a stray line through the ball at all of them.
+- **Count the points a shape can need at its extreme.** A zigzag that runs out of
+  points ends in a straight line. Fit the spacing to the points, not the reverse.
+- **Keep every point within 128 px of its path's origin** (64 local px at scale 2),
+  and everything below the header: art draws over it, so a hanging rod crossed the
+  controls. Check with the SDK's `opxy::draw::valid`, which `check_kit_frames` does
+  not call.
+- **Sweep all 128 values** of every control, struck, not a few: `check_kit_frames`.
+
+So that a control is never timid or dead:
+
+- **Travel is proportional but never small:** the square root of the sound's change,
+  at least half of the full travel (`travel.py`).
+- **An amount that starts from nothing** (a spray, teeth, clamps, a second bell) grows
+  from 0 (`Ctl::a`); it must not jump in at the middle of its range.
+- **A count needs a continuous part too:** hammer marks deepen, the newest ray grows
+  out, splices draw closer, or the control is a two-state switch between its counts.
+- **A shade fades** through the palette's greys (`fig::grey`), never dark to white.
+- **Motion eases.** A hit's `pose` swings up over 33 ms and eases back; `arc` runs out
+  and comes home. Nothing jumps at the hit's start or end.
+- **Measure it:** walk each control in steps of 8 and count the steps that change
+  nothing in the frame. No more than a fifth may.
 
 ## Monomachine engines
 
