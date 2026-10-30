@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { rig, flatten } from './rig.mjs';
 import { strokes } from './font.mjs';
+import { FIG, COMMON_SLOTS } from './fig.mjs';
 import { readFileSync } from 'node:fs';
 
 // The verified slots (tools/catalog.py); the design's spellings where they differ.
@@ -230,7 +231,13 @@ function liftStrikes(parts) {
   }
 }
 
-export function build(engine, members, pads = false) {
+// A kit drawn with the patent plate's right side (--fig): each machine keeps its
+// instrument on the left; the design's panel on the right gives way to the
+// sounding part in section (tools/art/fig.mjs), which the view places.
+const PANEL_X = 240;
+const FIG_KITS = ['mdkit'];
+
+export function build(engine, members, pads = false, withFig = false) {
   const nodes = [], machines = [], texts = [];
   for (const [instrument, name] of members) {
     const r = rig(instrument, DESIGN_NAME[name] ?? name);
@@ -242,6 +249,10 @@ export function build(engine, members, pads = false) {
       r.hit = r.hit.filter(h => h.struck && bounds(h.shape).cx < 236 && !PADS_FREE.includes(h.key) && !PADS_STILL.includes(h.key));
       r.free.push(...r.parts.filter(p => PADS_FREE.includes(p.key)).map(p => ({ key: p.key, controls: [] })));
       r.parts = r.parts.filter(p => !PADS_FREE.includes(p.key));
+      if (withFig) {
+        r.parts = r.parts.filter(p => bounds(p.shape).cx < PANEL_X);
+        r.free = [];
+      }
       padStrikes(r.parts);
       if (!r.hit.length) liftStrikes(r.parts);
       flexHeads(r.parts);
@@ -310,7 +321,20 @@ export function build(engine, members, pads = false) {
     }
     machines.push({ name, instrument, nodes: mine, defaults: r.values, labels: r.labels, free: r.free });
   }
-  return { engine, nodes, machines, texts };
+  // The right side's fixed parts: the first take the common nodes' places, the rest follow the instruments.
+  let fig = null;
+  if (withFig) {
+    fig = FIG.map((f, k) => {
+      const [px, py] = f.pivot;
+      const d = f.r !== undefined ? `circle 0 0 ${num(f.r)}`
+        : 'M' + f.pts.map(([x, y], i) => (i ? 'L' : '') + num(x - px) + ' ' + num(y - py)).join(' ') + (f.closed ? ' Z' : '');
+      const part = { name: f.name, style: f.style, cx: px, cy: py, d };
+      if (k < COMMON_SLOTS) part.node = 4 + k;
+      else { part.node = COMMON_NODES + nodes.length; nodes.push({ kind: 'rest', style: f.style, shape: [], effects: [], cx: px, cy: py, d, id: 'fig:' + f.name }); }
+      return part;
+    });
+  }
+  return { engine, nodes, machines, texts, fig };
 }
 
 function header(engine, art) {
@@ -388,17 +412,26 @@ function panel(engine, art, paged, compact = false) {
   const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * (compact ? 1 : 0.5))}`);
   for (let p = 0; p < 4; p++)
     out.push(`  <path id="${engine}_node_${p}" ${park} d="M${seed.join(' L')} Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>`);
+  // A kit drawn with the right side's parts holds them in the common nodes' places.
+  const common = new Map((art.fig ?? []).filter(p => p.node < COMMON_NODES).map(p => [p.node, p]));
+  const figNode = (p, id) => {
+    const [fill, stroke, width] = PALETTE[SHADE[p.style]];
+    const round = p.d.match(/^circle (\S+) (\S+) (\S+)$/);
+    return round ? `  <circle id="${engine}_node_${id}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`
+                 : `  <path id="${engine}_node_${id}" d="${p.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
+  };
+  const push = (id, line) => out.push(common.has(id) ? figNode(common.get(id), id) : line);
   // Rings, handles and the cursor.
   for (let k = 0; k < 3; k++)
-    out.push(`  <circle id="${engine}_node_${4 + k}" ${park} cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
+    push(4 + k, `  <circle id="${engine}_node_${4 + k}" ${park} cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
   for (let k = 0; k < 2; k++)
-    out.push(`  <path id="${engine}_node_${7 + k}" ${park} d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>`);
-  out.push(`  <path id="${engine}_node_9" ${park} d="M0 -40 L0 40" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
+    push(7 + k, `  <path id="${engine}_node_${7 + k}" ${park} d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>`);
+  push(9, `  <path id="${engine}_node_9" ${park} d="M0 -40 L0 40" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
   // The readout: three digits of seven segments a..g, horizontal or vertical strokes about their centres.
   for (let digit = 0; digit < 3; digit++)
     for (let seg = 0; seg < 7; seg++) {
       const d = [0, 3, 6].includes(seg) ? 'M-1.6 0 L1.6 0' : 'M0 -1.2 L0 1.2';
-      out.push(`  <path id="${engine}_node_${10 + digit * 7 + seg}" ${park} d="${d}" fill="none" stroke="#8c8d92" stroke-width="0.9"/>`);
+      push(10 + digit * 7 + seg, `  <path id="${engine}_node_${10 + digit * 7 + seg}" ${park} d="${d}" fill="none" stroke="#8c8d92" stroke-width="0.9"/>`);
     }
   art.nodes.forEach((n, i) => {
     const [fill, stroke, width] = PALETTE[SHADE[n.style]];
@@ -434,7 +467,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // --one-row: a Monomachine engine with at most four controls, on the stock header.
   const args = process.argv.slice(2), pads = args[0] === '--pads', oneRow = args[0] === '--one-row';
   const [engine, ...specs] = pads || oneRow ? args.slice(1) : args;
-  const art = build(engine, specs.map(s => s.split(':')), pads);
+  const fig = pads && FIG_KITS.includes(engine);
+  const art = build(engine, specs.map(s => s.split(':')), pads, fig);
   const dir = path.join(root, 'machines', engine);
   const paged = !oneRow, svg = panel(engine, art, paged, pads);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
