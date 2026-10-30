@@ -62,6 +62,39 @@ machine, and the rest would not fit. TRX takes 176 nodes, EFM 203,
 P-I 181 and E12 212. The header names the machine while Shift is
 held.
 
+### The kits' right side (MD KIT)
+
+MD KIT draws the right side as fig. 2 of an engraved patent plate: the
+sounding part of the instrument in section, beside the playing drawing on the
+left, with no plot or panel. Each control moves one physical part, the same way
+across the families:
+
+| Kind of control | What it moves |
+| --- | --- |
+| Pitch | a head's standing waves; a cymbal's, bell's or bar's size; a fork's tines |
+| Decay | how far the waves carry from the strike; how many rings leave an edge |
+| Ramp, bump, tension | the dent the striker presses into the head |
+| Striker (STRT, SNAP, HAMR, HARD) | how high the beater, stick or mallet is lifted, or its head's size |
+| Tone, filters | snare wires pressed on or hanging clear, a cymbal's thickness, the teeth of its rim, a bell's wall |
+| Metal, harmonics, FM | hammer marks, the overtone riding the head, an exciter's spring |
+| Room | an echo chamber's depth, ceiling and reflections |
+| Distortion | clamps closing on the head, shown only while it is up |
+
+How far a control moves its part follows how much it changes the sound:
+`tools/art/travel.py` plays each member with each control swept (at its
+defaults and with every control at 64), measures the band-energy change and
+writes the table in `voices/mdkit_view.hpp` (full travel at 24 dB, at least a
+fifth of it). Run it again after a voice changes.
+
+The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespace
+`fig`). The kit's artwork must stay under the SDK's 64 KB and the instruments
+take about 61 KB of it, so the right side's 27 fixed parts (rings, a rod, a
+hand, clamps, a loudspeaker, wavefronts, beads: `tools/art/fig.mjs`) take the
+common nodes' places, which MD KIT never uses otherwise; `build.mjs` drops the
+design's panel parts for the kits in `FIG_KITS`. A hit animates in sixteen
+steps, so the right side redraws a few times a hit rather than every frame.
+MD E12 still draws the design's pE12 panel.
+
 ## Monomachine engines
 
 One machine per engine, drawn full width as the design draws it (oscillator

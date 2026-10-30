@@ -234,7 +234,7 @@ function liftStrikes(parts) {
 // A kit drawn with the patent plate's right side (--fig): each machine keeps its
 // instrument on the left; the design's panel on the right gives way to the
 // sounding part in section (tools/art/fig.mjs), which the view places.
-const PANEL_X = 240;
+const PANEL_X = 236;
 const FIG_KITS = ['mdkit'];
 
 export function build(engine, members, pads = false, withFig = false) {
