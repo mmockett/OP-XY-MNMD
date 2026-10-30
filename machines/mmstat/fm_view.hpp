@@ -11,6 +11,7 @@
 #include "md_view.hpp"
 #include "md_rig.hpp"
 #include "fmp.hpp"
+#include "live_view.hpp"
 
 namespace md_mmstat {} namespace md = md_mmstat; namespace md_mmstat {
 namespace fm_panel {
@@ -32,6 +33,7 @@ inline void draw(F& frame, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, 
             points[i].y = (stage[i].y - oy * unit) / 2;
         }
         polyline(p, points, n, key);
+        md::live::unfold(p);
     }
     show_path(frame, path, ox, oy, tone, 2 * unit);
 }
@@ -60,12 +62,13 @@ inline u32 bundle(Point* out, u32 n, const Arrow& a, i32 depth) {
 
 // The output wave from x 282 to 472, y = 80 - 46 s: three cycles over two
 // paths of 32 points, as the design draws it, or two over one path, which
-// keeps a single path's wave legible. `wave(u)` gives s (Q31) for the
-// carrier's phase u (Q32 cycles) and that phase in Q16 cycles, for the ratios.
+// keeps a single path's wave legible, half as many to half as many again across
+// TUNE. `wave(u)` gives s (Q31) for the carrier's phase u (Q32 cycles) and that
+// phase in Q16 cycles, for the ratios.
 template <class F, class W>
-inline void output(F& frame, u32 first_path, u32 paths, i32 spin, u32 key, const W& wave) {
+inline void output(F& frame, u32 first_path, u32 paths, i32 spin, i32 tune, u32 key, const W& wave) {
     // 3 cycles over 62 steps or 2 over 31, and 190 px, as constants: no runtime division.
-    const u32 step16 = paths > 1 ? 3171u : 4228u;          // (cycles << 16) / steps
+    const u32 step16 = ((paths > 1 ? 3171u : 4228u) * md::live::stretch(tune)) >> 7;   // (cycles << 16) / steps
     const i32 dx = paths > 1 ? 3138 : 6276;                // 190 px / steps, Q10
     for (u32 side = 0; side < paths; ++side) {
         Point pts[32];
@@ -77,6 +80,14 @@ inline void output(F& frame, u32 first_path, u32 paths, i32 spin, u32 key, const
         }
         draw(frame, first_path + side, pts, 32, paths < 2 ? 377 : side ? 424 : 330, 80, key + side, line);
     }
+}
+
+// A modulator's sine with its feedback (Q28 cycles), solved twice as the sound's
+// (fmp::run) is, at its phase p.
+inline i32 fed_back(u32 p, i32 fb) {
+    if (!fb) return md::sine(p);
+    const i32 first = md::sine(p + (static_cast<u32>(multiply(md::sine(p), fb)) << 4));
+    return md::sine(p + (static_cast<u32>(multiply(first, fb)) << 4));
 }
 
 // One modulated sine of the wave: sin(2 pi u + I sin(2 pi r u)), I in Q28
@@ -107,23 +118,30 @@ inline i32 inverse(i32 x) {
     return static_cast<i32>(shift >= 2 ? static_cast<u32>(y) << (shift - 2) : static_cast<u32>(y) >> (2 - shift));
 }
 
-// The animation: during a hit the wave turns (spin = 2 phase cycles) and, as
-// the design's live2, the depth eases off to 0.4 and back.
-struct Live { i32 spin, ease; };
-inline Live live(const Moment& m) {
-    const i32 ph = m.phase(rig::drum.length, rig::drum.speed);   // Q10, or -1
-    if (ph < 0) { const Live rest = {0, md::one}; return rest; }
-    const Live now = {ph * 128, md::one - ph * 1258291};          // 2 ph Q16 cycles; 1 - 0.6 ph
+// The animation: while a note is held the wave swings a cycle either way (spin,
+// Q16 cycles, at the speed the design's hit turns it) and, as the design's
+// live2, the depth eases off to 0.4 and back, a second each; both ease to rest
+// after the release. swell is 1 at the note and at its breath's top, 0 at rest.
+struct Live { i32 spin, ease, swell; };
+inline Live moving(const Moment& m) {
+    const md::live::Motion h = md::live::of(m);
+    const i32 down = md::live::swell(h, md::live::one_hz);
+    const Live now = {multiply(md::live::sway(h, md::live::half_hz), 65536), md::one - multiply(down, 0x4ccccccd), h.amount - down};
     return now;
 }
+inline u32 wave_key(const i32* s, const Live& l) {
+    u32 key = 0x0f3a0001u;
+    for (u32 i = 0; i < 8; ++i) key = md::live::mix(key, s[i]);
+    return md::live::mix(md::live::mix(key, l.spin), l.ease ^ l.swell) & ~1u;   // key + side: two paths
+}
 
-// The feedback loop (the rig's one dashed part) brightens with its amount: dim
-// when off, then the dash's grey, mid and bright.
+// The feedback loop (the rig's one dashed part) brightens with its amount, up
+// the greys from dim when off.
 template <class F>
 inline void feedback(F& frame, i32 amount) {
-    static const u32 tones[4] = {dim, dash, mid, line};
+    static const u32 tones[5] = {dim, dash, label, mid, line};
     const u32 v = static_cast<u32>(md::positive(amount)) >> 24;
-    restyle(frame, dash, tones[v == 0 ? 0 : v < 43 ? 1 : v < 86 ? 2 : 3]);
+    restyle(frame, dash, tones[v == 0 ? 0 : 1 + (v >> 5)]);
 }
 
 // DYN's two envelope sketches, x 96..150: 1fen falls from the top in
@@ -166,13 +184,15 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     draw(f, view::contour, pts, bundle(pts, 0, a1, s[2]), 124, 60, lines_of(s[2]) + 16, lines_of(s[2]) > 1 ? view::line : view::dim);
     draw(f, view::wave, pts, bundle(pts, 0, a2, s[5]), 124, 100, lines_of(s[5]) + 32, lines_of(s[5]) > 1 ? view::line : view::dim);
     feedback(f, s[3]);
-    const Live l = live(m);
+    const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));                       // 0.5 + TONE
     const i32 i1 = cycles(multiply(multiply(get(s, 2), tone), l.ease), 3 * 2 * radian);   // 1env 3 tone live
     const i32 i2 = cycles(multiply(get(s, 5), tone), 5 * radian);                     // 2vol 2.5 tone
-    const u32 r1 = static_cast<u32>(fmp::ratio(s[0])) >> 12, r2 = static_cast<u32>(fmp::ratio(s[4])) >> 12;
-    output(f, view::comb, 2, l.spin, view::key_of(s[0], s[2] ^ l.ease, s[4] ^ s[5], s[6] ^ l.spin), [&](u32 u, u32 u16) {
-        const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2), i2))) << 4;
+    // M1 as the sound has it: its listed ratio moved by 1FIN, with 1FB's feedback.
+    const u32 r1 = static_cast<u32>(md::positive(fmp::ratio(s[0]) + fine(s[1]))) >> 12, r2 = static_cast<u32>(fmp::ratio(s[4])) >> 12;
+    const i32 fb = fmp::feedback(s[3]);
+    output(f, view::comb, 2, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+        const u32 offset = (static_cast<u32>(multiply(fed_back(u16 * r1, fb), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2), i2))) << 4;
         return md::sine(u + offset);
     });
 }
@@ -192,7 +212,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
         draw(f, k, pts, bundle(pts, 0, a, ev), 115, y, lines_of(ev) + 16 * (k + 1) + (static_cast<u32>(tip) << 8),
              lines_of(ev) > 1 ? view::line : view::dim);
     }
-    const Live l = live(m);
+    const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));
     i32 index[3], weight[3];
     u32 ratio[3];
@@ -207,7 +227,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     // s = sum(sin_k env_k) / max(0.3, sum env_k), the division read off a table.
     const i32 floor = 0x0999999a;                                                // 0.3, quartered
     const i32 norm = inverse(total > floor ? total : floor);
-    output(f, view::extra, 1, l.spin, view::key_of(s[0] ^ s[1], s[2] ^ s[3], s[4] ^ s[5], s[6] ^ l.spin ^ l.ease), [&](u32 u, u32 u16) {
+    output(f, view::extra, 1, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
         i32 sum = 0;
         for (u32 k = 0; k < 3; ++k) sum += multiply(modulated(u, u16, index[k], ratio[k]), weight[k]);
         return md::gain(multiply(sum, norm), 4);
@@ -236,17 +256,18 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     n += m2;
     const bool either = lines_of(s[2]) > 1 || lines_of(s[5]) > 1;
     draw(f, view::contour, pts, n, 124, 80, lines_of(s[2]) * 8 + lines_of(s[5]) + 64, either ? view::line : view::dim);
-    curve(f, view::wave, get(s, 1), 6, 20, true, view::key_of(s[1], 1, 2, 3), view::mid);
-    curve(f, view::comb, get(s, 3), 30, 20, false, view::key_of(s[3], 4, 5, 6), view::dim);
+    curve(f, view::wave, get(s, 1), 6, 20, true, md::live::sealed(md::live::mix(1u, s[1])), view::mid);
+    curve(f, view::comb, get(s, 3), 30, 20, false, md::live::sealed(md::live::mix(2u, s[3])), view::dim);
     feedback(f, s[6]);
-    const Live l = live(m);
-    // I1 = 1vol 3 (1 + 1ven (live ? 1 - ph : 0.5)), I2 = 2env 2.5.
-    const i32 lift = l.spin ? multiply(get(s, 3), l.ease) : opxy::q31::half(get(s, 3));
+    const Live l = moving(m);
+    // I1 = 1vol 3 (1 + 1ven (0.5 at rest, more with the note's swell)), I2 = 2env 2.5.
+    const i32 lift = multiply(get(s, 3), half + opxy::q31::half(md::clamp(l.swell, 0, md::one)));
     const i32 i1 = cycles(get(s, 2), 3 * radian) + multiply(cycles(get(s, 2), 3 * radian), lift);
     const i32 i2 = cycles(get(s, 5), 5 * radian / 2);
     const u32 r1 = static_cast<u32>(fmp::dyn_ratio1(s[0])) >> 12, r2 = static_cast<u32>(fmp::dyn_ratio2(s[4])) >> 12;
-    output(f, view::extra, 1, l.spin, view::key_of(s[0] ^ s[2], s[3] ^ lift, s[4] ^ s[5], l.spin), [&](u32 u, u32 u16) {
-        const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2), i2))) << 4;
+    const i32 fb = fmp::feedback(s[6]);
+    output(f, view::extra, 1, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+        const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1), i1)) + static_cast<u32>(multiply(fed_back(u16 * r2, fb), i2))) << 4;
         return md::sine(u + offset);
     });
 }
