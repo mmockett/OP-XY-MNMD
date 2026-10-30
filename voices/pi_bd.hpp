@@ -14,15 +14,19 @@
 // the head is stretched by the strike (TENS, up to 2.7 times) and falling back
 // with a 27 ms time constant. DEC sets the fundamental's ring, -60 dB in 31 ms
 // per step; the second mode dies in about half a second. The strike opens it
-// with a burst of the head's upper modes, near 2 kHz, which HAMR (a heavier
-// beater) lowers and softens. HARD and DAMP have no measurable effect on the
+// with a burst of noise, even from about 1 to 6 kHz around a centre near
+// 2 kHz, which HAMR (a heavier beater) lowers and softens: the head's upper
+// modes, too many and too close to hear as a pitch. (A single 2 kHz sine here
+// was 8 dB over the Machinedrum's in its band and beeped.) HARD and DAMP have no measurable effect on the
 // Machinedrum's (OS 1.63), so none here either.
 namespace md {
 namespace pi_bd {
 struct State {
     modal::Mode body, second;
     i32 bend;        // the strike's stretch still to relax, Q31
-    modal::Mode strike;   // the strike's burst
+    modal::Mode strike;   // the strike's burst: its level, and its centre as an increment
+    i32 high, low1, low2; // the burst's band: a high-pass pole and two low-pass
+    u32 seed;
     u32 hold;        // blocks of the burst still held at full level
     u32 age;         // blocks since the strike, through the body's swell
     u32 fresh;
@@ -52,9 +56,10 @@ const i32 stretch_cap[9] = {1189847125, 959369443, 765318145, 601936138, 4643762
                             103795593};
 // The second mode starts at 0.7 of the fundamental.
 const i32 second_level = 0x5999999a;
-// The strike's burst: the head's upper modes, heard as one ring near 2.2 kHz
-// (PTCH 64, TENS 40, HAMR 64) about as loud as the body for 4 ms, then falling
-// 60 dB in 15 ms. PTCH, TENS and HAMR move it, in Q16 octaves at 0, 16, ..., 127;
+// The strike's burst: the head's upper modes, a band of noise centred near
+// 2.2 kHz (PTCH 64, TENS 40, HAMR 64), held for 4 ms, then falling 60 dB in
+// 15 ms. The band's edges are an octave and an eighth below the centre (one
+// high-pass pole) and an octave and a fifth above it (two low-pass poles). PTCH, TENS and HAMR move it, in Q16 octaves at 0, 16, ..., 127;
 // it is shorter the higher PTCH is, and HAMR quietens it by 3 dB. The centre is Q16
 // octaves from middle C.
 const i32 burst_centre = 200109;
@@ -64,7 +69,8 @@ const i32 burst_hamr[9] = {13512, 13512, 13512, 6000, 0, -6000, -15813, -30000, 
 // It falls 60 dB in 60 ms (PTCH 0) .. 9 ms (127), Q16 log2 samples.
 const i32 burst_times[9] = {745118, 717918, 694157, 679582, 662344, 650257, 592948, 565748, 565748};
 const u32 burst_hold = 3;   // blocks
-const i32 burst_level = 0x10000000;
+const i32 burst_level = 0x2c000000;
+const i32 band_below = -98304, band_above = 26214;   // Q16 octaves from the centre
 const i32 burst_quiet_hamr = 0x5a9df7ac;   // 3 dB down at HAMR 127
 // The body swells in under the burst, over its first 6 blocks (9 ms).
 const u32 swell_blocks = 6;
@@ -72,6 +78,16 @@ const i32 swell_step = md::one / 6;
 // The body peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x12a00000;
 const i32 low_level = 0x73333333, high_level = 0x60000000;   // PTCH 0 and 127: 0.9 and 2.5 dB down
+
+// A one-pole coefficient (Q31) for a corner at `increment` (of 2^32 a sample):
+// 1 - e^-w, w = 2 pi f / rate, by its series to w^3.
+inline i32 corner(u32 increment) {
+    const i32 eighth = multiply(static_cast<i32>(increment >> 1), 0x6487ed51);   // w / 8: pi / 4, Q31
+    if (eighth >= 0x0fffffff) return md::one;
+    const i32 w = eighth * 8;
+    const i32 c = multiply(w, md::one - w / 2 + multiply(w, w) / 6);
+    return c < 0 ? md::one : c;
+}
 
 struct Block {
     i32 base, body_step, second_step, stretch, burst_tune, burst_amount, burst_step, level;
@@ -98,6 +114,8 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.body.level = voice.second.level = 0;
     voice.strike.phase = voice.strike.increment = 0;
     voice.strike.level = 0;
+    voice.high = voice.low1 = voice.low2 = 0;
+    voice.seed = 0x2545f491u * (owner + 1);
     voice.bend = 0;
     voice.hold = 0;
     voice.age = swell_blocks;
@@ -137,8 +155,21 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     modal::ring_glide(voice.second, b.second_step, now, next, md::scale(upper, ratio), mixed);
 
     if (voice.strike.level > 0x00100000) {
-        voice.strike.increment = md::transpose(pitch[0], b.burst_tune);
-        modal::ring(voice.strike, voice.hold ? md::one : b.burst_step, b.burst_amount, mixed);
+        const u32 centre = md::transpose(pitch[0], b.burst_tune);
+        const i32 high = corner(md::transpose(centre, band_below));
+        const i32 low = corner(md::transpose(centre, band_above));
+        const i32 next = multiply(voice.strike.level, md::per_block(voice.hold ? md::one : b.burst_step));
+        i32 level = multiply(voice.strike.level, b.burst_amount);
+        const i32 slope = (multiply(next, b.burst_amount) - level) / 64;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 white = md::noise_eighth(voice.seed);
+            md::smooth(voice.high, white, high);
+            md::smooth(voice.low1, white - voice.high, low);
+            md::smooth(voice.low2, voice.low1, low);
+            mixed[i] += multiply(voice.low2, level) * 8;
+            level += slope;
+        }
+        voice.strike.level = next;
         if (voice.hold) --voice.hold;
     }
     for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
