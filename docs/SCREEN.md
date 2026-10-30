@@ -83,7 +83,7 @@ across the families:
 How far a control moves its part follows how much it changes the sound:
 `tools/art/travel.py` plays each member with each control swept (at its
 defaults and with every control at 64), measures the band-energy change and
-writes the table in `voices/mdkit_view.hpp` (full travel at 24 dB, at least a
+writes the tables (MD KIT's and MD E12's) in `voices/mdkit_view.hpp` (full travel at 24 dB, at least a
 fifth of it). Run it again after a voice changes.
 
 The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespace
@@ -91,9 +91,28 @@ The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespace
 take about 61 KB of it, so the right side's 27 fixed parts (rings, a rod, a
 hand, clamps, a loudspeaker, wavefronts, beads: `tools/art/fig.mjs`) take the
 common nodes' places, which MD KIT never uses otherwise; `build.mjs` drops the
-design's panel parts for the kits in `FIG_KITS`. A hit animates in sixteen
+design's panel parts for the kits in `FIG_KITS` (MD KIT and MD E12, each with its own parts in `FIGS`). A hit animates in sixteen
 steps, so the right side redraws a few times a hit rather than every frame.
-MD E12 still draws the design's pE12 panel.
+
+MD E12 draws its sample as a strip of tape on a splicing block, seen from
+above (namespace `fig_e12`), its recording developed into stripes across it:
+
+| Control | What it moves |
+| --- | --- |
+| PTCH | the stripes closer together (the tape played faster) |
+| DEC | the stripes fading along the tape |
+| HP | the stripes' lower halves thinned |
+| STRT | the cut-off start lying above the block; the stripes begin part way into the sound |
+| RTRG, RTIM | splicing-tape patches where the start is spliced in again, RTIM apart |
+| BEND | the first stripes crowded or spread, drifting back |
+| RING, RATL, BELL, REAL, SLEW, BC | a second sample's tape spliced in on the diagonal, nearer the start as it rises |
+| STOP | the end cut shorter the sooner it stops |
+| SNAP, SPLN | the start saturated, its stripes clipped flat, for SPLN's length |
+| HPQ | the tape's edge creased |
+
+A hit runs the tape left through the block. Its travel table needs the E12
+capture on this Mac (`tools/art/travel.py` refuses to write it from the silent
+stand-in); only the measured travel goes in the table, never sample data.
 
 ## Monomachine engines
 

@@ -2,8 +2,15 @@
 """How far each kit control moves its part of the screen: in proportion to how
 much it changes the sound, never less than a visible minimum.
 
-    python3 tools/art/travel.py            # measure, then write the table into voices/mdkit_view.hpp
-    python3 tools/art/travel.py --show     # print the measures only
+    python3 tools/art/travel.py              # both kits: measure, then write their tables into voices/mdkit_view.hpp
+    python3 tools/art/travel.py mde12        # one kit
+    python3 tools/art/travel.py --show       # print the measures only
+
+MD E12 plays ROM samples: its measures need the capture from this Mac's
+private folder (docs/FAMILIES.md), which the harness finds as test_voices.py
+does; only the measured travel, never sample data, goes into the table. With
+the silent stand-in instead, E12's controls measure nothing and the tool
+refuses to write its table.
 
 Each kit member is played through the fixed-case harness (voices/tests/cases.hpp)
 with one control at 0, 32, 64, 96 and 127, in two settings of the others: the
@@ -36,9 +43,9 @@ STEPS = (0, 32, 64, 96, 127)
 VIEW = ROOT / "voices" / "mdkit_view.hpp"
 
 
-def play(out):
+def play(out, kit):
     headers, calls = [], []
-    for name in catalog.ENGINES["mdkit"]:
+    for name in catalog.ENGINES[kit]:
         header = f'#include "{sound_header(name)}.hpp"'
         if header not in headers:
             headers.append(header)
@@ -57,10 +64,10 @@ def play(out):
                                  f'cases::measure<{ns}::State>("{name}", "{setting}|{i}|{v}", v, {ns}::reset, {ns}::trigger, '
                                  f'{ns}::render); }}')
     out.mkdir(parents=True, exist_ok=True)
-    (out / "travel.cpp").write_text("\n".join(headers) + '\n#include "tests/cases.hpp"\nint main() {\n' + "\n".join(calls) + "\n}\n")
+    (out / f"travel_{kit}.cpp").write_text("\n".join(headers) + '\n#include "tests/cases.hpp"\nint main() {\n' + "\n".join(calls) + "\n}\n")
     subprocess.run(["c++", "-std=c++11", "-O2", f"-I{SDK_INCLUDE}", f"-I{ROOT / 'lib'}", f"-I{ROOT / 'voices'}",
-                    *private_includes(), str(out / "travel.cpp"), "-o", str(out / "travel")], check=True)
-    lines = subprocess.run([str(out / "travel")], capture_output=True, text=True, check=True).stdout.splitlines()
+                    *private_includes(), str(out / f"travel_{kit}.cpp"), "-o", str(out / f"travel_{kit}")], check=True)
+    lines = subprocess.run([str(out / f"travel_{kit}")], capture_output=True, text=True, check=True).stdout.splitlines()
     return [json.loads(line) for line in lines]
 
 
@@ -79,9 +86,9 @@ def change(a, b):
     return num / den if den else 0.0
 
 
-def measure(out):
+def measure(out, kit):
     played = collections.defaultdict(dict)
-    for m in play(out):
+    for m in play(out, kit):
         setting, slot, v = m["case"].split("|")
         played[(m["machine"], int(slot))][(setting, int(v))] = m
     db = {}
@@ -91,35 +98,37 @@ def measure(out):
     return db
 
 
+# Each kit's table and the markers it sits between in voices/mdkit_view.hpp.
+TABLES = {"mdkit": ("travel", "travel"), "mde12": ("travel_e12", "travel-e12")}
+
+
 def main():
     out = pathlib.Path(os.environ.get("TRAVEL_OUT", ROOT / "local" / "travel"))
-    db = measure(out)
-    machines = catalog.ENGINES["mdkit"]
-    rows = []
-    for name in machines:
-        labels = catalog.MACHINES[name][2]
-        k = []
-        for slot in range(8):
-            if not labels[slot]:
-                k.append(0)
-                continue
-            t = max(MINIMUM, min(1.0, db[(name, slot)] / FULL_DB))
-            k.append(round(t * 256))
-        rows.append((name, k, [f"{labels[s]} {db[(name, s)]:.1f}" for s in range(8) if labels[s]]))
-    for name, k, shown in rows:
-        print(f"{name:7s} " + "  ".join(shown))
-    if "--show" in sys.argv:
-        return
-    table = ["// travel:begin (tools/art/travel.py writes this table: edit the tool, then run it)",
-             "// How far each control moves its part, Q8 (256 = all the way), in proportion to",
-             f"// the change it makes to the sound (full at {FULL_DB:.0f} dB of band energy, at least {MINIMUM}).",
-             f"static const opxy::u16 travel[{len(rows)}][8] = {{"]
-    table += [f"    {{{', '.join(str(v) for v in k)}}},   // {name}: {', '.join(shown)}" for name, k, shown in rows]
-    table += ["};", "// travel:end"]
-    text = VIEW.read_text()
-    text = re.sub(r"// travel:begin.*?// travel:end", "\n".join(table), text, flags=re.S)
-    VIEW.write_text(text)
-    print(f"wrote the travel table into {VIEW.relative_to(ROOT)}")
+    kits = [a for a in sys.argv[1:] if not a.startswith("--")] or list(TABLES)
+    for kit in kits:
+        db = measure(out, kit)
+        rows = []
+        for name in catalog.ENGINES[kit]:
+            labels = catalog.MACHINES[name][2]
+            k = [0 if not labels[slot] else round(max(MINIMUM, min(1.0, db[(name, slot)] / FULL_DB)) * 256) for slot in range(8)]
+            rows.append((name, k, [f"{labels[s]} {db[(name, s)]:.1f}" for s in range(8) if labels[s]]))
+        for name, k, shown in rows:
+            print(f"{name:7s} " + "  ".join(shown))
+        if "--show" in sys.argv:
+            continue
+        if max(db.values()) < 0.01:
+            sys.exit(f"{kit}: every control measured silent (the silent stand-in?); its table is left as it was")
+        table_name, marker = TABLES[kit]
+        table = [f"// {marker}:begin (tools/art/travel.py writes this table: edit the tool, then run it)",
+                 "// How far each control moves its part, Q8 (256 = all the way), in proportion to",
+                 f"// the change it makes to the sound (full at {FULL_DB:.0f} dB of band energy, at least {MINIMUM}).",
+                 f"static const opxy::u16 {table_name}[{len(rows)}][8] = {{"]
+        table += [f"    {{{', '.join(str(v) for v in k)}}},   // {name}: {', '.join(shown)}" for name, k, shown in rows]
+        table += ["};", f"// {marker}:end"]
+        text = VIEW.read_text()
+        text = re.sub(rf"// {marker}:begin.*?// {marker}:end", lambda _: "\n".join(table), text, flags=re.S)
+        VIEW.write_text(text)
+        print(f"wrote {kit}'s travel table into {VIEW.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

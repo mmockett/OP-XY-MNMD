@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { rig, flatten } from './rig.mjs';
 import { strokes } from './font.mjs';
-import { FIG, COMMON_SLOTS } from './fig.mjs';
+import { FIGS, COMMON_SLOTS } from './fig.mjs';
 import { readFileSync } from 'node:fs';
 
 // The verified slots (tools/catalog.py); the design's spellings where they differ.
@@ -235,7 +235,7 @@ function liftStrikes(parts) {
 // instrument on the left; the design's panel on the right gives way to the
 // sounding part in section (tools/art/fig.mjs), which the view places.
 const PANEL_X = 236;
-const FIG_KITS = ['mdkit'];
+const FIG_KITS = Object.keys(FIGS);
 
 export function build(engine, members, pads = false, withFig = false) {
   const nodes = [], machines = [], texts = [];
@@ -324,7 +324,7 @@ export function build(engine, members, pads = false, withFig = false) {
   // The right side's fixed parts: the first take the common nodes' places, the rest follow the instruments.
   let fig = null;
   if (withFig) {
-    fig = FIG.map((f, k) => {
+    fig = FIGS[engine].map((f, k) => {
       const [px, py] = f.pivot;
       const d = f.r !== undefined ? `circle 0 0 ${num(f.r)}`
         : 'M' + f.pts.map(([x, y], i) => (i ? 'L' : '') + num(x - px) + ' ' + num(y - py)).join(' ') + (f.closed ? ' Z' : '');

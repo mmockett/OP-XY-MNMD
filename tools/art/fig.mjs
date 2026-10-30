@@ -48,7 +48,27 @@ for (let k = 0; k < 4; k++) add(`front${k}`, k ? 'mid' : 'thin', [0, 0], arc(12,
 // A shaker's beads.
 for (let k = 0; k < 8; k++) ring(`bead${k}`, 'f4', [0, 0], 2.6);
 
-export const FIG = parts;
 // The common nodes' places they take (md_view.hpp: nodes 4 .. 30), all of them.
 export const COMMON_SLOTS = 27;
 if (parts.length !== COMMON_SLOTS) throw new Error(`fig.mjs: ${parts.length} parts for ${COMMON_SLOTS} places`);
+const kit = parts.splice(0);
+
+// ---- MD E12: a strip of tape on a splicing block, seen from above ----
+// The block with its channel, its 45 and 90 degree slots and a razor blade
+// resting by the cut; splicing-tape patches over the joins; and the diagonal
+// splice where a second sample's tape takes over. The tape, its recorded
+// stripes and the cut-off scrap are paths. voices/mdkit_view.hpp's fig_e12::Part
+// names them in this order.
+add('e12_block', 'mid', [0, 0], [[-110, -28], [110, -28], [112, -26], [112, 26], [110, 28], [-110, 28], [-112, 26], [-112, -26]]);
+add('e12_ch_top', 'dim', [0, 0], rect(-104, -0.6, 208, 1.2));
+add('e12_ch_bot', 'dim', [0, 0], rect(-104, -0.6, 208, 1.2));
+add('e12_slot45', 'dim', [0, 0], [[-28, 28], [-26, 28], [30, -28], [28, -28]]);
+add('e12_slot90', 'dim', [0, 0], rect(-1, -28, 2, 56));
+add('e12_blade', 'o2', [0, 0], [[-8, -36], [8, -36], [8, -6], [3, -6], [3, -2], [-3, -2], [-3, -6], [-8, -6]]);
+for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'o2', [0, 0], rect(-3, -15, 6, 30));
+add('e12_diag', 'thin', [0, 0], [[-13, 13], [-12, 13], [14, -13], [13, -13]]);
+const e12 = parts.splice(0);
+
+// Each kit drawn this way, and its parts.
+export const FIGS = { mdkit: kit, mde12: e12 };
+export const FIG = kit;

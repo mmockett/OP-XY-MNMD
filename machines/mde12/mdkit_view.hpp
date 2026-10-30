@@ -1,88 +1,11 @@
 #pragma once
-// The drum kits' per-pad screens, right side. MD KIT's machines draw the
-// sounding part of their instrument in section (namespace fig, below); MD E12's
-// draw the design's pE12 panel (docs/design/Main.dc.html). The instrument on the
+// The drum kits' per-pad screens, right side: MD KIT's machines draw the
+// sounding part of their instrument in section (namespace fig), MD E12's a
+// strip of tape on a splicing block (namespace fig_e12). The instrument on the
 // left comes from the rig (md_rig.hpp).
 #include "trx_view.hpp"
 
 namespace md_mde12 {} namespace md = md_mde12; namespace md_mde12 {
-namespace kit_panel {
-using namespace md::view;
-using namespace md::trx_panel;
-const i32 PX = panel_x, PW = panel_w;
-
-// A control 0..127 as Q31 0..1; `otherwise` (0..127) when the machine lacks it.
-inline i32 frac(const i32* s, int slot, u32 otherwise) {
-    const u32 v = raw(s, slot, otherwise);
-    return v >= 127 ? 0x7fffffff : static_cast<i32>(v * 16909320u);
-}
-// The phase through a hit (Q10, -1 when idle), as rig::draw times it.
-inline i32 phase(const view::Moment& m, rig::Timing timing = rig::drum) { return m.phase(timing.length, timing.speed); }
-
-// pE12: the sample as a wave, each class decaying as its own, dim before where
-// STRT starts it; STRT's and BEND's node markers; BEND's curve above; and the
-// machine's own control (RING, RATL, BELL, REAL, SLEW, BC) as a ripple, or
-// E12-BD's SPLN as the length of sample it plays. A hit plays the sample: the
-// part already played falls quiet, from STRT to the end, then all of it returns.
-template <class F>
-inline void e12(F& frame, const i32* s, i32 decay16, int extra_slot, int splen_slot, const view::Moment& m) {
-    const i32 cy = 106, A = 32;
-    const u32 st = raw(s, 4, 0);
-    const i32 sx = PX * unit + static_cast<i32>(st * (PW * unit / 2) / 127);
-    const u32 first = (st * 28 + 253) / 254;                                       // bars before s0 = STRT / 2 are pre
-    const i32 ph = phase(m);
-    const i32 played = ph < 0 ? 0 : sx + mul16((PX + PW) * unit - sx, static_cast<u32>(ph) << 6);
-    // One point a bar, above and below the axis in turn, from the axis and back:
-    // the skipped start on one path, the rest on another.
-    for (u32 part = 0; part < 2; ++part) {
-        const u32 from = part ? first : 0, to = part ? 28 : first;
-        i32 xs[32], ys[32];
-        u32 n = 0;
-        xs[n] = (PX + static_cast<i32>(from) * 8) * unit; ys[n++] = cy * unit;
-        for (u32 i = from; i < to; ++i, ++n) {
-            const i32 a = multiply(md::exp_neg(static_cast<i32>(mul16(decay16, i * 2341u))),   // t = i / 28
-                                   0x46666666 + multiply(0x39999999, static_cast<i32>(rnd(i + 11) << 15)));   // 0.55 + 0.45 RND
-            const i32 x = (PX + static_cast<i32>(i) * 8 + 4) * unit;
-            i32 h = multiply(A * unit, a);
-            if (part && x < played) h = multiply(h, 0x2ccccccd);                    // played: 0.35
-            xs[n] = x; ys[n] = cy * unit + (i & 1 ? h : -h);
-        }
-        xs[n] = (PX + static_cast<i32>(to) * 8) * unit; ys[n++] = cy * unit;
-        if (to == from) { hide(frame, part ? wave : contour); continue; }
-        while (n < 32) { xs[n] = xs[n - 1] + 1; ys[n] = ys[n - 1]; ++n; }
-        const u32 at = played ? static_cast<u32>(played - PX * unit) >> 13 : 0;     // 8 px steps of the play position
-        draw32(frame, part ? wave : contour, xs, ys, PX + PW / 2, cy, key_of(s[4], decay16 << 12, static_cast<i32>(at << 24), 41 + part), part ? view::mid : dim);
-    }
-    place(frame, handle_a, sx, sy(cy - A - 6), unit, fill5, fill_and_stroke);
-    // BEND: 32 - (BEND - 0.5) 40 e^(-(x - PX) / 40).
-    i32 xs[32], ys[32];
-    const i32 bend = static_cast<i32>(raw(s, 7, 64)) - 64;                          // -64 .. 63
-    for (u32 i = 0; i < 32; ++i) {
-        xs[i] = PX * unit + static_cast<i32>(i) * (PW * unit / 31);
-        const i32 e = md::exp_neg(static_cast<i32>(i) * 11835);                      // (PW / 31) / 40 a step
-        ys[i] = 32 * unit - multiply(bend * 40 * unit / 127, e);
-    }
-    draw32(frame, comb, xs, ys, PX + PW / 2, 32, key_of(s[7], 0, 0, 42), view::mid);
-    place(frame, handle_b, xs[0], sy(0) + ys[0], unit, fill5, fill_and_stroke);
-    if (splen_slot >= 0) {
-        // SPLN: a bar from STRT along the top of the sample, 4 + 30 SPLN long.
-        const i32 len = 4 * unit + static_cast<i32>(raw(s, splen_slot, 38) * 30 * unit / 127), top = (cy - A) * unit;
-        const i32 px[5] = {sx, sx + len, sx + len, sx, sx}, py[5] = {top, top, top + 4 * unit, top + 4 * unit, top};
-        for (u32 i = 0; i < 32; ++i) { xs[i] = px[i < 5 ? i : 4] + (i >= 5 ? static_cast<i32>(i) : 0); ys[i] = py[i < 5 ? i : 4]; }
-        draw32(frame, extra, xs, ys, PX + PW / 2, cy - A, key_of(s[splen_slot], s[4], 0, 44), view::thin);
-    } else if (extra_slot >= 0) {
-        const i32 ex = static_cast<i32>(raw(s, extra_slot, 38)) * 10 * unit / 127;
-        for (u32 i = 0; i < 32; ++i) {
-            xs[i] = sx + static_cast<i32>(i) * (((PX + PW) * unit - sx) / 31);
-            const i32 e = md::exp_neg(static_cast<i32>(i) * 4228);                   // e^(-2 t)
-            ys[i] = (cy - A / 2) * unit - multiply(multiply(ex, md::sine(i * 1680000000u)), e);
-        }
-        draw32(frame, extra, xs, ys, PX + PW / 2, cy - A / 2, key_of(s[extra_slot], s[4], 0, 43), view::thin);
-    }
-}
-
-}
-
 // The kits' right side (MD KIT): the sounding part of each instrument drawn
 // large in section, as on an engraved patent plate, beside the playing drawing
 // on the left. Each control moves one physical part, the same way across the
@@ -111,7 +34,7 @@ static const opxy::u16 travel[33][8] = {
     {163, 256, 51, 51, 113, 51, 0, 0},   // TRX-CB: PTCH 15.3, DEC 62.2, ENH 4.2, DAMP 3.5, TONE 10.6, BUMP 1.9
     {51, 256, 145, 89, 51, 0, 0, 0},   // TRX-CH: GAP 4.6, DEC 28.8, HPF 13.6, LPF 8.4, MTAL 1.7
     {57, 256, 146, 90, 51, 0, 0, 0},   // TRX-OH: GAP 5.3, DEC 27.1, HPF 13.7, LPF 8.4, MTAL 2.0
-    {86, 103, 51, 62, 57, 51, 0, 0},   // TRX-CY: RICH 8.0, DEC 9.7, TOP 3.7, TTUN 5.8, SIZE 5.4, PEAK 4.5
+    {57, 100, 51, 70, 61, 51, 0, 0},   // TRX-CY: RICH 5.3, DEC 9.4, TOP 3.8, TTUN 6.6, SIZE 5.7, PEAK 4.7
     {256, 256, 256, 51, 51, 51, 84, 56},   // TRX-MA: ATT 69.8, SUS 49.7, REV 52.2, DAMP 2.6, RATL 4.2, RTYP 2.8, TONE 7.9, HARD 5.3
     {135, 86, 89, 51, 113, 51, 0, 0},   // TRX-CL: PTCH 12.7, DEC 8.1, DUAL 8.4, ENH 1.3, TUNE 10.6, CLIC 0.0
     {200, 243, 68, 93, 51, 117, 51, 0},   // TRX-XC: PTCH 18.8, DEC 22.8, RAMP 6.3, RDEC 8.8, DAMP 3.9, DIST 11.0, DTYP 1.2
@@ -983,21 +906,160 @@ MD_FIG_VIEW(gnd_ns, 31, fig::radio(f, c, m);)
 MD_FIG_VIEW(gnd_im, 32, fig::cam(f, c, m);)
 #undef MD_FIG_VIEW
 
-// E12: each class's decay along the strip (the design's kmap, Q16) and its own control.
-namespace e12_bd { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 196608, -1, 3, m); } }
-namespace e12_sd { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 262144, 3, -1, m); } }
-namespace e12_ht { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 196608, -1, -1, m); } }
-namespace e12_lt { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 196608, -1, -1, m); } }
-namespace e12_cp { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 327680, -1, -1, m); trx_panel::clap(f, m); } }
-namespace e12_rs { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 589824, 3, -1, m); } }
-namespace e12_cb { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 262144, -1, -1, m); } }
-namespace e12_ch { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 524288, -1, -1, m); } }
-namespace e12_oh { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 163840, -1, -1, m); } }
-namespace e12_rc { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 91750, 3, -1, m); } }
-namespace e12_cc { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 91750, -1, -1, m); } }
-namespace e12_br { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 262144, 3, -1, m); } }
-namespace e12_ta { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 327680, -1, -1, m); } }
-namespace e12_tr { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 262144, -1, -1, m); } }
-namespace e12_sh { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 327680, 3, -1, m); } }
-namespace e12_bc { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { kit_panel::e12(f, s, 196608, 3, -1, m); } }
+// ---- MD E12: a strip of tape on a splicing block ----
+// The sample as tape seen from above, its recording developed into stripes
+// across it, as a magnetic viewer shows them: PTCH packs them closer (the tape
+// played faster), DEC fades them along it, HP thins their lower halves, BEND
+// crowds or spreads the first of them (the pitch starting away and drifting
+// back). STRT cuts the start away: the scrap lies above the block, and the
+// stripes begin part way into the sound. RTRG splices the start in again,
+// patch after patch, RTIM apart. A machine's own control: a second sample's
+// tape spliced in on the diagonal (RING, RATL, BELL, REAL, SLEW, BC), the end
+// cut shorter the sooner it stops (STOP), the start saturated, stripes clipped flat (SNAP, for
+// SPLN's length), or the tape's edge creased (HPQ). A hit runs the tape left
+// through the block in sixteen steps.
+namespace fig_e12 {
+using namespace md::view;
+using fig::Ctl;
+using fig::Pts;
+using fig::Hit;
+using fig::lerp;
+using fig::scaleq;
+using fig::px;
+using opxy::u16;
+
+// travel-e12:begin (tools/art/travel.py writes this table: edit the tool, then run it)
+// How far each control moves its part, Q8 (256 = all the way), in proportion to
+// the change it makes to the sound (full at 24 dB of band energy, at least 0.2).
+static const opxy::u16 travel_e12[16][8] = {
+    {256, 256, 51, 59, 249, 256, 256, 168},   // E12-BD: PTCH 26.5, DEC 71.3, SNAP 2.8, SPLN 5.5, STRT 23.3, RTRG 31.6, RTIM 31.4, BEND 15.8
+    {256, 256, 219, 93, 256, 256, 146, 256},   // E12-SD: PTCH 53.0, DEC 73.3, HP 20.5, RING 8.7, STRT 33.3, RTRG 34.1, RTIM 13.7, BEND 28.2
+    {256, 256, 256, 51, 216, 256, 256, 232},   // E12-HT: PTCH 35.8, DEC 77.4, HP 33.3, HPQ 3.3, STRT 20.2, RTRG 33.2, RTIM 30.8, BEND 21.7
+    {256, 256, 256, 51, 256, 256, 254, 197},   // E12-LT: PTCH 32.6, DEC 85.3, HP 33.1, HPQ 3.2, STRT 34.3, RTRG 32.1, RTIM 23.8, BEND 18.5
+    {256, 256, 227, 51, 120, 256, 118, 256},   // E12-CP: PTCH 64.1, DEC 56.5, HP 21.3, HPQ 3.3, STRT 11.2, RTRG 35.5, RTIM 11.1, BEND 34.6
+    {256, 256, 248, 117, 256, 256, 256, 256},   // E12-RS: PTCH 49.2, DEC 72.7, HP 23.2, RATL 11.0, STRT 92.1, RTRG 34.8, RTIM 33.9, BEND 28.9
+    {256, 256, 235, 51, 114, 256, 185, 256},   // E12-CB: PTCH 47.9, DEC 58.5, HP 22.1, HPQ 2.6, STRT 10.7, RTRG 31.9, RTIM 17.3, BEND 27.4
+    {256, 256, 256, 51, 195, 256, 170, 256},   // E12-CH: PTCH 49.0, DEC 71.9, HP 25.7, HPQ 3.1, STRT 18.3, RTRG 40.3, RTIM 16.0, BEND 25.0
+    {256, 256, 179, 256, 256, 128, 61, 256},   // E12-OH: PTCH 58.2, DEC 64.4, HP 16.8, STOP 58.3, STRT 82.0, RTRG 12.0, RTIM 5.7, BEND 28.7
+    {256, 256, 161, 92, 142, 203, 57, 232},   // E12-RC: PTCH 50.0, DEC 63.2, HP 15.1, BELL 8.6, STRT 13.3, RTRG 19.1, RTIM 5.4, BEND 21.8
+    {256, 256, 196, 51, 132, 119, 51, 256},   // E12-CC: PTCH 58.0, DEC 69.1, HP 18.4, HPQ 2.7, STRT 12.4, RTRG 11.1, RTIM 4.7, BEND 25.6
+    {256, 256, 228, 121, 171, 256, 155, 256},   // E12-BR: PTCH 53.9, DEC 70.7, HP 21.4, REAL 11.3, STRT 16.0, RTRG 37.4, RTIM 14.5, BEND 27.6
+    {256, 256, 148, 51, 105, 256, 98, 256},   // E12-TA: PTCH 60.7, DEC 52.3, HP 13.9, HPQ 2.6, STRT 9.9, RTRG 26.4, RTIM 9.2, BEND 33.6
+    {256, 256, 179, 51, 116, 192, 51, 256},   // E12-TR: PTCH 45.3, DEC 56.3, HP 16.8, HPQ 2.6, STRT 10.8, RTRG 18.0, RTIM 4.0, BEND 25.1
+    {256, 256, 148, 131, 70, 256, 124, 256},   // E12-SH: PTCH 56.0, DEC 54.7, HP 13.9, SLEW 12.3, STRT 6.6, RTRG 34.9, RTIM 11.7, BEND 31.1
+    {256, 256, 228, 123, 158, 256, 256, 256},   // E12-BC: PTCH 43.8, DEC 71.8, HP 21.4, BC 11.6, STRT 14.8, RTRG 40.9, RTIM 34.4, BEND 25.2
+};
+// travel-e12:end
+
+// tools/art/fig.mjs's E12 parts, in its order, in the common nodes' places.
+enum Part : u32 { block = 4, ch_top, ch_bot, slot45, slot90, blade, patch0, diag = patch0 + 4, part_end };
+static const u8 part_shade[part_end - block] = {mid, dim, dim, dim, dim, outline2, outline2, outline2, outline2, outline2, thin};
+template <class F>
+inline void put(F& f, u32 part, i32 x, i32 y) {
+    const u8 s = part_shade[part - block];
+    place(f, part, x, stage_y * unit + y, unit, s, s >= fill1 ? fill_and_stroke : stroke);
+}
+
+enum Own { crease, second, stop, snap };
+template <class F>
+inline void tape(F& f, const Ctl& c, i32 decay16, Own own, const view::Moment& moment) {
+    const Hit h(moment);
+    const i32 slide = h.on() ? -h.step * 3 * px / 2 : 0;   // the tape runs left through the block
+    const i32 cx = 362 * px, yc = 100 * px, half = 13 * px;
+    const i32 lead = 262 * px + slide, cut = 342 * px + slide;
+    i32 end = 466 * px;
+    if (own == stop) end = c.raw(3) >= 127 ? 466 * px : lerp(352 * px, 456 * px, c.v(3));   // STOP: the sooner, the shorter; never at 127
+    end += slide;
+    // The block, its channel and slots, and the blade resting by the cut.
+    put(f, block, cx, yc);
+    put(f, ch_top, cx, yc - half - px);
+    put(f, ch_bot, cx, yc + half + px);
+    put(f, slot45, 314 * px, yc);
+    put(f, slot90, 342 * px, yc);
+    put(f, blade, 342 * px, yc - 30 * px);
+    // The tape: from the leader on the left, its top edge creased by HPQ, to its
+    // end cut on the diagonal.
+    const i32 crease_a = own == crease ? lerp(0, 3 * px, c.v(3)) : 0;
+    Pts t;
+    for (u32 i = 0; i < 28; ++i) {
+        const i32 x = lead + (end - lead) * static_cast<i32>(i) / 27;
+        const i32 w = crease_a ? multiply(crease_a, md::sine(i * 0x26000000u)) : 0;
+        t.add(x, yc - half + w);
+    }
+    t.add(end - 8 * px, yc + half);
+    t.add(lead, yc + half);
+    fig::draw(f, md::view::contour, t, cx + slide, yc, thin);
+    // The stripes: one a step through the sound, from STRT's step, again from it at each splice.
+    const i32 spacing0 = lerp(10 * px, 16 * px / 5, c.v(0));
+    const i32 bend = c.v(7) - 32768;                                                       // -32768 .. 32768
+    const i32 kd = scaleq(decay16 >> 4, 65536 - c.v(1));                                    // the fall a step, Q12
+    const i32 s0 = lerp(0, 14 * 256, c.v(4)) >> 8;                                          // STRT: steps cut away
+    const i32 low = own == snap ? 65536 : 65536 - scaleq(50000, c.v(2));                    // HP thins the lower halves
+    const i32 drive = own == snap ? lerp(65536, 3 * 65536, c.v(2)) : 65536;                 // SNAP: up to 3 times, clipped
+    const i32 driven = own == snap ? lerp(2, 12, c.v(3)) : 0;                              // for SPLN's steps
+    const i32 joins = c.raw(5, 0) > 1 ? 1 + ((c.v(5) * 3 + 32768) >> 16) : 1;               // RTRG: the splices
+    const i32 every = lerp(18 * px, 56 * px, c.v(6));
+    const i32 second_at = own == second ? lerp(end - 4 * px, cut + 14 * px, c.v(3)) : end + 64 * px;
+    i32 xs[32], up[32], dn[32];
+    u32 n = 0;
+    i32 x = cut + 3 * px, step = 0, join = 1;
+    while (x < end - 10 * px && n < 32) {
+        if (join < joins && x >= cut + join * every) { step = 0; ++join; }
+        const i32 s = s0 + step;
+        // BEND: the first steps crowded (or spread), drifting back.
+        const i32 crowd = scaleq(bend, md::exp_neg(s * 65536 / 6) >> 15) / 2;
+        const i32 sp = scaleq(spacing0, 65536 - crowd);
+        const u32 seed = x >= second_at ? static_cast<u32>(s) + 40u : static_cast<u32>(s);
+        i32 a = scaleq(12 * px, md::exp_neg(s * kd >> 2) >> 15);
+        a = scaleq(a, 36000 + scaleq(29536, static_cast<i32>(trx_panel::rnd(seed * 3 + 1))));
+        if (step < driven) a = scaleq(a, drive);
+        if (a > 12 * px) a = 12 * px;
+        if (a < px) a = px;
+        xs[n] = x; up[n] = a; dn[n] = scaleq(a, low) < px ? px : scaleq(a, low);
+        ++n; ++step;
+        x += sp < 3 * px ? 3 * px : sp;
+    }
+    for (u32 p = 0; p < 2; ++p) {
+        Pts q;
+        for (u32 k = p * 16; k < n && k < p * 16 + 16; ++k) {
+            const bool down = k & 1;
+            q.add(xs[k], yc + (down ? dn[k] : -up[k]));
+            q.add(xs[k], yc + (down ? -up[k] : dn[k]));
+        }
+        if (q.n >= 2) fig::draw(f, p ? md::view::wave : md::view::comb, q, (q.p[0].x + q.p[q.n - 1].x) / 2, yc, p ? thin : thin, true);
+    }
+    // The splicing-tape patches: the leader's join, then RTRG's.
+    for (i32 k = 0; k < joins && k < 4; ++k) put(f, patch0 + static_cast<u32>(k), cut + k * every, yc);
+    if (own == second && second_at < end) put(f, diag, second_at, yc);
+    // STRT: the cut-off start, lying above the block.
+    if (c.raw(4, 0) > 2) {
+        const i32 len = lerp(8 * px, 70 * px, c.v(4));
+        Pts sc;
+        sc.add(262 * px, 50 * px); sc.add(262 * px + len, 46 * px); sc.add(262 * px + len, 62 * px); sc.add(262 * px, 66 * px);
+        fig::draw(f, md::view::extra, sc, 262 * px + len / 2, 56 * px, mid);
+    }
+}
+}
+
+// E12's machines: each class's fall along the strip (the design's kmap, Q16) and its own control.
+#define MD_E12_VIEW(ns, row, decay, own) namespace ns { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { \
+    const fig::Ctl c = {s, fig_e12::travel_e12[row]}; fig_e12::tape(f, c, decay, fig_e12::own, m); } }
+MD_E12_VIEW(e12_bd, 0, 196608, snap)
+MD_E12_VIEW(e12_sd, 1, 262144, second)
+MD_E12_VIEW(e12_ht, 2, 196608, crease)
+MD_E12_VIEW(e12_lt, 3, 196608, crease)
+MD_E12_VIEW(e12_rs, 5, 589824, second)
+MD_E12_VIEW(e12_cb, 6, 262144, crease)
+MD_E12_VIEW(e12_ch, 7, 524288, crease)
+MD_E12_VIEW(e12_oh, 8, 163840, stop)
+MD_E12_VIEW(e12_rc, 9, 91750, second)
+MD_E12_VIEW(e12_cc, 10, 91750, crease)
+MD_E12_VIEW(e12_br, 11, 262144, second)
+MD_E12_VIEW(e12_ta, 12, 327680, crease)
+MD_E12_VIEW(e12_tr, 13, 262144, crease)
+MD_E12_VIEW(e12_sh, 14, 327680, second)
+MD_E12_VIEW(e12_bc, 15, 196608, second)
+#undef MD_E12_VIEW
+namespace e12_cp { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) {
+    const fig::Ctl c = {s, fig_e12::travel_e12[4]}; fig_e12::tape(f, c, 327680, fig_e12::crease, m); trx_panel::clap(f, m); } }
 }
