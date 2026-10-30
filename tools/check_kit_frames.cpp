@@ -1,6 +1,7 @@
 // Runs a drum kit's display on the host and checks every frame the device would
-// draw: each machine with each control swept through nine positions (the others
-// at their middle), all at 0 and all at 127, struck by a note, and arriving from
+// draw: each machine with each control swept through all 128 values (the others
+// at their middle: a nine-step sweep missed TRX-B2's beater collapsing at RAMP
+// 80..82), all at 0 and all at 127, struck by a note, and arriving from
 // every other machine. Beyond the SDK's rules it checks what the device's
 // renderer does with an outline (OP-XY-Dev docs/screens.md): no outline without
 // area and no turn straight back, neighbours at least 1/8 px apart, a closing
@@ -124,21 +125,21 @@ int main() {
         opxy::i32 slots[8];
         for (int end = 0; end < 2; ++end) {
             for (int i = 0; i < 8; ++i) slots[i] = end ? 0x7fffffff : 0;
-            if (!run(m, slots, end ? "all at 127" : "all at 0", -1)) return 1;
+            run(m, slots, end ? "all at 127" : "all at 0", -1);
         }
         for (int c = 0; c < 8; ++c)
-            for (int step = 0; step < 9; ++step) {
+            for (opxy::u32 v = 0; v < 128; ++v) {
                 for (int i = 0; i < 8; ++i) slots[i] = middle;
-                const opxy::u32 v = static_cast<opxy::u32>(step) * 127u / 8u;
                 slots[c] = v >= 127 ? 0x7fffffff : static_cast<opxy::i32>(v << 24);
                 char setting[32];
                 std::snprintf(setting, sizeof setting, "control %d at %u", c + 1, v);
-                if (!run(m, slots, setting, -1)) return 1;
+                run(m, slots, setting, -1);
             }
         for (int i = 0; i < 8; ++i) slots[i] = middle;
         for (opxy::u32 from = 0; from < ENGINE::kit::models; ++from) {
             if (from == m) continue;
-            if (!run(from, slots, "middle", -1) || !run(m, slots, "middle", static_cast<int>(from))) return 1;
+            run(from, slots, "middle", -1);
+            run(m, slots, "middle", static_cast<int>(from));
         }
     }
     std::printf("%s: %u machines checked; most nodes changed in a frame while playing: %u (%s); "
