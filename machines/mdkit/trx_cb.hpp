@@ -119,6 +119,46 @@ struct Block {
 };
 }
 
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself.
+// The pulse, each sample its average (an edge inside it gives the part-way value), through its low-pass.
+__attribute__((noinline)) inline void make_bell(State& voice, u32 step, u32 edge, const Reciprocal& reciprocal, i32 cutoff, i32 keep, i32* bell) {
+    u32 from = voice.bell;
+    i32 low1 = voice.low1, low2 = voice.low2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const u32 to = from + step;
+        i32 pulse;
+        if (to < from) pulse = pulse_level - multiply(pulse_level, reciprocal.of(0u - from)) * 4;
+        else if (from < edge && to >= edge) pulse = multiply(pulse_level, reciprocal.of(edge - from)) * 4 - pulse_level;
+        else pulse = from < edge ? pulse_level : -pulse_level;
+        from = to;
+        md::smooth(low1, pulse, cutoff);
+        md::smooth(low2, low1, cutoff);
+        bell[i] = multiply(md::gain(multiply(low2, keep), 4), bell_level);
+    }
+    voice.bell = from;
+    voice.low1 = low1;
+    voice.low2 = low2;
+}
+__attribute__((noinline)) inline void add_sine(u32 phase, u32 step, i32 amount, i32* out) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] += multiply(md::sine(phase), amount);
+        phase += step;
+    }
+}
+// md::finish(md::gain(mixed, 1)), with no branches in the loop.
+__attribute__((noinline)) inline void mix_out(State& voice, i32 step, i32 others_step, const i32* bell, const i32* others, opxy::Output output) {
+    i32 level = voice.level, sines = voice.others;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 mixed = multiply(bell[i], level) + multiply(others[i], sines);
+        output[i] = md::clamp(mixed, -half_scale / 2, half_scale / 2) * 2;
+        level = multiply(level, step);
+        sines = multiply(sines, others_step);
+    }
+    voice.level = level;
+    voice.others = sines;
+}
+
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.bell = voice.voice = voice.line = voice.high = 0;
@@ -153,30 +193,29 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const u32 edge = static_cast<u32>(b.duty) * 2;   // where the high half ends
     const Reciprocal reciprocal(bell_step);
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        // The pulse, each sample its average: an edge inside it gives the part-way value.
-        const u32 from = voice.bell, to = from + bell_step;
-        i32 pulse;
-        if (to < from) pulse = pulse_level - multiply(pulse_level, reciprocal.of(0u - from)) * 4;
-        else if (from < edge && to >= edge) pulse = multiply(pulse_level, reciprocal.of(edge - from)) * 4 - pulse_level;
-        else pulse = from < edge ? pulse_level : -pulse_level;
-        voice.bell = to;
-        md::smooth(voice.low1, pulse, b.cutoff);
-        md::smooth(voice.low2, voice.low1, b.cutoff);
-        const i32 bell = multiply(md::gain(multiply(voice.low2, b.keep), 4), bell_level);
-        const i32 others = multiply(md::sine(voice.voice), b.voice) + multiply(md::sine(voice.line), b.line) + multiply(md::sine(voice.high), high);
-        voice.voice += voice_step;
-        voice.line += line_step;
-        voice.high += high_step;
-        i32 sines = voice.others;
-        if (voice.fading < fade_in) {
-            sines = (sines >> fade_shift) * static_cast<i32>(voice.fading);
-            ++voice.fading;
+    i32 bell[opxy::block_frames], others[opxy::block_frames];
+    make_bell(voice, bell_step, edge, reciprocal, b.cutoff, b.keep, bell);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) others[i] = 0;
+    add_sine(voice.voice, voice_step, b.voice, others);
+    add_sine(voice.line, line_step, b.line, others);
+    add_sine(voice.high, high_step, high, others);
+    voice.voice += voice_step << 6;
+    voice.line += line_step << 6;
+    voice.high += high_step << 6;
+    if (voice.fading < fade_in) {   // a note's first block
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            i32 sines = voice.others;
+            if (voice.fading < fade_in) {
+                sines = (sines >> fade_shift) * static_cast<i32>(voice.fading);
+                ++voice.fading;
+            }
+            const i32 mixed = multiply(bell[i], voice.level) + multiply(others[i], sines);
+            output[i] = md::clamp(mixed, -half_scale / 2, half_scale / 2) * 2;
+            voice.level = multiply(voice.level, b.decay_step);
+            voice.others = multiply(voice.others, b.others_step);
         }
-        const i32 mixed = multiply(bell, voice.level) + multiply(others, sines);
-        output[i] = md::finish(md::gain(mixed, 1));
-        voice.level = multiply(voice.level, b.decay_step);
-        voice.others = multiply(voice.others, b.others_step);
+    } else {
+        mix_out(voice, b.decay_step, b.others_step, bell, others, output);
     }
 }
 }

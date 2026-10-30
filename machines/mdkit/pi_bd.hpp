@@ -172,7 +172,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.strike.level = next;
         if (voice.hold) --voice.hold;
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
+    modal::finish_doubled(mixed, output);
 }
 }
 }

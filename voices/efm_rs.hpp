@@ -54,6 +54,20 @@ struct Block {
 };
 }
 
+// One of the two, under its falling level, taken from `out`: one loop each, out of line, so
+// each has a hardware loop and all the registers to itself. Their pitches don't move in a block.
+__attribute__((noinline)) inline void take_pair(efm::Pair& held_pair, u32 increment, efm::Ramp deviation, u32 modulation, i32 fb,
+                                                i32& held_level, i32 step, i32 scale, i32* out) {
+    efm::Pair pair = held_pair;
+    i32 level = held_level;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] -= multiply(pair.run(increment, static_cast<i32>(deviation.step()), modulation, fb), multiply(level, scale));
+        level = multiply(level, step);
+    }
+    held_pair = pair;
+    held_level = level;
+}
+
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -80,15 +94,16 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     rim.plan(md::transpose(pitch[0], b.rim), 0, flat, md::one, ratio, b.rim_depth, held, md::one);
     snare.plan(md::transpose(pitch[0], b.snare), 0, flat, md::one, ratio, b.snare_depth, held, md::one);
 
+    i32 mixed[opxy::block_frames];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
+    take_pair(voice.rim, rim.carrier.value, rim.deviation, rim.modulator.value, fb, voice.rim_level, b.rim_step, body_level, mixed);
+    take_pair(voice.snare, snare.carrier.value, snare.deviation, snare.modulator.value, fb, voice.snare_level, b.snare_step, b.snare_level, mixed);
+    i32 low = voice.low;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 r = voice.rim.run(rim.carrier.step(), static_cast<i32>(rim.deviation.step()), rim.modulator.step(), fb);
-        const i32 s = voice.snare.run(snare.carrier.step(), static_cast<i32>(snare.deviation.step()), snare.modulator.step(), fb);
-        const i32 x = -multiply(r, multiply(voice.rim_level, body_level)) - multiply(s, multiply(voice.snare_level, b.snare_level));
-        voice.low += multiply(x - voice.low, b.hpf);
-        output[i] = md::finish(x - voice.low);
-        voice.rim_level = multiply(voice.rim_level, b.rim_step);
-        voice.snare_level = multiply(voice.snare_level, b.snare_step);
+        low += multiply(mixed[i] - low, b.hpf);
+        output[i] = md::finish(mixed[i] - low);
     }
+    voice.low = low;
 }
 }
 }

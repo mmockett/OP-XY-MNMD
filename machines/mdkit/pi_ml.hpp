@@ -85,6 +85,24 @@ struct Block {
 };
 }
 
+// The haze, added: out of line, so the loop has a hardware loop and all the registers to itself.
+__attribute__((noinline)) inline void add_haze(State& voice, i32 level, i32 slope, i32* mixed) {
+    u32 seed = voice.seed;
+    i32 under = voice.under, low1 = voice.low1, low2 = voice.low2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        md::smooth(under, white, haze_under);
+        md::smooth(low1, white - under, haze_over);
+        md::smooth(low2, low1, haze_over);
+        mixed[i] += multiply(low2, level) * 64;
+        level += slope;
+    }
+    voice.seed = seed;
+    voice.under = under;
+    voice.low1 = low1;
+    voice.low2 = low2;
+}
+
 inline void trigger(State& voice, Common& shared) {
     voice.fresh = 1;
     voice.seed += 0x9e3779b9u * ++shared.strikes;   // each hit its own balance
@@ -124,6 +142,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.bend = md::one;
     }
     voice.bend = multiply(voice.bend, md::per_block(b.relax));
+    const i32 fall = md::per_block(b.step);   // the same for the modes and the haze, so once
     const i32 ratio = 0x10000000 + multiply(b.stretch, voice.bend);
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
@@ -131,27 +150,21 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         modal::Mode& mode = voice.modes[k];
         if (mode.level < 0x00010000) continue;
         const u32 target = md::scale(md::transpose(pitch[0], b.base + ratios[k]), ratio);
-        modal::ring_glide(mode, b.step, k < upper ? b.lower : b.upper_level, target, mixed);
+        const i32 amount = k < upper ? b.lower : b.upper_level;
+        modal::ring_glide_fall(mode, fall, amount, amount, target, mixed);
     }
     if (voice.knock.level >= 0x00010000) {
         voice.knock.increment = md::transpose(pitch[0], voice.knock_offset);
         modal::ring(voice.knock, b.knock_step, multiply(knock_level, b.lower), mixed);
     }
     if (voice.haze >= 0x00010000) {
-        const i32 next = multiply(voice.haze, md::per_block(b.step));
+        const i32 next = multiply(voice.haze, fall);
         i32 level = multiply(voice.haze, b.haze);
         const i32 slope = (multiply(next, b.haze) - level) / 64;
         voice.haze = next;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 white = md::noise_eighth(voice.seed);
-            md::smooth(voice.under, white, haze_under);
-            md::smooth(voice.low1, white - voice.under, haze_over);
-            md::smooth(voice.low2, voice.low1, haze_over);
-            mixed[i] += multiply(voice.low2, level) * 64;
-            level += slope;
-        }
+        add_haze(voice, level, slope, mixed);
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
+    modal::finish_doubled(mixed, output);
 }
 }
 }

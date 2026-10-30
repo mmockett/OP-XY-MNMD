@@ -161,7 +161,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
             wires += wires_slope;
         }
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
+    modal::finish_doubled(mixed, output);
 }
 }
 }

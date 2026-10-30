@@ -74,6 +74,40 @@ struct Block {
 };
 }
 
+// With no feedback (FB's default, and every kit's) each partial is on its own: a loop each,
+// out of line, so each has a hardware loop and all the registers to itself.
+__attribute__((noinline)) inline void add_partial(u32 phase, u32 increment, u32 modulator, u32 modulation, i32 index, u32* total) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const u32 moved = static_cast<u32>(multiply(index, rough_sine(modulator))) << 3;
+        total[i] += (static_cast<u32>(rough_sine(phase + moved)) + 0x80000000u) >> 2;
+        modulator += modulation;
+        phase += increment;
+    }
+}
+
+// The sum under the level, through HPF, to the output.
+__attribute__((noinline)) inline void finish_block(State& voice, i32 hpf, i32 step, const u32* total, opxy::Output output) {
+    i32 level = voice.level, low1 = voice.low1, low2 = voice.low2, before = voice.before;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 sum = static_cast<i32>(total[i] - 0x80000000u);
+        // Halved: the high-passes can double an edge, and the sum can reach full scale.
+        const i32 x = -multiply(sum, level) / 2;
+        // Two poles: the first's output is taken after it moves, the second's before.
+        low1 += multiply(x - low1, hpf);
+        const i32 y = x - low1 - low2;
+        low2 += multiply(y, hpf);
+        // The top falls away gently: 1 dB at 8.6 kHz, 3 dB at 17 kHz.
+        const i32 soft = y - multiply(y - before, top_fall);
+        before = y;
+        output[i] = md::finish(multiply(soft, partial_level));
+        level = multiply(level, step);
+    }
+    voice.level = level;
+    voice.low1 = low1;
+    voice.low2 = low2;
+    voice.before = before;
+}
+
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -106,32 +140,32 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         modulation[k] = md::scale(increment[k], b.ratio) << 1;
     }
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        // FB: the partials' sum, fed back into every one's phase.
-        const u32 fed = static_cast<u32>(multiply(b.fb, voice.last)) << 3;
-        // Each partial a quarter of full scale, without a signed shift: biased, shifted, unbiased.
-        u32 total = 0;
+    u32 total[opxy::block_frames];
+    if (!b.fb) {
+        for (unsigned i = 0; i != opxy::block_frames; ++i) total[i] = 0;
         for (unsigned k = 0; k < partials; ++k) {
-            const u32 moved = static_cast<u32>(multiply(index, rough_sine(voice.modulator[k]))) << 3;
-            total += (static_cast<u32>(rough_sine(voice.phase[k] + fed + moved)) + 0x80000000u) >> 2;
-            voice.modulator[k] += modulation[k];
-            voice.phase[k] += increment[k];
+            add_partial(voice.phase[k], increment[k], voice.modulator[k], modulation[k], index, total);
+            voice.phase[k] += increment[k] << 6;
+            voice.modulator[k] += modulation[k] << 6;
         }
-        const i32 sum = static_cast<i32>(total - 0x80000000u);
-        voice.last = sum;
-        // Halved: the high-passes can double an edge, and the sum can reach full scale.
-        const i32 x = -multiply(sum, voice.level) / 2;
-        // Two poles: the first's output is taken after it moves, the second's before.
-        voice.low1 += multiply(x - voice.low1, b.hpf);
-        const i32 once = x - voice.low1;
-        const i32 y = once - voice.low2;
-        voice.low2 += multiply(y, b.hpf);
-        // The top falls away gently: 1 dB at 8.6 kHz, 3 dB at 17 kHz.
-        const i32 soft = y - multiply(y - voice.before, top_fall);
-        voice.before = y;
-        output[i] = md::finish(multiply(soft, partial_level));
-        voice.level = multiply(voice.level, b.decay_step);
+        voice.last = static_cast<i32>(total[opxy::block_frames - 1] - 0x80000000u);
+    } else {
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            // FB: the partials' sum, fed back into every one's phase.
+            const u32 fed = static_cast<u32>(multiply(b.fb, voice.last)) << 3;
+            // Each partial a quarter of full scale, without a signed shift: biased, shifted, unbiased.
+            u32 sum = 0;
+            for (unsigned k = 0; k < partials; ++k) {
+                const u32 moved = static_cast<u32>(multiply(index, rough_sine(voice.modulator[k]))) << 3;
+                sum += (static_cast<u32>(rough_sine(voice.phase[k] + fed + moved)) + 0x80000000u) >> 2;
+                voice.modulator[k] += modulation[k];
+                voice.phase[k] += increment[k];
+            }
+            total[i] = sum;
+            voice.last = static_cast<i32>(sum - 0x80000000u);
+        }
     }
+    finish_block(voice, b.hpf, b.decay_step, total, output);
 }
 }
 }

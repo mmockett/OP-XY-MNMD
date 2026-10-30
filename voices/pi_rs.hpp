@@ -82,15 +82,15 @@ const i32 body_level = 0x03600000;
 
 struct Block {
     i32 levels[mode_count];
-    i32 head, step, head_step, crack_tune, crack_amount, wire_amount, wire_step;
+    i32 head, fall, head_fall, crack_tune, crack_amount, wire_amount, wire_step;
     explicit Block(const i32* p) {
         for (unsigned k = 0; k < rim_count; ++k) levels[k] = md::table9(rim_levels[k], p[PTCH]);
         levels[rim_count] = levels[rim_count + 1] = head_level;
         levels[rim_count + 2] = md::table9(ring_levels, p[RING]);
         head = md::table9(pi_rs::head, p[PTCH]);
         const i32 time = md::table9(decay_times, p[DEC]);
-        step = md::decay(time);
-        head_step = md::decay(time + head_shorter);
+        fall = md::per_block(md::decay(time));
+        head_fall = md::per_block(md::decay(time + head_shorter));
         crack_tune = md::cutoff(crack_centre + multiply(p[PTCH] - 0x40000000, crack_ptch * 2));
         const i32 hard = md::positive(p[HARD]);
         crack_amount = hard < 0x40000000 ? md::span(hard * 2, crack_quiet, 0x40000000)
@@ -100,6 +100,22 @@ struct Block {
         wire_step = md::decay(md::table9(wire_times, p[RDEC]));
     }
 };
+}
+
+// The stick's burst and the wires, one sample of noise between them: out of line, so the
+// loop has a hardware loop and all the registers to itself.
+__attribute__((noinline)) inline void crack_and_wires(State& voice, const Block& b, i32 crack_step, i32* mixed) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 n = md::noise_eighth(voice.seed);
+        voice.band.run(n, b.crack_tune, 0x18000000);
+        const i32 high = n - md::smooth(voice.low, n, noise_low);
+        const i32 body = md::smooth(voice.high, high, wire_body);
+        const i32 top = md::smooth(voice.top, high, wire_top);
+        mixed[i] += md::gain(multiply(voice.band.band, multiply(voice.crack, b.crack_amount)), 3)
+                    + multiply(body + (top >> 3) + (top >> 4), multiply(voice.wires, b.wire_amount)) * 4;
+        voice.crack = multiply(voice.crack, crack_step);
+        voice.wires = multiply(voice.wires, b.wire_step);
+    }
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -137,25 +153,16 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 offset = k < rim_count ? rim[k] : k == rim_count ? b.head
                          : k == rim_count + 1 ? b.head + head_second : b.head + ring_ratio;
         mode.increment = md::transpose(pitch[0], offset);
-        const i32 step = k == rim_count || k == rim_count + 1 ? b.head_step : b.step;
-        modal::ring(mode, step, multiply(b.levels[k], body_level), mixed);
+        const i32 fall = k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall;
+        const i32 amount = multiply(b.levels[k], body_level);
+        modal::ring_fall(mode, fall, amount, amount, mixed);
     }
     if (voice.crack > 0x00100000 || voice.wires > 0x00100000) {
         const i32 crack_step = voice.hold ? md::one : md::decay(crack_time);
         if (voice.hold) --voice.hold;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 n = md::noise_eighth(voice.seed);
-            voice.band.run(n, b.crack_tune, 0x18000000);
-            const i32 high = n - md::smooth(voice.low, n, noise_low);
-            const i32 body = md::smooth(voice.high, high, wire_body);
-            const i32 top = md::smooth(voice.top, high, wire_top);
-            mixed[i] += md::gain(multiply(voice.band.band, multiply(voice.crack, b.crack_amount)), 3)
-                        + multiply(body + (top >> 3) + (top >> 4), multiply(voice.wires, b.wire_amount)) * 4;
-            voice.crack = multiply(voice.crack, crack_step);
-            voice.wires = multiply(voice.wires, b.wire_step);
-        }
+        crack_and_wires(voice, b, crack_step, mixed);
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
+    modal::finish_doubled(mixed, output);
 }
 }
 }

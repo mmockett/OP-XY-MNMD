@@ -48,6 +48,12 @@ struct State {
     i32 swell;       // how far the plate has come up, Q31: a soft stick on the crash is slow
     i32 pole1, pole2, under;   // the layer's filter: two low-pass poles, and one under them
     u32 fresh;
+    // What the controls and the key make of the plate, worked out again only when one moves.
+    i32 seen[8];
+    u32 seen_pitch;
+    u32 stale;
+    i32 amounts[partial_count];
+    i32 ring_fall, hiss_fall, hiss_lift;   // the fall per block of the plate and the layer; the layer's level
 };
 
 // One plate: its partials (Q16 octaves from middle C) and their levels (Q31), and
@@ -138,21 +144,20 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.choke = shared.closed_hats;
     voice.open = 0;
     voice.seed = 0x85ebca6bu * owner;
+    for (unsigned c = 0; c < 8; ++c) voice.seen[c] = 0;
+    for (unsigned k = 0; k < partial_count; ++k) voice.amounts[k] = 0;
+    voice.seen_pitch = 0;
+    voice.stale = 1;
+    voice.ring_fall = voice.hiss_fall = voice.hiss_lift = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(const Plate& plate, State& voice, Common& shared, opxy::Output output, const i32* p,
                    opxy::Pitch pitch) {
-    // Brightening raises the upper partials; the Machinedrum's level barely rises with it.
-    const i32 plain = sum(plate.level, p);
-    const i32 level = plain - headroom - md::positive(sum(plate.tilt, p)) * 2;
-    const i32 tilts = sum(plate.tilt, p);
-    const i32 tilt = (plate.bright + tilts) * 4;
-    const i32 time = plate.base + sum(plate.ring, p);
-    const i32 shift = md::table9(plate.pitch, p[0]);   // PTCH is every plate's first control
     if (voice.fresh) {
         voice.fresh = 0;
+        voice.stale = 1;   // this voice may have been another plate
         for (unsigned k = 0; k < partial_count; ++k) {
             md::noise(voice.seed);
             voice.partials[k].phase = voice.seed;
@@ -182,11 +187,33 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
         voice.open = voice.waiting = 0;
         voice.held = 1;   // choked: it dies as a grabbed one does
     }
+    // Only when a control or the key has moved: a still cymbal's partials need none of this.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(p[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = p[c];
+        // Brightening raises the upper partials; the Machinedrum's level barely rises with it.
+        const i32 plain = sum(plate.level, p);
+        const i32 tilts = sum(plate.tilt, p);
+        const i32 level = plain - headroom - md::positive(tilts) * 2;
+        const i32 tilt = (plate.bright + tilts) * 4;
+        const i32 time = plate.base + sum(plate.ring, p);
+        const i32 shift = md::table9(plate.pitch, p[0]);   // PTCH is every plate's first control
+        voice.ring_fall = md::per_block(md::decay(time));
+        const i32 hiss_time = time - plate.hiss_shorter + md::table9(plate.ring_dec, p[1]) + md::table9(plate.ring_ag, p[4]);
+        voice.hiss_fall = hiss_time > time ? voice.ring_fall : md::per_block(md::decay(hiss_time));   // never longer than the partials
+        voice.hiss_lift = power(plain - md::table9(plate.level[6], p[6]) + md::table9(plate.au_lift, p[5]) - headroom);
+        for (unsigned k = 0; k < partial_count; ++k) {
+            voice.partials[k].increment = md::transpose(pitch[0], plate.partials[k] + shift);
+            const i32 slope = multiply((plate.partials[k] - tilt_centre) * 256, tilt * 128);   // Q16 octaves
+            voice.amounts[k] = multiply(multiply(plate.levels[k], power(level + slope)), plate.gain);
+        }
+    }
     // The plate rings for its time until grabbed, or until the hat's pedal
     // closes it with a chick, then dies fast. A hat at CLOS 127 never closes.
-    i32 step = md::decay(time);
-    const i32 hiss_time = time - plate.hiss_shorter + md::table9(plate.ring_dec, p[1]) + md::table9(plate.ring_ag, p[4]);
-    i32 hiss_step = md::decay(hiss_time > time ? time : hiss_time);   // never longer than the partials
+    i32 fall = voice.ring_fall, hiss_fall = voice.hiss_fall;
     if (voice.waiting) {
         if (voice.held > opxy::block_frames) {
             voice.held -= opxy::block_frames;
@@ -200,7 +227,7 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
             if (plate.hat) voice.hiss = md::add(voice.hiss, chick);
         }
     } else if (voice.held) {
-        step = hiss_step = md::decay(grab_ring);
+        fall = hiss_fall = md::per_block(md::decay(grab_ring));
     }
     const i32 swell = voice.swell;
     voice.swell = md::add(swell, md::table9(plate.swell, p[2]));
@@ -210,10 +237,8 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
     for (unsigned k = 0; k < partial_count; ++k) {
         modal::Mode& partial = voice.partials[k];
         if (partial.level < 0x00010000) continue;
-        partial.increment = md::transpose(pitch[0], plate.partials[k] + shift);
-        const i32 slope = multiply((plate.partials[k] - tilt_centre) * 256, tilt * 128);   // Q16 octaves
-        const i32 amount = multiply(multiply(plate.levels[k], power(level + slope)), plate.gain);
-        modal::ring(partial, step, multiply(amount, swell), multiply(amount, voice.swell), mixed);
+        const i32 amount = voice.amounts[k];
+        modal::ring_fall(partial, fall, multiply(amount, swell), multiply(amount, voice.swell), mixed);
     }
     if (voice.tone.level > 0x00010000) {
         const i32 tone = multiply(md::table9(plate.sheen, p[2]), md::table9(tone_ptch, p[0]));
@@ -221,9 +246,8 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
         else voice.tone.level = 0;
     }
     if (voice.hiss > 0x00010000) {
-        const i32 lift = power(plain - md::table9(plate.level[6], p[6]) + md::table9(plate.au_lift, p[5]) - headroom);
-        const i32 mid = multiply(plate.hiss_mid, lift), top = multiply(plate.hiss_high, lift);
-        const i32 hiss_next = multiply(voice.hiss, md::per_block(hiss_step));
+        const i32 mid = multiply(plate.hiss_mid, voice.hiss_lift), top = multiply(plate.hiss_high, voice.hiss_lift);
+        const i32 hiss_next = multiply(voice.hiss, hiss_fall);
         // The layer swells with the plate; each gain in a straight line across the block.
         i32 mid_now = multiply(multiply(voice.hiss, mid), swell);
         i32 top_now = multiply(multiply(voice.hiss, top), swell);
@@ -250,7 +274,7 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
         }
         voice.strike = 0;
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
+    modal::finish_doubled(mixed, output);
 }
 
 namespace {

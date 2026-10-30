@@ -4,7 +4,7 @@ a drum kit (its builds run without one), so this holds each voice module in a
 temporary synth, which the benchmark's stock voice timer does run, control by
 control, as it does for a catalog record (docs/profiling.md in the SDK).
 
-    python3 tools/cpu_kit.py generate           # the synths, in local/cpu-kit
+    python3 tools/cpu_kit.py generate [NAME ...]   # the synths, in local/cpu-kit (default: VOICES)
     python3 tools/cpu_kit.py build              # a profiling build of them only
     python3 tools/cpu_kit.py run                # one benchmark over USB MIDI (booted normally)
     python3 tools/cpu_kit.py report             # each voice's figures from the runs
@@ -48,10 +48,10 @@ def voice_bytes(folder, engine):
     return int(subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout)
 
 
-def generate():
+def generate(names):
     shutil.rmtree(OUT, ignore_errors=True)
     OUT.mkdir(parents=True)
-    for name in VOICES:
+    for name in names:
         engine = "kc" + slug(name).replace("_", "")
         folder = OUT / engine
         sdk("new", "--controls", 8, "--id", engine, "--name", name, "--out", folder)
@@ -118,7 +118,7 @@ def fresh(prefix):
 def main():
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "generate":
-        generate()
+        generate(sys.argv[2:] or VOICES)
     elif command == "build":
         out = fresh("kit-build")
         out.parent.mkdir(parents=True, exist_ok=True)

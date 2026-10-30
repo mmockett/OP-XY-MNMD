@@ -368,18 +368,6 @@ const i32 rich_weight[9] = {0x26666666, 0x40000000, 0x59999999, 0x6ccccccc, 0x7f
 const i32 rich_level[9] = {0x2e000000, 0x3a000000, 0x4c000000, 0x62000000, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7d000000, 0x7a000000};
 const i32 body_level = 297222577, top_level = 289611891;   // the top at a quarter
 
-// One biquad step, x1 x2 y1 y2 in s. A Butterworth low-pass's numerator is
-// b0 (1, 2, 1) and a high-pass's b0 (1, -2, 1): three multiplies, not five.
-inline i32 lowpass(const Biquad& c, i32* s, i32 x) {
-    const i32 y = (multiply(c.b0, x + s[0] * 2 + s[1]) - multiply(c.a1, s[2]) - multiply(c.a2, s[3])) * 2;
-    s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y;
-    return y;
-}
-inline i32 highpass(const Biquad& c, i32* s, i32 x) {
-    const i32 y = (multiply(c.b0, x - s[0] * 2 + s[1]) - multiply(c.a1, s[2]) - multiply(c.a2, s[3])) * 2;
-    s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y;
-    return y;
-}
 // TTUN's coefficients between the measured steps.
 inline Biquad between(const Biquad* t, i32 parameter) {
     const u32 position = static_cast<u32>(md::positive(parameter)) >> 3;
@@ -391,6 +379,99 @@ inline Biquad between(const Biquad* t, i32 parameter) {
     const Biquad out = {a.b0 + multiply(b.b0 - a.b0, f), a.b1 + multiply(b.b1 - a.b1, f), a.b2 + multiply(b.b2 - a.b2, f),
                         a.a1 + multiply(b.a1 - a.a1, f), a.a2 + multiply(b.a2 - a.a2, f)};
     return out;
+}
+
+
+// The block's stages, one loop each: out of line, so each has a hardware loop and all the
+// registers to itself.
+__attribute__((noinline)) void add_lines(const i32* table, u32 phase, u32 increment, i32* out) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] += table[phase >> 22];
+        phase += increment;
+    }
+}
+// The squares' sum weighed, the pulse added: the metal, at most 1/16 of full scale.
+__attribute__((noinline)) void weigh_with_pulse(u32 phase, u32 increment, i32 weight, i32* metal) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        metal[i] = pulse_table[phase >> 22] + multiply(metal[i], weight);
+        phase += increment;
+    }
+}
+// The body: two high-pass poles at SIZE, its resonant stage, two low-pass poles and its gain.
+__attribute__((noinline)) void run_size(i32* poles, i32 coefficient, const i32* metal, i32* out) {
+    i32 a = poles[0], c = poles[1];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 x = metal[i];
+        a += multiply(x - a, coefficient);
+        x -= a;
+        c += multiply(x - c, coefficient);
+        out[i] = x - c;
+    }
+    poles[0] = a;
+    poles[1] = c;
+}
+__attribute__((noinline)) void run_knee(md::Svf& knee, i32 frequency, i32* body) {
+    i32 low = knee.low, band = knee.band, high = knee.high;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        low += multiply(frequency, band) * 2;
+        high = body[i] - low - multiply(body_damping, band) * 2;
+        band += multiply(frequency, high) * 2;
+        body[i] = high;
+    }
+    knee.low = low;
+    knee.band = band;
+    knee.high = high;
+}
+__attribute__((noinline)) void run_dull(i32* dull, i32 gain, i32 slope, i32* body) {
+    i32 a = dull[0], c = dull[1];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        a += multiply(body[i] - a, body_lowpass);
+        c += multiply(a - c, body_lowpass);
+        body[i] = multiply(c, gain);
+        gain += slope;
+    }
+    dull[0] = a;
+    dull[1] = c;
+}
+// The biquads, x1 x2 y1 y2 in s. A Butterworth low-pass's numerator is b0 (1, 2, 1) and a
+// high-pass's b0 (1, -2, 1): three multiplies, not five. Two samples a turn, the newest and
+// the older taking each other's places, so no state is ever moved.
+__attribute__((noinline)) void run_highpass(const Biquad& c, i32* s, i32* top) {
+    const i32 b0 = c.b0, a1 = c.a1, a2 = c.a2;
+    i32 x1 = s[0], x2 = s[1], y1 = s[2], y2 = s[3];
+    for (unsigned i = 0; i != opxy::block_frames / 2; ++i) {
+        const i32 x = top[2 * i];
+        y2 = (multiply(b0, x - x1 * 2 + x2) - multiply(a1, y1) - multiply(a2, y2)) * 2;
+        top[2 * i] = y2;
+        x2 = top[2 * i + 1];
+        y1 = (multiply(b0, x2 - x * 2 + x1) - multiply(a1, y2) - multiply(a2, y1)) * 2;
+        top[2 * i + 1] = y1;
+        x1 = x2;
+        x2 = x;
+    }
+    s[0] = x1; s[1] = x2; s[2] = y1; s[3] = y2;
+}
+__attribute__((noinline)) void run_lowpass(const Biquad& c, i32* s, i32* top) {
+    const i32 b0 = c.b0, a1 = c.a1, a2 = c.a2;
+    i32 x1 = s[0], x2 = s[1], y1 = s[2], y2 = s[3];
+    for (unsigned i = 0; i != opxy::block_frames / 2; ++i) {
+        const i32 x = top[2 * i];
+        y2 = (multiply(b0, x + x1 * 2 + x2) - multiply(a1, y1) - multiply(a2, y2)) * 2;
+        top[2 * i] = y2;
+        x2 = top[2 * i + 1];
+        y1 = (multiply(b0, x2 + x * 2 + x1) - multiply(a1, y2) - multiply(a2, y1)) * 2;
+        top[2 * i + 1] = y1;
+        x1 = x2;
+        x2 = x;
+    }
+    s[0] = x1; s[1] = x2; s[2] = y1; s[3] = y2;
+}
+// The top, opposed to the body.
+__attribute__((noinline)) void take_top(const i32* top, i32 gain, i32 slope, i32* body) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        body[i] -= multiply(top[i], gain) * 4;
+        gain += slope;
+    }
 }
 
 
@@ -459,31 +540,27 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     // The top falls faster than the body: its filters run only while it can be heard (-102 dB).
     const bool topping = top_gain >= (1 << 14) || top_gain + top_slope * 64 >= (1 << 14);
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 low = 0;
-        for (unsigned k = 0; k < squares; ++k) {
-            low += square_table[voice.phase[k] >> 22];
-            voice.phase[k] += increment[k];
-        }
-        const i32 pulse = pulse_table[voice.phase[squares] >> 22];
-        voice.phase[squares] += increment[squares];
-        const i32 metal = pulse + multiply(low, b.weight);   // at most 1/16 of full scale
-        // The body: two high-pass poles at SIZE, its resonant stage, two low-pass poles.
-        i32 body = metal - md::smooth(voice.size[0], metal, b.poles);
-        body -= md::smooth(voice.size[1], body, b.poles);
-        voice.knee.run(body, b.knee, body_damping);
-        i32 mixed = multiply(md::smooth(voice.dull[1], md::smooth(voice.dull[0], voice.knee.high, body_lowpass), body_lowpass), body_gain);
-        if (topping) {
-            // The top: SIZE's high-pass, then TTUN's low-pass; opposed to the body.
-            i32 top = highpass(b.high, voice.top_state[0], metal);
-            top = lowpass(b.low0, voice.top_state[1], top);
-            top = lowpass(b.low1, voice.top_state[2], top);
-            mixed -= multiply(top, top_gain) * 4;
-        }
-        output[i] = md::clamp(mixed, -ceiling, ceiling) * after_gain;
-        body_gain += body_slope;
-        top_gain += top_slope;
+    // One stage over the whole block at a time, each with its own hardware loop and registers:
+    // the same arithmetic as one long loop, sample for sample, at half its cycles on the Blackfin.
+    i32 metal[opxy::block_frames], body[opxy::block_frames];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) metal[i] = 0;
+    for (unsigned k = 0; k < squares; ++k) {
+        add_lines(square_table, voice.phase[k], increment[k], metal);
+        voice.phase[k] += increment[k] << 6;
     }
+    weigh_with_pulse(voice.phase[squares], increment[squares], b.weight, metal);
+    voice.phase[squares] += increment[squares] << 6;
+    run_size(voice.size, b.poles, metal, body);
+    run_knee(voice.knee, b.knee, body);
+    run_dull(voice.dull, body_gain, body_slope, body);
+    if (topping) {
+        // The top: SIZE's high-pass, then TTUN's low-pass; opposed to the body.
+        run_highpass(b.high, voice.top_state[0], metal);
+        run_lowpass(b.low0, voice.top_state[1], metal);
+        run_lowpass(b.low1, voice.top_state[2], metal);
+        take_top(metal, top_gain, top_slope, body);
+    }
+    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::clamp(body[i], -ceiling, ceiling) * after_gain;
 }
 }
 }

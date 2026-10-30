@@ -79,6 +79,49 @@ struct Block {
 };
 }
 
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself.
+__attribute__((noinline)) inline void make_pulse(u32 phase, u32 increment, i32 lines, i32* band) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        band[i] = phase < pulse_duty ? lines : -lines;
+        phase += increment;
+    }
+}
+__attribute__((noinline)) inline void add_square(u32 phase, u32 increment, i32 lines, i32* band) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        band[i] += phase & 0x80000000u ? -lines : lines;
+        phase += increment;
+    }
+}
+// One chain for both: three high-pass poles...
+__attribute__((noinline)) inline void add_noise_through_highpass(State& voice, i32 noise, i32 highpass, i32* band) {
+    u32 seed = voice.seed;
+    i32 low1 = voice.low1, low2 = voice.low2, low3 = voice.low3;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 x = band[i] + multiply(md::noise_eighth(seed), noise);
+        x -= md::smooth(low1, x, highpass);
+        x -= md::smooth(low2, x, highpass);
+        x -= md::smooth(low3, x, highpass);
+        band[i] = x;
+    }
+    voice.seed = seed;
+    voice.low1 = low1;
+    voice.low2 = low2;
+    voice.low3 = low3;
+}
+// ...then the low-pass, its broad stage first so the resonant one has headroom.
+__attribute__((noinline)) inline void finish_block(State& voice, i32 broad, i32 resonant, i32 level, i32 slope, const i32* band, opxy::Output output) {
+    md::Svf top1 = voice.top1, top2 = voice.top2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        top1.run(band[i], broad_at, broad);
+        top2.run(top1.low, resonant, resonant_damping);
+        output[i] = md::clamp(multiply(top2.low, level), -ceiling, ceiling) * after_gain;
+        level += slope;
+    }
+    voice.top1 = top1;
+    voice.top2 = top2;
+}
+
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
     for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] = 0;
@@ -126,23 +169,15 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
     i32 level = voice.level;
     const i32 level_slope = (next - level) / 64;
     voice.level = next;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 band = voice.phase[squares] < pulse_duty ? b.lines : -b.lines;
-        voice.phase[squares] += increment[squares];
-        for (unsigned k = 0; k < squares; ++k) {
-            band += voice.phase[k] & 0x80000000u ? -b.lines : b.lines;
-            voice.phase[k] += increment[k];
-        }
-        // One chain for both: three high-pass poles, then the low-pass, its broad stage first so the resonant one has headroom.
-        band += multiply(md::noise_eighth(voice.seed), b.noise);
-        band -= md::smooth(voice.low1, band, b.highpass);
-        band -= md::smooth(voice.low2, band, b.highpass);
-        band -= md::smooth(voice.low3, band, b.highpass);
-        voice.top1.run(band, broad_at, b.broad);
-        voice.top2.run(voice.top1.low, b.resonant, resonant_damping);
-        output[i] = md::clamp(multiply(voice.top2.low, level), -ceiling, ceiling) * after_gain;
-        level += level_slope;
+    i32 band[opxy::block_frames];
+    make_pulse(voice.phase[squares], increment[squares], b.lines, band);
+    voice.phase[squares] += increment[squares] << 6;
+    for (unsigned k = 0; k < squares; ++k) {
+        add_square(voice.phase[k], increment[k], b.lines, band);
+        voice.phase[k] += increment[k] << 6;
     }
+    add_noise_through_highpass(voice, b.noise, b.highpass, band);
+    finish_block(voice, b.broad, b.resonant, level, level_slope, band, output);
 }
 }
 
