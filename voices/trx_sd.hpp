@@ -31,6 +31,8 @@ struct State {
     i32 snap_low, snap_low2;    // SNAP's high-pass states
     i32 snap_high, snap_high2;  // SNAP's low-pass states
     i32 highpass;     // CLIP's high-pass state
+    i32 body_out, wires_out, snap_out;   // the gains each block ended on, which the next starts from
+    u32 carrying;     // they are set: a note's first block starts from its envelope
     u32 fresh;
 };
 namespace {
@@ -77,6 +79,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.body = voice.wires = voice.swell = voice.bump = voice.snap = 0;
     voice.snap_age = 0;
     voice.seed = 0x2545f491u * owner;
+    voice.carrying = 0;
     voice.wires_low = voice.snap_low = voice.snap_low2 = voice.snap_high = voice.snap_high2 = voice.highpass = 0;
     trigger(voice, shared);
     voice.fresh = 0;
@@ -90,6 +93,8 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.swell = 0;
         voice.snap_age = snap_hold;
         voice.highpass = 0;
+        voice.snap_low = voice.snap_low2 = voice.snap_high = voice.snap_high2 = 0;
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     const i32 snap_step = md::decay(snap_time);
@@ -103,33 +108,61 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 slope = (static_cast<i32>(next) - static_cast<i32>(now)) / 64;
     voice.bump = bump_next;
 
+    // The three gains, envelope and level together, in straight lines across the
+    // block: the body's, the wires' (with their swell) and SNAP's.
+    const i32 decay_block = md::per_block(b.decay_step);
+    const i32 body_next = multiply(voice.body, decay_block), wires_next = multiply(voice.wires, decay_block);
+    const i32 swell_next = md::one - multiply(md::one - voice.swell, md::per_block(md::one - swell_rate));
+    i32 snap_next = voice.snap;
+    if (voice.snap_age >= opxy::block_frames) {
+        voice.snap_age -= opxy::block_frames;
+    } else {
+        // The hold ends in this block, or has: the rest of it falls.
+        for (unsigned i = voice.snap_age; i < opxy::block_frames; ++i) snap_next = multiply(snap_next, snap_step);
+        voice.snap_age = 0;
+    }
+    // Each from where the last block's ended, so TONE or SNAP moved glides.
+    i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_level);
+    voice.body_out = multiply(body_next, body_level);
+    const i32 body_slope = (voice.body_out - body_gain) / 64;
+    i32 wires_gain = voice.carrying ? voice.wires_out : multiply(multiply(voice.wires, multiply(voice.swell, voice.swell)), b.wires);
+    voice.wires_out = multiply(multiply(wires_next, multiply(swell_next, swell_next)), b.wires);
+    const i32 wires_slope = (voice.wires_out - wires_gain) / 64;
+    i32 snap_gain = voice.carrying ? voice.snap_out : multiply(voice.snap, b.snap);
+    const i32 snap_end = voice.snap_out = multiply(snap_next, b.snap);
+    const i32 snap_slope = (snap_end - snap_gain) / 64;
+    voice.carrying = 1;
+    voice.body = body_next;
+    voice.wires = wires_next;
+    voice.swell = swell_next;
+    voice.snap = snap_next;
+    // SNAP's filters run only while it can be heard (-102 dB).
+    const bool snapping = snap_gain >= (1 << 14) || snap_end >= (1 << 14);
+
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 body = multiply(md::sine(voice.phase), multiply(voice.body, body_level));
+        const i32 body = multiply(md::sine(voice.phase), body_gain);
         voice.phase += increment;
         increment += static_cast<u32>(slope);
 
         // The wires: a 6.98 kHz sine ring-modulated by a carrier plus high-passed noise.
         const i32 white = md::noise_eighth(voice.seed);
         md::smooth(voice.wires_low, white, wires_highpass);
-        voice.swell += multiply(md::one - voice.swell, swell_rate);
         const i32 ring = multiply(md::sine(voice.wires_phase), wires_carrier + md::gain(white - voice.wires_low, 1));
         voice.wires_phase += b.wires_increment;
-        const i32 wires = multiply(ring, multiply(multiply(voice.wires, multiply(voice.swell, voice.swell)), b.wires));
+        i32 mixed = body + multiply(ring, wires_gain);
 
         // SNAP: 1.2 .. 7 kHz of the same noise, held 10 ms, then falling.
-        md::smooth(voice.snap_low, white, snap_highpass);
-        md::smooth(voice.snap_low2, white - voice.snap_low, snap_highpass);
-        md::smooth(voice.snap_high, white - voice.snap_low - voice.snap_low2, snap_lowpass);
-        md::smooth(voice.snap_high2, voice.snap_high, snap_lowpass);
-        const i32 snap = multiply(md::gain(voice.snap_high2, 3), multiply(voice.snap, b.snap));
-
-        const i32 mixed = body + wires + snap;
+        if (snapping) {
+            md::smooth(voice.snap_low, white, snap_highpass);
+            md::smooth(voice.snap_low2, white - voice.snap_low, snap_highpass);
+            md::smooth(voice.snap_high, white - voice.snap_low - voice.snap_low2, snap_lowpass);
+            md::smooth(voice.snap_high2, voice.snap_high, snap_lowpass);
+            mixed += multiply(md::gain(voice.snap_high2, 3), snap_gain);
+        }
         output[i] = md::finish(md::gain(b.clip.run(mixed, voice.highpass), 1));
-
-        voice.body = multiply(voice.body, b.decay_step);
-        voice.wires = multiply(voice.wires, b.decay_step);
-        if (voice.snap_age) --voice.snap_age;
-        else voice.snap = multiply(voice.snap, snap_step);
+        body_gain += body_slope;
+        wires_gain += wires_slope;
+        snap_gain += snap_slope;
     }
 }
 }

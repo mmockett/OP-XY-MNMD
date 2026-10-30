@@ -163,10 +163,20 @@ inline void room(F& frame, const i32* s, int rate, int tone, int hard, int rich,
     }
 }
 
-// The clap instrument's hands light up as they clap (its only mid-shade parts).
+// The clap instrument's hands light up as they clap (its only mid-shade parts,
+// eight to a hand): one hand at a time, in turn, over the first half of the
+// hit, so a frame changes eight or sixteen nodes, not all 32 at once.
 template <class F>
 inline void clap(F& frame, const view::Moment& m) {
-    if (fade(m) > 0x40000000) view::restyle(frame, view::mid, view::line);
+    const i32 ph = m.phase(rig::drum.length, rig::drum.speed);
+    if (ph < 0 || ph >= 512) return;
+    const u32 hand = static_cast<u32>(ph) >> 7;   // 0 .. 3
+    u32 seen = 0;
+    for (u32 n = view::art_first; n < F::node_count; ++n)
+        if (frame.nodes[n].shade == view::mid && frame.nodes[n].x < opxy::draw::hidden_x * opxy::draw::unit) {
+            if (seen >> 3 == hand) opxy::draw::shade(frame, n, view::line, opxy::draw::stroke);
+            ++seen;
+        }
 }
 
 // 2^16 / n, n = 0..40, and (i / 64)^0.8 in Q16: the panels' counts and the

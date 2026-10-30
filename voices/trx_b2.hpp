@@ -12,8 +12,9 @@
 // extra Hz (up to 457, whatever PTCH is) falling with a fixed 38 ms time
 // constant. The level swells about 4 dB over the first 20 ms, holds for HOLD's
 // time (none to 9.5 s), then falls 60 dB in DEC's (55 ms to 20 s; none at 127).
-// TICK opens it with a downward spike, twice the body's height from TICK 64 (1.7
-// x here, under the ceiling) and held longer above; NOIS adds a burst of noise above 1 kHz falling in 70 ms.
+// TICK opens it with a downward spike, twice the body's height from TICK 40 (1.7
+// x here, under the ceiling), held 4 to 15 samples as TICK rises, the body
+// starting downward with it, as the emulator's; NOIS adds a burst of noise above 1 kHz falling in 70 ms.
 // DIST is a hard clip into a 30 Hz high-pass, fully on from DIST 32;
 // DIRT rounds the sound to coarser and coarser steps, down to three levels at
 // 127 (the third harmonic gone, the fifth 14 dB down), so a fading kick
@@ -49,7 +50,8 @@ const i32 swell_start = 0x4ccccccd;           // the opening, 4.4 dB under the s
 const i32 swell_time = 737234;                // rising with an 8 ms time constant
 const i32 tick_most = 0x6ccccccd;             // 1.7 x the body's height: twice would pass the ceiling
 const i32 tick_time = 351113;                 // gone in 1 ms
-const u32 tick_longest = 15;                  // held up to 15 samples above TICK 64
+const i32 tick_full = 676372803;              // TICK 40: the spike's full height
+const i32 tick_rise = 1704565146;             // 127 / 40, a quarter of it
 const i32 burst_most = 0x78000000;
 const i32 burst_time = 759693;                // -60 dB in 70 ms
 const i32 burst_highpass = 285167595;         // above 1 kHz
@@ -92,8 +94,8 @@ struct Block {
         decay_step = p[DEC] > 0x7e000000 ? md::one : md::decay(md::table9(decay_times, p[DEC]));   // none at 127
         hold = static_cast<u32>(md::table9(holds, p[HOLD]));
         const i32 t = md::positive(p[TICK]);
-        tick = t < 0x40000000 ? multiply(t * 2, tick_most) : tick_most;
-        tick_hold = t > 0x40000000 ? static_cast<u32>(multiply(t - 0x40000000, static_cast<i32>(tick_longest) * 2)) : 0;
+        tick = t < tick_full ? multiply(multiply(t, tick_rise) * 4, tick_most) : tick_most;
+        tick_hold = 4 + static_cast<u32>(multiply(t, 12));   // 4 .. 15 samples
         burst = multiply(md::positive(p[NOIS]), burst_most);
         // DIST: gain 1 .. 32 over its first quarter, a hard clip from there.
         const u32 d = static_cast<u32>(md::positive(p[DIST]));
@@ -142,7 +144,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const u32 whole = octaves >> 16;
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 x = multiply(md::sine(voice.phase), multiply(multiply(voice.level, voice.swell), body_level));
+        i32 x = -multiply(md::sine(voice.phase), multiply(multiply(voice.level, voice.swell), body_level));
         voice.phase += increment;
         increment += static_cast<u32>(slope);
         // TICK: a downward spike.

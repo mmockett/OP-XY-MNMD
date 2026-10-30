@@ -55,11 +55,16 @@ inline void draw(F& frame, const Part* parts, const Effect* effects, const u16* 
     const i32 ph = moment.phase(timing.length, timing.speed);   // Q10 0..1, or -1
     const bool striking = ph >= 0 && ph < 410;                    // the first 40%
     const i32 strike = striking ? ((410 - ph) << 16) / 410 : 0;   // Q16, fading
+    // A struck shape replaces its rest one a frame apart, each way: the rest
+    // hides on the strike, the struck shows a frame later, and back again, so
+    // no frame swaps both (a maraca's beads would change 32 nodes at once).
+    const i32 apart = 36;                                          // a frame, Q10 of the animation
+    const bool swapped = ph >= apart && ph < 410, cleared = ph >= 0 && ph < 410 + apart;
     for (u32 k = 0; k < m.count; ++k) {
         const u32 index = members[m.first + k];
         const Part& part = parts[index];
         const u32 node = view::art_first + index;
-        if ((part.kind == struck && !striking) || (part.kind == hit && ph < 0) || (part.kind == rest && part.struck && striking)) {
+        if ((part.kind == struck && !swapped) || (part.kind == hit && ph < 0) || (part.kind == rest && part.struck && cleared)) {
             hide(frame, node);
             continue;
         }

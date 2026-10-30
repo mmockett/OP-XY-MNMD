@@ -27,6 +27,8 @@ struct State {
     i32 bright;      // the strike's high-pass state
     u32 hold;        // blocks of the strike's burst still held
     u32 age;         // blocks since the strike, through the head's swell
+    i32 wires_out;   // the wires' gain the last block ended on, which the next starts from
+    u32 carrying;    // it is set: a note's first block starts from the envelope
     u32 fresh;
 };
 namespace {
@@ -95,6 +97,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.hold = 0;
     voice.age = swell_blocks;
     voice.seed = 0x9e3779b9u * owner;
+    voice.carrying = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -111,6 +114,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.wires = md::one;
         voice.hold = burst_hold;
         voice.age = 0;
+        voice.carrying = 0;
     }
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
@@ -129,14 +133,25 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     if (voice.burst > 0x00100000 || voice.wires > 0x00100000) {
         const i32 burst_step = voice.hold ? md::one : md::decay(burst_time);
         if (voice.hold) --voice.hold;
+        // The two gains in straight lines across the block.
+        const i32 burst_next = multiply(voice.burst, md::per_block(burst_step));
+        const i32 wires_next = multiply(voice.wires, md::per_block(b.wire_step));
+        // The wires' from where the last block's ended, so RVOL moved glides.
+        i32 burst = multiply(voice.burst, burst_level), wires = voice.carrying ? voice.wires_out : multiply(voice.wires, b.wire_amount);
+        voice.wires_out = multiply(wires_next, b.wire_amount);
+        voice.carrying = 1;
+        const i32 burst_slope = (multiply(burst_next, burst_level) - burst) / 64;
+        const i32 wires_slope = (voice.wires_out - wires) / 64;
+        voice.burst = burst_next;
+        voice.wires = wires_next;
         for (unsigned i = 0; i != opxy::block_frames; ++i) {
             const i32 n = opxy::q31::half(md::noise(voice.seed));
             const i32 high = n - md::smooth(voice.low, n, noise_low);
             md::smooth(voice.high, high, wire_high);
             const i32 bright = n - md::smooth(voice.bright, n, strike_low);
-            mixed[i] += multiply(bright, multiply(voice.burst, burst_level)) + multiply(voice.high, multiply(voice.wires, b.wire_amount));
-            voice.burst = multiply(voice.burst, burst_step);
-            voice.wires = multiply(voice.wires, b.wire_step);
+            mixed[i] += multiply(bright, burst) + multiply(voice.high, wires);
+            burst += burst_slope;
+            wires += wires_slope;
         }
     }
     for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));

@@ -30,6 +30,8 @@ struct State {
     u32 seed;       // noise
     i32 tone;       // one-pole state for the burst
     i32 highpass;   // CLIP's high-pass state
+    i32 burst_out;  // the burst's gain the last block ended on, which the next starts from
+    u32 carrying;   // it is set: the settled loop's first block starts from the envelope
     u32 fresh;      // a note has started and render has not yet run
 };
 namespace {
@@ -58,7 +60,7 @@ const i32 tail_start = 214748365, tail_time = 876190;
 // time constant (-60 dB in 59 ms).
 const u32 click_cycle = 220, body_in = 88;           // samples
 const u32 click_increment = 19522579;                // 2^32 / 220
-const i32 click_level = 1288490189;                  // 1.2 x, at half
+const i32 click_level = 644245094;                   // 1.2 x, at a quarter: STRT's 1.57 x of it stays under one
 const i32 boost_start = 1288490189, boost_time = 743076;
 // NOIS: a burst falling 60 dB in 5 .. 120 ms, louder and longer with the control;
 // its level follows (p + p^2) / 2, as measured.
@@ -98,6 +100,11 @@ struct Block {
 };
 }
 
+// The settled body's gain: DEC's level over the quiet tail, with the opening's boost.
+inline i32 settled_gain(i32 level, i32 tail, i32 boost) {
+    const i32 settled = multiply(level > tail ? level : tail, body_level);
+    return settled + multiply(settled, boost);
+}
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -106,6 +113,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.age = click_cycle + body_in;
     voice.gate = md::one;
     voice.seed = 0x1234567u * owner;
+    voice.carrying = 0;
     voice.level = voice.tail = voice.boost = voice.ramp = voice.burst = voice.thump = 0;
     voice.tone = voice.highpass = 0;
     trigger(voice, shared);
@@ -128,6 +136,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.burst = md::one;
         voice.thump = b.depth;
         voice.tone = 0;
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     const i32 tail_step = md::decay(tail_time);
@@ -147,6 +156,41 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     voice.thump = thump_next;
     voice.ramp = ramp_next;
 
+    if (voice.age >= click_cycle + body_in) {
+        // Settled: the click is over and the body faded in. Its gain and the
+        // burst's, envelopes and levels together, in straight lines across the block.
+        const i32 level_next = multiply(voice.level, md::per_block(b.decay_step));
+        const i32 tail_next = multiply(voice.tail, md::per_block(tail_step));
+        const i32 boost_next = multiply(voice.boost, md::per_block(boost_step));
+        const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
+        i32 body_gain = settled_gain(voice.level, voice.tail, voice.boost);
+        const i32 body_slope = (settled_gain(level_next, tail_next, boost_next) - body_gain) / 64;
+        // From where the last block's ended, so NOIS moved glides.
+        i32 burst_gain = voice.carrying ? voice.burst_out : multiply(multiply(voice.burst, b.noise), body_level);
+        const i32 burst_end = voice.burst_out = multiply(multiply(burst_next, b.noise), body_level);
+        voice.carrying = 1;
+        const i32 burst_slope = (burst_end - burst_gain) / 64;
+        // The burst's noise runs only while it can be heard (-102 dB).
+        const bool bursting = burst_gain >= (1 << 14) || burst_end >= (1 << 14);
+        voice.level = level_next;
+        voice.tail = tail_next;
+        voice.boost = boost_next;
+        voice.burst = burst_next;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 sine = md::sine(voice.phase);
+            const i32 pulse = voice.phase < 0x20000000u ? b.harm : -(b.harm >> 3);
+            voice.phase += increment;
+            increment += static_cast<u32>(slope);
+            i32 mixed = multiply(opxy::q31::half(pulse) - opxy::q31::half(sine), body_gain) * 2;
+            if (bursting)
+                mixed += multiply(md::smooth(voice.tone, opxy::q31::half(md::noise(voice.seed)), burst_tone), burst_gain) * 2;
+            output[i] = md::finish(md::gain(b.clip.run(mixed, voice.highpass), 1));
+            body_gain += body_slope;
+            burst_gain += burst_slope;
+        }
+        return;
+    }
+
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 sine = md::sine(voice.phase);
         // HARM: a narrow pulse on each cycle, a little buzz of upper harmonics.
@@ -165,7 +209,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         mixed += multiply(burst, body_level) * 2;
         mixed = b.clip.run(mixed, voice.highpass);
         if (voice.age < click_cycle) {
-            mixed -= multiply(md::sine(voice.click_phase), multiply(body_level, b.click) * 2);
+            mixed -= multiply(md::sine(voice.click_phase), multiply(body_level, b.click) * 4);
             voice.click_phase += click_increment;
         } else if (voice.age < click_cycle + body_in) {
             voice.gate += gate_step;
