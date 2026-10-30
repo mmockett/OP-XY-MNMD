@@ -82,7 +82,7 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
 }
 
 // GND-NOIS: ST RED STON - / - - - TUNE. The noise across the stage, smoother
-// and taller as RED goes red; with STON on and ST up, two traces ST apart.
+// and taller as RED goes red; ST lifts it with STON off; with STON on, two traces ST apart.
 namespace gnd_nois {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
@@ -90,19 +90,22 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
     // The noise moves for as long as the note sounds: held, then the hit's length after release.
     const i32 run = m.running(md::rig::drum.length);
     const i32 red = md::positive(s[1]), st = md::positive(s[0]);
-    const bool stereo = s[2] >= 0x40000000 && st > 0x028f5c29;
+    const bool stereo = s[2] >= 0x40000000;
     const i32 k = md::one - multiply(red, 0x75c28f5c);                      // the design's 1 - 0.92 red
-    const i32 tall = 44 * unit + multiply(red, 44 * unit);
+    i32 tall = 44 * unit + multiply(red, 44 * unit);
+    // ST with STON off is level, up to +2.9 dB: 1.4 times as tall, as the sound's gain.
+    if (!stereo) tall += multiply(tall, multiply(st, 0x33333333));
     const u32 shift = run > 0 ? static_cast<u32>(run) * 77u >> 10 : 0u;     // the design's 40 steps a hit (77 a second), as a table offset
     for (u32 trace = 0; trace < (stereo ? 2u : 1u); ++trace) {
-        const i32 cy = (80 * unit) + (stereo ? (trace ? 1 : -1) * multiply(st, 24 * unit) : 0);
+        // STON splits the trace in two, a little even at ST 0; ST spreads them.
+        const i32 cy = (80 * unit) + (stereo ? (trace ? 1 : -1) * (4 * unit + multiply(st, 20 * unit)) : 0);
         const u32 seed = trace ? 29u : 3u;
         i32 a = 0;
         i32 xs[64], ys[64];
         for (u32 i = 0; i < 63; ++i) {
             a += multiply(k, scatter[(i + seed + shift) & 63] - a);
             xs[i] = 12 * unit + static_cast<i32>(i) * (456 * unit / 62);
-            ys[i] = cy - multiply(a, tall);
+            ys[i] = md::clamp(cy - multiply(a, tall), 10 * unit, 150 * unit);   // never off the stage
         }
         for (u32 side = 0; side < 2; ++side) {
             i32 hx[32], hy[32];
