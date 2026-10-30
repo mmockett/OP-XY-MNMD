@@ -40,6 +40,10 @@ int faults[8];
 char first_fault[8][160];
 const char* const fault_names[8] = {"invalid", "merge", "closing", "no area", "straight back", "off stage", "stale key", "unused"};
 char where[96];
+double sharpest = 180;
+char sharpest_where[160] = "";
+const double sharpest_floor = 2.5;   // degrees from straight back
+int too_sharp = 0;
 void fault(int kind, opxy::u32 path) {
     if (!faults[kind]++) std::snprintf(first_fault[kind], sizeof first_fault[kind], "path %u, %s", path, where);
 }
@@ -68,6 +72,12 @@ void check_path(opxy::u32 p) {
         const double lu = std::sqrt(static_cast<double>(ux * ux + uy * uy)), lv = std::sqrt(static_cast<double>(vx * vx + vy * vy));
         const double cross = std::fabs(static_cast<double>(ux * vy - uy * vx));
         if (ux * vx + uy * vy < 0 && cross <= (lu > lv ? lu : lv) * unit / 32) fault(4, p);
+        // A stroke's mitre runs far out at a turn nearly straight back: the sharpest in the sweep.
+        if (ux * vx + uy * vy < 0) {
+            const double angle = std::atan2(cross, -static_cast<double>(ux * vx + uy * vy)) * 180 / M_PI;
+            if (angle < sharpest) { sharpest = angle; std::snprintf(sharpest_where, sizeof sharpest_where, "path %u, %s", p, where); }
+            if (angle < sharpest_floor) ++too_sharp;
+        }
     }
     const i32 cx = xy[0].x - xy[m - 1].x, cy = xy[0].y - xy[m - 1].y;
     if ((cx < 0 ? -cx : cx) < unit / 4 && (cy < 0 ? -cy : cy) < unit / 4) fault(2, p);
@@ -295,6 +305,8 @@ int main() {
         if (faults[k]) std::printf("  %-14s %8d  first: %s\n", fault_names[k], faults[k], first_fault[k]);
     }
     if (!total) std::puts("  outlines: no faults in the sweep");
+    std::printf("  sharpest turn: %.2f degrees from straight back (%s); %d under %.1f\n", sharpest, sharpest_where, too_sharp, sharpest_floor);
+    total += too_sharp;
 
     // Churn, a held note's motion, stillness.
     i32 base[8];

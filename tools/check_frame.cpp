@@ -4,6 +4,7 @@
 //
 //   c++ -std=c++11 -I../open-xy/sdk/include -Imachines/<engine> -DENGINE=<engine> tools/check_frame.cpp -o local/check
 #include "display.cpp"
+#include <cmath>
 #include <cstdio>
 
 namespace {
@@ -32,6 +33,16 @@ void report(const EngineFrame& f, const char* when) {
         }
         for (opxy::u32 i = 0; i + 1 < m; ++i)
             if (md::view::near(xy[i], xy[i + 1])) { std::printf("%s: path %u points %u and %u merge\n", when, p, i, i + 1); ++failures; break; }
+        // A stroke's mitre runs far out at a turn nearly straight back; Wane's 2.57 degrees is the working floor.
+        for (opxy::u32 i = 0; i < m && m > 2; ++i) {
+            const Point& a = xy[i];
+            const Point& b = xy[(i + 1) % m];
+            const Point& c = xy[(i + 2) % m];
+            const double ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+            if (ux * vx + uy * vy >= 0) continue;
+            const double angle = std::atan2(std::fabs(ux * vy - uy * vx), -(ux * vx + uy * vy)) * 180 / M_PI;
+            if (angle < 2.5) { std::printf("%s: path %u turns %.2f degrees from straight back\n", when, p, angle); ++failures; break; }
+        }
         const opxy::i32 dx = xy[0].x - xy[m - 1].x, dy = xy[0].y - xy[m - 1].y;
         const opxy::i32 closing = (dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy) ? (dx < 0 ? -dx : dx) : (dy < 0 ? -dy : dy);
         if (m > 2 && closing < 2 * md::view::apart) { std::printf("%s: path %u closes over %d Q10\n", when, p, closing); ++failures; }
