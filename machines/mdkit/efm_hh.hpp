@@ -8,25 +8,29 @@
 // in fixed point and fitted to it (reference/fit_efm_hh.py). The controls:
 //   PTCH  DEC   TREM  TFRQ
 //   MOD   MFRQ  MDEC  FB
-// On the Machinedrum the hat's noise is a click of random height every 32
-// samples, each falling to 0.4 and 0.1 of itself over the next two; here too,
-// over a 300 Hz high-pass. DEC is EFM-BD's decay.
-// Over it an FM carrier (md_efm.hpp), 345 Hz to 1.4 kHz over PTCH, fed back on
-// itself by FB, through a 5 kHz one-pole high-pass that leaves its sidebands
-// louder than it: past FB 40 it buzzes at the top of the band, as the
-// Machinedrum's does. TREM is a tremolo, TFRQ its rate (0.95 Hz to 59 Hz). A
-// short hat (DEC under 64) chokes the open ones still ringing.
+// One FM carrier (md_efm.hpp), 345 Hz to 1.4 kHz over PTCH, fed back on itself
+// by FB, whose phase jumps to a random place every 32 samples, as the
+// Machinedrum's does: so it never settles into a line at its pitch, and each
+// jump is a click of random height. The clicks and the carrier's own level
+// between them are one signal, measured: the gaps hold a sine at the pitch, its
+// phase new after every click, and the clicks' heights correlate with the next
+// one's by half the cosine of the pitch's turn over 32 samples (+0.43 at 690 Hz,
+// -0.49 at 1.38 kHz). That leaves a notch at the pitch and repeats it up the band
+// every 1378 Hz. A high-pass (a zero at DC, two poles at 0.2) passes each click
+// falling to 0.39 and 0.09 of itself and leaves the sidebands louder than the
+// carrier: past FB 40 it buzzes at the top of the band. DEC is EFM-BD's decay.
+// TREM is a tremolo, TFRQ its rate (0.95 Hz to 59 Hz). A short hat (DEC under
+// 64) chokes the open ones still ringing.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_hh {
 struct State {
     efm::Fed fm;
     i32 level;      // amplitude envelope, Q31
     i32 depth;      // MDEC's envelope, Q31
-    i32 click;      // the noise's one-pole state
-    i32 rumble;     // the clicks' high-pass state
-    i32 low;        // the high-pass's state
+    i32 before;     // the high-pass's last input
+    i32 y1, y2;     // and its last two outputs
     u32 tremolo;    // TREM's phase
-    u32 count;      // samples since the last click
+    u32 count;      // samples since the last jump
     u32 seed;
     u32 choke;      // an open hat: the closed hats started when it was struck
     u32 open;       // this hit is an open hat, which a closed one chokes
@@ -43,19 +47,15 @@ const i32 base_low = 26155, base_span = 131072;
 const i32 tremolo_rates[9] = {92522, 155826, 262957, 438262, 749915, 1246612, 2093918, 3535313, 5746101};
 // FB: 0.75 of MFB's feedback on EFM-BD.
 const i32 fb_scale = 0x60000000;
-// The high-pass: one pole at 5 kHz.
-const i32 highpass = 1094194833;
-// The clicks: every 32 samples, then 0.4 of the last one each sample, through
-// a one-pole high-pass at 300 Hz.
-const u32 click_period = 32;
-const i32 click_fall = 0x33333333;
-const i32 click_highpass = 89855360;
+// The carrier's phase jumps this often, in samples.
+const u32 jump_period = 32;
+// The high-pass: y[n] = x[n] - x[n-1] + 0.39 y[n-1] - 0.06 y[n-2].
+const i32 pole1 = 0x31eb851f, pole2 = 0x07ae147b;
 // A choked open hat dies 60 dB in 0.12 s.
 const i32 choke_time = 778000;
-// The levels, 2 dB up on the Machinedrum's as the TRX machines are: the clicks
-// (0.085 RMS at their peaks) and the carrier (0.1 before the high-pass).
-const i32 click_level = 0x28500000;
-const i32 carrier_level = 0x16a00000;
+// The carrier's level before the high-pass, 0.126 on the Machinedrum (its clicks
+// 0.126 RMS at their peaks), 2 dB up as the TRX machines are.
+const i32 carrier_level = 0x14380000;
 
 struct Block {
     i32 base, decay_step, trem, rate, deviation, ratio, depth_step, fb;
@@ -77,7 +77,7 @@ inline void trigger(State& voice, Common&) {
 }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.fm.reset();
-    voice.level = voice.depth = voice.click = voice.rumble = voice.low = 0;
+    voice.level = voice.depth = voice.before = voice.y1 = voice.y2 = 0;
     voice.tremolo = voice.count = 0;
     voice.seed = 0x6c078965u * owner;
     voice.choke = shared.closed_hats;
@@ -89,12 +89,12 @@ inline void reset(State& voice, Common& shared, u32 owner) {
 inline void render(State& voice, Common& shared, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
     const Block b(parameters);
     if (voice.fresh) {
-        voice.fm.reset();
+        voice.fm.reset(efm::from_zero);
         voice.open = parameters[DEC] >= 0x40000000;
         if (!voice.open) ++shared.closed_hats;
         voice.choke = shared.closed_hats;
         voice.level = voice.depth = md::one;
-        voice.click = voice.rumble = voice.low = 0;
+        voice.before = voice.y1 = voice.y2 = 0;
         voice.tremolo = 0;
         voice.count = 0;
         voice.fresh = 0;
@@ -106,20 +106,22 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
     sweep.plan(md::transpose(pitch[0], b.base), 0, flat, md::one, b.ratio, b.deviation, voice.depth, b.depth_step);
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 s = voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()), sweep.modulator.step(), b.fb);
-        const i32 tone = multiply(s, carrier_level);
-        voice.low += multiply(tone - voice.low, highpass);
-        voice.click = multiply(voice.click, click_fall);
-        if (++voice.count >= click_period) {
+        if (voice.count == jump_period) {
             voice.count = 0;
-            voice.click = multiply(md::noise(voice.seed), click_level);
+            voice.fm.carrier += static_cast<u32>(md::noise(voice.seed));
         }
+        ++voice.count;
+        const i32 s = voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()), sweep.modulator.step(), b.fb);
+        const i32 tone = -multiply(s, carrier_level);
+        const i32 y = tone - voice.before + multiply(voice.y1, pole1) - multiply(voice.y2, pole2);
+        voice.before = tone;
+        voice.y2 = voice.y1;
+        voice.y1 = y;
         // TREM: the level dips to 1 - TREM at the tremolo's trough.
         const i32 swing = multiply(b.trem, 0x40000000 - multiply(md::sine(voice.tremolo + 0x40000000u), 0x40000000));
         voice.tremolo += static_cast<u32>(b.rate);
         const i32 envelope = multiply(voice.level, md::one - swing);
-        voice.rumble += multiply(voice.click - voice.rumble, click_highpass);
-        output[i] = md::finish(multiply(tone - voice.low + voice.click - voice.rumble, envelope));
+        output[i] = md::finish(multiply(y, envelope));
         voice.level = multiply(voice.level, fall);
     }
 }

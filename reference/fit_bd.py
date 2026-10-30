@@ -11,6 +11,13 @@ The model, read off the renders (reference/README.md has how they are made):
 
 Each part is fitted from a sweep with the other parameters at zero, and the
 results are printed as tables at the 9 points 0, 16, ..., 127 for engine.cpp.
+
+The "drop" read here crosses the click, which is fixed and is no part of the
+sine (it sounds alone until 6.3 ms): it reads the same on both sides, but read
+alone it overstates the thump. trx_bd.hpp's thump (about 35 Hz, gone by 11 to 27
+ms) and first half cycle came from fitting the waveform itself from 6.3 to 50 ms,
+least squares over depth and length at each PTCH; the sine's turning points then
+fall within 0.3 ms of the Machinedrum's at PTCH 32 to 127.
 """
 import sys
 import pathlib

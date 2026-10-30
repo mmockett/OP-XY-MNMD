@@ -83,6 +83,14 @@ int main() {
     const int decay[6] = {64, 64, 40, 0, 64, 0};
     play(decay, out);
     check("DEC 64 has fallen 40 dB by 200 ms", db(rms(out, 8820, 441)) < db(rms(out, 441, 441)) - 40);
+    // A hit starts from nothing, and nothing folds down under the bell.
+    play(bell, out);
+    double top = 0;
+    for (unsigned i = 0; i < 4410; ++i) top = std::fmax(top, std::fabs(out[i] / 2147483648.0));
+    std::printf("first sample %.3f of the peak\n", std::fabs(out[0] / 2147483648.0) / top);
+    check("starts near nothing", std::fabs(out[0] / 2147483648.0) < top * 0.25);
+    for (int hz = 200; hz <= 900; hz += 20)
+        if (db(line(out, 882, 8820, hz)) - a > -55) { check("nothing folds down under the bell", false); break; }
     // The oscillators run free: two hits differ.
     static opxy::i32 other[kFrames];
     play(bell, out, 1);

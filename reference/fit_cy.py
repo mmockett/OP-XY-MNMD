@@ -8,7 +8,10 @@ of lines, the odd harmonics of square waves near 432, 513, 551, 760, 774 and
 848 Hz (with lines at 1160 and 1547 Hz), weighted by the controls: so the fit
 compares band levels, half an octave wide from 250 Hz to 16 kHz, 20 to 120 ms
 in and 400 to 600 ms in, and the decay. Each control is swept from the
-design's defaults (RICH 64, DEC 50, TOP 64, TTUN 64, SIZE 64, PEAK 64).
+design's defaults (RICH 64, DEC 50, TOP 64, TTUN 64, SIZE 64, PEAK 64). The lines,
+normalised by their harmonic number, show a steep high-pass at SIZE (640 Hz .. 1.7 kHz)
+that stays flat up to the top, a dip near 4.2 kHz deeper as SIZE rises, and the top
+peaking near 5.5 kHz.
 """
 import pathlib
 import sys

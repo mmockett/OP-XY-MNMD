@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Fits the E12 machines' controls: sweeps each from the raw setting the
 capture uses (tools/capture_e12.py) on the Machinedrum and on our voice
-(voices/e12.hpp), and prints what it does on both.
+(voices/e12.hpp), and prints what it does on both. PTCH is (v - 64) / 32 octaves,
+but (v - 64) / 38.4 on OH, RC, CC, TR and (v - 64) / 64 on TA, SH; BEND starts
+(v - 64) / 64 octaves away and its difference in speed falls with a 2.25 s time constant; DEC 0 falls
+60 dB in 6 ms.
 
-    ../open-xy/.venv/bin/python reference/fit_e12.py [ptch bend dec hp hpq strt rtrg own] [--md-only]
+    ../open-xy/.venv/bin/python reference/fit_e12.py [ptch ptchall bend dec hp hpq strt rtrg own] [--md-only]
 
 Needs the capture (our side is silent without it).
 """
@@ -138,6 +141,12 @@ def main():
             a = rate_of(ref, md)
             b = rate_of(refx, xy) if xy is not None else (np.nan, 0)
             print(f"  {v:3d}  {a[0]:+.3f} ({a[1]:.3f})  {b[0]:+.3f}")
+    if "ptchall" in want:
+        print("PTCH on every machine: octaves from PTCH 64 at 0, 32, 96 (MD / ours): OH RC CC TR are (v - 64) / 38.4, TA SH (v - 64) / 64, the rest (v - 64) / 32")
+        for name in NAMES:
+            rows = sweep(name, 0, [0, 32, 64, 96], ours=ours, base=[*raw(name)[:1], 80, *raw(name)[2:]], seconds=0.5)
+            ref, refx = rows[2][1], rows[2][2]
+            print(f"  {name}  " + " ".join(f"{rate_of(ref, md, n=1500)[0]:+.3f}" + (f"/{rate_of(refx, xy, n=1500)[0]:+.3f}" if xy is not None else "") for v, md, xy in rows))
     if "dec" in want:
         print("DEC on E12-OH: level against DEC 127, dB at 10, 50, 100, 200, 400, 700 ms (MD / ours)")
         rows = sweep("E12-OH", 1, [0, 8, 16, 32, 48, 64, 80, 96, 112, 120, 126, 127], ours=ours)

@@ -4,12 +4,13 @@
     ../open-xy/.venv/bin/python reference/fit_hh.py
 
 What the renders show, each control swept from GAP 0, DEC 64, HPF 0, LPF 127, MTAL 64:
-  sound  metallic partials near 3.8, 4.24, 5.3, 5.9, 6.8, 7.6, 8.4 and 9.3 kHz,
-         in a band about 3.6 .. 11 kHz
+  sound  the lines of TRX-CY's oscillators, the odd harmonics of squares at 432, 513,
+         551, 760 and 848 Hz and every harmonic of a 387 Hz pulse, in a band about
+         3.6 .. 11 kHz, over white noise as loud as all of them (OH, 50-450 ms, MTAL 64)
   DEC    how long the level holds (TRX-CH about 5 to 200 ms), then it falls
   GAP    how fast it falls after the hold
   HPF    the band's lower edge, 3.6 .. 5.9 kHz; LPF its upper edge, 5.7 .. 10.5 kHz
-  MTAL   the weight of the lower partials
+  MTAL   trades them: the lines 1/8 to full, the noise full to 0.22
   TRX-OH holds about 3.3 x as long, and falls far longer at high GAP
 For each setting: the level (dB under the peak) at 0..1200 ms, then the 0-50 ms
 band and centroid, Machinedrum over ours.

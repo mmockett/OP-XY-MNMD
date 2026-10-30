@@ -13,8 +13,11 @@
 // fundamental from 86 Hz (PTCH 0) to 340 Hz (127), with quieter ones at 0.59
 // and 3 times; TENS tightens it by up to 9 %. DEC sets their ring, -60 dB in
 // 20 to 280 ms. RING brings up a sixth mode at 2.75 times, which rings on. The
-// strike adds a 5 ms burst of noise; the wires (RVOL, as its square) rattle
-// for RDEC's time, from a few ms to 0.7 s. HARD only tunes the head up 3 %.
+// strike adds a 5 ms burst of noise, falling 6 dB an octave from about 1.5 kHz
+// (its spectrum falls from 1 to 13 kHz by 12 dB, and it carries the 300 to
+// 1000 Hz under the head); the wires (RVOL, as its square) rattle for RDEC's
+// time, from a few ms to 0.7 s, in equal power per octave from 500 Hz to 8 kHz,
+// less above. HARD only tunes the head up 3 %.
 namespace md {
 namespace pi_sd {
 const unsigned mode_count = 6;
@@ -23,8 +26,8 @@ struct State {
     i32 burst;       // the strike's noise envelope, Q31
     i32 wires;       // the wires' envelope, Q31
     u32 seed;
-    i32 low, high;   // the wires' band: one-pole states
-    i32 bright;      // the strike's high-pass state
+    i32 low, high;   // the noise: its 200 Hz high-pass and 1.5 kHz low-pass
+    i32 top;         // the 5 kHz low-pass over the wires' upper part
     u32 hold;        // blocks of the strike's burst still held
     u32 age;         // blocks since the strike, through the head's swell
     i32 wires_out;   // the wires' gain the last block ended on, which the next starts from
@@ -42,7 +45,7 @@ const i32 base[9] = {-102187, -86150, -69702, -53343, -37101, -20532, -4022, 125
 const i32 tens_low = -2865, tens_span = 8947;
 // The modes: Q16 octaves above the fundamental, and their levels (Q31).
 const i32 ratios[mode_count] = {0, 17866, 54199, -49887, 103872, 95680};
-const i32 levels[mode_count] = {md::one, 0x5ffc8890, 0x198a1357, 0x08138562, 0x040c3714, 0};
+const i32 levels[mode_count] = {md::one, 0x5ffc8890, 0x30000000, 0x08138562, 0x040c3714, 0};
 // DEC: -60 dB in 20 .. 276 ms, Q16 log2 samples at DEC 0, 16, ..., 127; the third
 // mode shortens to 0.72 of it at the top.
 const i32 decay_times[9] = {641246, 688593, 761034, 791506, 823868, 847934, 861746, 878908, 889404};
@@ -53,17 +56,17 @@ const i32 third_shorter = -31000;
 const i32 ring_levels[9] = {34035322, 30334013, 42847932, 57138636, 101608459, 107629139, 127917471, 152030200,
                             191394682};
 const i32 ring_longer = 163840;
-// The strike: noise above 1.5 kHz falling 60 dB in 25 ms after a 4.4 ms hold.
+// The strike: noise under 1.5 kHz falling 60 dB in 25 ms after a 4.4 ms hold.
 const i32 burst_time = 662344;
 const u32 burst_hold = 3;   // blocks
-const i32 burst_level = 0x0d800000;
+const i32 burst_level = 0x20000000;
 // HARD: a harder strike tunes the head up 3 % (Q16 octaves).
 const i32 hard_low = -1121, hard_span = 3040;
 // The wires: RDEC's fall, -60 dB in 20 ms .. 0.68 s at RDEC 0, 16, ..., 127.
 const i32 wire_times[9] = {641246, 662344, 694157, 727880, 793416, 831752, 880050, 924488, 974658};
-const i32 wire_level = 0x18000000;
-const i32 noise_low = 0x03a5e354, wire_high = 0x49800000;   // one-poles: the wires above 200 Hz, below 6 kHz
-const i32 strike_low = 0x18000000;                           // the strike above 1.5 kHz
+const i32 wire_level = 0x3c000000;
+// One-poles: the noise above 200 Hz; under 1.5 kHz; and under 5 kHz, the wires' top.
+const i32 noise_low = 0x03a5e354, noise_high = 0x18a13c35, wire_top = 0x41380000;
 // The head swells in over its first 4 blocks (6 ms), as the Machinedrum's.
 const u32 swell_blocks = 4;
 const i32 swell_step = md::one / 4;
@@ -93,7 +96,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
         voice.modes[k].level = 0;
     }
     voice.burst = voice.wires = 0;
-    voice.low = voice.high = voice.bright = 0;
+    voice.low = voice.high = voice.top = 0;
     voice.hold = 0;
     voice.age = swell_blocks;
     voice.seed = 0x9e3779b9u * owner;
@@ -128,10 +131,13 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 level = k == mode_count - 1 ? b.ring_level : levels[k];
         const i32 step = k == mode_count - 1 ? b.ring_step : k == 2 ? b.third_step : b.step;
         const i32 amount = multiply(level, body_level);
-        modal::ring(mode, step, multiply(amount, swell), multiply(amount, swell_next), mixed);
+        // The head's fundamental and its neighbour swell in; the upper modes sound at once.
+        if (k < 2) modal::ring(mode, step, multiply(amount, swell), multiply(amount, swell_next), mixed);
+        else modal::ring(mode, step, amount, mixed);
     }
     if (voice.burst > 0x00100000 || voice.wires > 0x00100000) {
         const i32 burst_step = voice.hold ? md::one : md::decay(burst_time);
+        const bool first = voice.hold == burst_hold;
         if (voice.hold) --voice.hold;
         // The two gains in straight lines across the block.
         const i32 burst_next = multiply(voice.burst, md::per_block(burst_step));
@@ -140,6 +146,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         i32 burst = multiply(voice.burst, burst_level), wires = voice.carrying ? voice.wires_out : multiply(voice.wires, b.wire_amount);
         voice.wires_out = multiply(wires_next, b.wire_amount);
         voice.carrying = 1;
+        if (first) burst += (burst >> 1) + (burst >> 2);   // the stick's first 1.5 ms is 5 dB over the rest
         const i32 burst_slope = (multiply(burst_next, burst_level) - burst) / 64;
         const i32 wires_slope = (voice.wires_out - wires) / 64;
         voice.burst = burst_next;
@@ -147,9 +154,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         for (unsigned i = 0; i != opxy::block_frames; ++i) {
             const i32 n = opxy::q31::half(md::noise(voice.seed));
             const i32 high = n - md::smooth(voice.low, n, noise_low);
-            md::smooth(voice.high, high, wire_high);
-            const i32 bright = n - md::smooth(voice.bright, n, strike_low);
-            mixed[i] += multiply(bright, burst) + multiply(voice.high, wires);
+            const i32 body = md::smooth(voice.high, high, noise_high);
+            const i32 top = md::smooth(voice.top, high, wire_top);
+            mixed[i] += multiply(body, burst) + multiply(body + (top >> 3) + (top >> 4), wires);
             burst += burst_slope;
             wires += wires_slope;
         }

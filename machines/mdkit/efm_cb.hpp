@@ -13,7 +13,9 @@
 // (md_efm.hpp) with half EFM-BD's deviation, MDEC its envelope. FB feeds each
 // sine back into its own phase one sample late, adding harmonics, and past
 // FB 80 a buzz at the top of the band, as the Machinedrum's does. DEC is the
-// level's decay; SNAP takes up to 78% of it away over the first 50 ms.
+// level's decay; SNAP takes up to 78% of it away over the first 50 ms. Both
+// sines start at a zero crossing, falling: the first sample is 0.06 of the peak,
+// which comes a quarter cycle later, as the Machinedrum's.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_cb {
 struct State {
@@ -70,8 +72,8 @@ inline void reset(State& voice, Common& shared, u32) {
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
     const Block b(parameters);
     if (voice.fresh) {
-        voice.low.reset();
-        voice.high.reset();
+        voice.low.reset(efm::from_zero);
+        voice.high.reset(efm::from_zero);
         voice.level = voice.snap = voice.depth = md::one;
         voice.fresh = 0;
     }
@@ -89,7 +91,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 h = voice.high.run(high.carrier.step(), static_cast<i32>(high.deviation.step()), high.modulator.step(), b.fb);
         // The level less SNAP's share of it, which falls away at the fast rate.
         const i32 held = multiply(voice.level - multiply(multiply(voice.level, b.share), md::one - voice.snap), tone_level);
-        output[i] = md::finish(multiply(l, held) + multiply(h, held));
+        output[i] = md::finish(-multiply(l, held) - multiply(h, held));
         voice.level = multiply(voice.level, b.decay_step);
         voice.snap = multiply(voice.snap, snap_step);
     }

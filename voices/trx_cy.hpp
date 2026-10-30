@@ -13,22 +13,24 @@
 // harmonic of a pulse at 386.84 Hz, its duty about 3/8 (its 8th and 16th
 // missing), running free (no two hits alike in detail; here they start at
 // random phases). The controls weigh them, never tune them: SIZE is the body's steep
-// high-pass, 380 Hz to 1.4 kHz (a bigger cymbal lower); TOP and PEAK raise the
-// band above 5 kHz by 15 and 17 dB, TTUN moves its steep upper edge from 4.5
-// to 10.5 kHz; RICH brings in the five squares, 19 dB down at 0, never the pulse.
-// DEC: -60 dB in 1.3 to 6 s, the top 1.6 times as fast. The squares are
-// band-limited (to their 13th harmonic) and the pulse to its 40th (15.5 kHz):
-// naive ones fold their aliases into the top octave, which the Machinedrum
-// keeps 44 dB down. Its cymbal peaks near
-// -28 dB; here it is lifted 15 dB, as its hats are. The key moves all of it.
+// high-pass with a knee, 640 Hz to 1.7 kHz (a bigger cymbal lower), flat above it up
+// to the top; TOP and PEAK raise the band above 5 kHz by 15 and 17 dB, TTUN moves
+// its steep upper edge from 4.5 to 10.5 kHz; RICH brings in the five squares, 19 dB
+// down at 0, never the pulse. The top comes in from a resonant high-pass, opposed to
+// the body, so the two cancel where they meet: the Machinedrum's dip near 4.2 kHz,
+// deeper the higher SIZE. DEC: -60 dB in 1 to 5 s, the top 1.6 times as fast. The
+// squares are band-limited (to their 13th harmonic) and the pulse to its 40th
+// (15.5 kHz): naive ones fold their aliases into the top octave, which the Machinedrum
+// keeps 44 dB down. Its cymbal peaks near -28 dB; here its lines are lifted 15 dB, as
+// its hats are. The key moves all of it.
 namespace md {
 namespace trx_cy {
 struct State {
     u32 phase[6];             // the five squares, then the pulse
     i32 body, top;            // the two envelopes, Q31
-    i32 size[4];              // the body's four high-pass poles (SIZE)
-    i32 dull;                 // the body's low-pass pole
-    i32 under;                // the top's extra high-pass pole
+    i32 size[2];              // the body's two high-pass poles (SIZE)
+    md::Svf knee;             // and its resonant stage
+    i32 dull[2];              // its two low-pass poles
     i32 top_state[3][4];      // the top's three biquads: x1 x2 y1 y2
     u32 seed;
     i32 body_out, top_out;   // the gains each block ended on, which the next starts from
@@ -310,12 +312,17 @@ const i32 pulse_table[1024] = {
     -19138702, -19643317, -20024918, -20246104, -20272231, -20072978, -19623801, -18907181,
     -17913618, -16642329, -15101584, -13308698, -11289633, -9078252, -6715232, -4246697
 };
-// SIZE: the body's four-pole high-pass, 380 Hz to 1.4 kHz; over it a low-pass pole at 1.5 kHz.
-const i32 size_highpass[9] = {113175195, 146947895, 180159915, 212820563, 244938994, 282427997, 319178293, 355204436, 388333961};
-const i32 body_lowpass = 413219893;
-// The top: a second-order high-pass at 6 kHz (Q 0.9), then TTUN's
+// SIZE 0, 16, ..., 127: the body's steep high-pass, two poles over a resonant state-variable
+// stage whose knee is the fitted 645 Hz .. 1.7 kHz, and the body's and top's levels.
+const i32 size_poles[9] = {187210086, 202669282, 229191968, 259377350, 287542031, 395496704, 455374214, 502821737, 569971742};
+const i32 size_knee[9] = {97904970, 106396697, 121120042, 138119214, 154219305, 167948391, 196566810, 219947042, 254166990};
+const i32 size_body[9] = {1250281612, 1126428056, 1105039925, 1221465160, 1304828615, 1794642182, 1832645536, 1878928816, 2147268900};
+const i32 size_top[9] = {1702256925, 2147268900, 1946927463, 1714322106, 1937849247, 1292232921, 1601677888, 1592098745, 1390290868};
+const i32 body_damping = 214748365;
+const i32 body_lowpass = 1371000000;   // two poles at 7 kHz: the body stays flat up to the top, and no further
+// The top: a resonant second-order high-pass that SIZE moves, then TTUN's
 // fourth-order Butterworth low-pass, 4.5 to 10.5 kHz, as two biquads:
-// coefficients Q30 (b0 b1 b2 a1 a2), TTUN's at its 0, 16, ..., 127.
+// coefficients Q30 (b0 b1 b2 a1 a2), each at its control's 0, 16, ..., 127.
 struct Biquad { i32 b0, b1, b2, a1, a2; };
 const Biquad ttun_lowpass0[9] = {
     {68669815, 137339629, 68669815, -1108493449, 309430884},
@@ -337,18 +344,29 @@ const Biquad ttun_lowpass1[9] = {
     {231941381, 463882761, 231941381, -665703568, 519727266},
     {295781892, 591563783, 295781892, -383184495, 492570238},
     {359546598, 719093196, 359546598, -116156165, 480600733}};
-const i32 top_under = 746927805;   // and a pole at 3 kHz under it, so the body's band stays out
-const Biquad top_highpass = {626594922, -1253189844, 626594922, -993164926, 439472938};
+// The high-pass's edge and resonance at SIZE's steps: below 64, near 4 kHz; above, 5.5 kHz and sharp.
+// It is taken away from the body, and where the two are level they cancel: the
+// Machinedrum's dip near 4.2 kHz, which deepens as SIZE rises.
+const Biquad top_highpass_at[9] = {
+    {858561134, -1717122269, 858561134, -1476703303, 883799411},
+    {854344360, -1708688721, 854344360, -1510492622, 833142996},
+    {865423751, -1730847502, 865423751, -1531235554, 856717625},
+    {861581186, -1723162373, 861581186, -1524473535, 848109386},
+    {807853076, -1615706152, 807853076, -1402144408, 755526073},
+    {842960296, -1685920592, 842960296, -1370258938, 927840421},
+    {837638930, -1675277860, 837638930, -1350579413, 926234484},
+    {841794331, -1683588662, 841794331, -1365950009, 927485492},
+    {853733531, -1707467063, 853733531, -1409989366, 931202935}};
 // TOP and PEAK: the top's level, each -10 dB at 0 to +5 and +7 dB at 127 about the middle.
 const i32 top_gain[9] = {381882595, 509248626, 679093957, 905586346, 1207618800, 1397725631, 1617759626, 1872432006, 2147483647};
 const i32 peak_gain[9] = {303340128, 404510562, 539423504, 719332803, 959245710, 1207618800, 1520301996, 1816976124, 2147483647};
-const i32 decay_times[9] = {1033998, 1043941, 1053920, 1063013, 1080535, 1101326, 1118852, 1144901, 1184388};
+const i32 after_gain = 64, ceiling = md::half_scale / 64;   // the output's gain, and where it stops at half scale
+const i32 decay_times[9] = {1017614, 1027557, 1037536, 1046629, 1064151, 1084942, 1102468, 1128517, 1168004};
 const i32 top_faster = 44564;                       // the top falls 60 dB in 0.62 of the time
 // RICH: the squares' weight, and their level with it (the pulse keeps its own).
 const i32 rich_weight[9] = {0x26666666, 0x40000000, 0x59999999, 0x6ccccccc, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
 const i32 rich_level[9] = {0x2e000000, 0x3a000000, 0x4c000000, 0x62000000, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7d000000, 0x7a000000};
-// 2.9 dB over the eight squares' levels: the five and the pulse carry that much less.
-const i32 body_level = 0x19333333, top_level = 0x58e00000;   // the top at a quarter
+const i32 body_level = 297222577, top_level = 289611891;   // the top at a quarter
 
 // One biquad step, x1 x2 y1 y2 in s. A Butterworth low-pass's numerator is
 // b0 (1, 2, 1) and a high-pass's b0 (1, -2, 1): three multiplies, not five.
@@ -377,14 +395,17 @@ inline Biquad between(const Biquad* t, i32 parameter) {
 
 
 struct Block {
-    i32 weight, size, top, body_step, top_step;
-    Biquad low0, low1;
+    i32 weight, poles, knee, body, top, body_step, top_step;
+    Biquad high, low0, low1;
     explicit Block(const i32* p) {
         weight = multiply(md::table9(rich_weight, p[RICH]), md::table9(rich_level, p[RICH]));
-        size = md::table9(size_highpass, p[SIZE]);
+        poles = md::table9(size_poles, p[SIZE]);
+        knee = md::table9(size_knee, p[SIZE]);
+        body = multiply(md::table9(size_body, p[SIZE]), body_level);
+        high = between(top_highpass_at, p[SIZE]);
         low0 = between(ttun_lowpass0, p[TTUN]);
         low1 = between(ttun_lowpass1, p[TTUN]);
-        top = multiply(multiply(md::table9(top_gain, p[TOP]), md::table9(peak_gain, p[PEAK])), top_level);
+        top = multiply(multiply(multiply(md::table9(top_gain, p[TOP]), md::table9(peak_gain, p[PEAK])), md::table9(size_top, p[SIZE])), top_level);
         const i32 time = md::table9(decay_times, p[DEC]);
         body_step = md::decay(time);
         top_step = md::decay(time - top_faster);
@@ -393,11 +414,11 @@ struct Block {
 }
 
 inline void clear(State& voice) {
-    voice.dull = voice.under = 0;
-    for (unsigned k = 0; k < 4; ++k) {
-        voice.size[k] = 0;
-        for (unsigned j = 0; j < 4; ++j) if (k < 3) voice.top_state[k][j] = 0;
-    }
+    voice.size[0] = voice.size[1] = 0;
+    voice.knee.reset();
+    voice.dull[0] = voice.dull[1] = 0;
+    for (unsigned k = 0; k < 3; ++k)
+        for (unsigned j = 0; j < 4; ++j) voice.top_state[k][j] = 0;
 }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
@@ -424,7 +445,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     // The two gains, envelope and level together, in straight lines across the block.
     const i32 body_next = multiply(voice.body, md::per_block(b.body_step));
     const i32 top_next = multiply(voice.top, md::per_block(b.top_step));
-    const i32 body_scale = body_level;
+    const i32 body_scale = b.body;
     // Each from where the last block's ended, so RICH, TOP or PEAK moved glides.
     i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_scale);
     i32 top_gain = voice.carrying ? voice.top_out : multiply(voice.top, b.top);
@@ -447,19 +468,19 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 pulse = pulse_table[voice.phase[squares] >> 22];
         voice.phase[squares] += increment[squares];
         const i32 metal = pulse + multiply(low, b.weight);   // at most 1/16 of full scale
-        // The body: four high-pass poles at SIZE, one low-pass at 1.5 kHz.
-        i32 body = metal;
-        for (unsigned k = 0; k < 4; ++k) body -= md::smooth(voice.size[k], body, b.size);
-        body = md::smooth(voice.dull, body, body_lowpass);
-        i32 mixed = multiply(body, body_gain);
+        // The body: two high-pass poles at SIZE, its resonant stage, two low-pass poles.
+        i32 body = metal - md::smooth(voice.size[0], metal, b.poles);
+        body -= md::smooth(voice.size[1], body, b.poles);
+        voice.knee.run(body, b.knee, body_damping);
+        i32 mixed = multiply(md::smooth(voice.dull[1], md::smooth(voice.dull[0], voice.knee.high, body_lowpass), body_lowpass), body_gain);
         if (topping) {
-            // The top: the high-pass at 6 kHz with a pole at 3 kHz, then TTUN's low-pass.
-            i32 top = highpass(top_highpass, voice.top_state[0], metal - md::smooth(voice.under, metal, top_under));
+            // The top: SIZE's high-pass, then TTUN's low-pass; opposed to the body.
+            i32 top = highpass(b.high, voice.top_state[0], metal);
             top = lowpass(b.low0, voice.top_state[1], top);
             top = lowpass(b.low1, voice.top_state[2], top);
-            mixed += multiply(top, top_gain) * 4;
+            mixed -= multiply(top, top_gain) * 4;
         }
-        output[i] = md::finish(md::gain(mixed, 6));
+        output[i] = md::clamp(mixed, -ceiling, ceiling) * after_gain;
         body_gain += body_slope;
         top_gain += top_slope;
     }

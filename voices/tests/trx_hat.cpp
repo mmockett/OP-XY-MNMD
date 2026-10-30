@@ -77,6 +77,16 @@ int main() {
         check("a closed hat chokes an open one", rms(out, 2205, 2205) < 0.0001);
     }
 
+    // The oscillators run free and the noise is its own: two hits differ.
+    {
+        static opxy::i32 first[kFrames];
+        play(voice, false, hat, first, 10, true, 1);
+        play(voice, false, hat, out, 10, true, 9);
+        double difference = 0;
+        for (unsigned i = 0; i < 640; ++i) difference += std::fabs(static_cast<double>(first[i]) - out[i]);
+        check("each hit is its own", difference > 0);
+    }
+
     // Both: bounded at both ends of every control.
     for (int open = 0; open < 2; ++open) {
         for (int extreme = 0; extreme < 2; ++extreme) {

@@ -11,8 +11,9 @@
 // The model is a shaker's: the shake's energy falls away over DEC's time
 // (-60 dB in 0.2 to 4.6 s); while it lasts, seeds hit the shell at random,
 // GRNS of them a second (200 to 16,000), each a click of noise ringing GLEN's
-// time (4 to 120 ms); the shell colours them, a band near 3.4 kHz that SIZE
-// raises and HARD lowers. As measured: more and longer grains are smoother
+// time (4 to 120 ms); the shell colours them, a broad band near 3.4 kHz that
+// SIZE raises and HARD lowers, with the body of the gourd under it, from 300 Hz
+// up. The shake opens on its first seed. As measured: more and longer grains are smoother
 // and louder, SIZE moves the brightness from 3.2 to 6 kHz and HARD from 5.2
 // down to 2.3 kHz.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
@@ -22,6 +23,7 @@ struct State {
     i32 sound;      // the seeds' ringing, Q31
     u32 seed;
     md::Svf shell;
+    i32 base;       // the shell's low output under 300 Hz, taken off it
     u32 fresh;
 };
 namespace {
@@ -48,7 +50,13 @@ const i32 long_soft[9] = {2147483647, 1657409659, 1279174713, 987256190, 7619559
 const i32 shell_centre = 425450;
 const i32 size_offsets[9] = {-3691, -12081, -6134, -2755, 0, 10306, 23295, 35901, 55819};
 const i32 hard_offsets[9] = {37966, 24525, 15463, 5491, 0, -14377, -19223, -33126, -39397};
-const i32 shell_damping = 0x20000000;
+// How wide the band is, half the damping at SIZE 0, 16, ..., 127: the Machinedrum's
+// narrows as it rises; and the body under it (Q31), most at the smallest SIZE.
+const i32 shell_damping[9] = {0x38000000, 0x38000000, 0x38000000, 0x38000000, 0x38000000, 0x33000000, 0x29000000,
+                              0x1f000000, 0x18000000};
+const i32 body_levels[9] = {0x4ccccccd, 0x46666666, 0x40000000, 0x39999999, 0x30000000, 0x26666666, 0x1999999a,
+                            0x0ccccccd, 0x06666666};
+const i32 base_corner = 0x0559d4f5;   // a one-pole at 300 Hz
 // Each grain adds the shake's energy times this to the ringing, a random share of it.
 const i32 grain_level = 0x14000000;
 const i32 out_level = 0x60000000;   // 8 dB over the emulator's main mix (with render's gain), to sit in a kit
@@ -57,11 +65,13 @@ const i32 hard_soft = 0x47cf267e;
 
 struct Block {
     u32 chance;
-    i32 shake_step, grain_step, tune, amount;
+    i32 shake_step, grain_step, tune, amount, damping, body;
     explicit Block(const i32* p) {
         chance = md::transpose(grain_rate, multiply(md::positive(p[GRNS]), grain_span));
         shake_step = md::decay(md::table9(decay_times, p[DEC]));
         grain_step = md::decay(md::table9(grain_times, p[GLEN]));
+        damping = md::table9(shell_damping, p[SIZE]);
+        body = md::table9(body_levels, p[SIZE]);
         tune = md::cutoff(shell_centre + md::table9(size_offsets, p[SIZE]) + md::table9(hard_offsets, p[HARD]));
         amount = multiply(multiply(grain_level, md::table9(many_soft, p[GRNS])), md::table9(long_soft, p[GLEN]));
         amount = multiply(amount, md::span(p[HARD], hard_soft, md::one));
@@ -74,6 +84,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.shake = voice.sound = 0;
     voice.seed = 0x2f6b3a91u * owner;
     voice.shell.reset();
+    voice.base = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -83,8 +94,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     if (voice.fresh) {
         voice.fresh = 0;
         voice.shake = md::one;
-        voice.sound = 0;
+        voice.sound = md::gain(b.amount, 3);   // the first seed, at the shake's full energy
         voice.shell.reset();
+        voice.base = 0;
     }
     if (voice.shake < 0x00010000 && voice.sound < 0x00010000) {
         for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = 0;
@@ -104,8 +116,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.sound = multiply(voice.sound, b.grain_step);
         md::noise(voice.seed);
         const i32 n = static_cast<i32>(voice.seed >> 3) - 0x10000000;   // an eighth of full scale
-        voice.shell.run(multiply(n, voice.sound), b.tune, shell_damping);
-        output[i] = md::finish(md::gain(multiply(voice.shell.band, out_level), 3));
+        voice.shell.run(multiply(n, voice.sound), b.tune, b.damping);
+        const i32 body = voice.shell.low - md::smooth(voice.base, voice.shell.low, base_corner);
+        output[i] = md::finish(md::gain(multiply(voice.shell.band + multiply(body, b.body) * 2, out_level), 3));
         shake += shake_slope;
     }
     voice.shake = shake_next;

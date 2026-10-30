@@ -92,6 +92,17 @@ int main() {
     std::printf("PTCH 127 settles at %.1f Hz\n", top_hz);
     check("PTCH 127 is the Machinedrum's 120 Hz", top_hz > 114 && top_hz < 127);
 
+    // As the Machinedrum's: the click, then a dip well under it before the body
+    // arrives (reference/fit_bd.py), peak at 3.6 ms.
+    const int lands[8] = {40, 100, 0, 0, 0, 0, 0, 0};
+    play(lands, out);
+    double top = 0;
+    for (unsigned i = 0; i < 2205; ++i) top = std::fmax(top, std::fabs(out[i] / 2147483648.0));
+    const double dip = 20 * std::log10(rms(out, 220, 330) / top);
+    std::printf("5-12.5 ms: %.1f dB under the peak\n", dip);
+    check("the click stands over a dip", dip < -13 && dip > -22);
+    check("the click's peak falls at 3 to 4 ms", std::fabs(out[160] / 2147483648.0) > top * 0.9);
+
     if (!failures) std::puts("PASS trx_bd");
     return failures ? 1 : 0;
 }

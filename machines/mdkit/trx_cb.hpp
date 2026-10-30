@@ -9,8 +9,13 @@
 //   PTCH  DEC   ENH   DAMP
 //   TONE  BUMP
 // As measured: a pulse near 1117 Hz, low-passed, beating against a sine near
-// 1051 Hz, with a quieter line near 1752 Hz. The oscillators run free, so the
-// beat falls differently on every hit: here they start at random phases. TONE
+// 1051 Hz, with a quieter line near 1752 Hz and a quieter still at 3856. The oscillators run free, so the
+// beat falls differently on every hit: here the sines start at random phases,
+// faded in over 0.7 ms so a hit starts from nothing, as the Machinedrum's does
+// (first sample about 0.1 of the peak), and the pulse starts half way through a
+// high half, which leaves no low thump under its first cycles. The pulse's edges
+// fall between samples, each sample its average, so nothing folds down beneath
+// the bell: as on the Machinedrum, nothing stands between 100 and 1000 Hz. TONE
 // is the pulse's brightness (its 3rd harmonic from 29 to 11 dB under the
 // fundamental, the fundamental kept); ENH brings up the 1051 Hz voice (from 15
 // dB under the pulse to level with it at ENH 80), narrows the pulse a little
@@ -24,11 +29,12 @@
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace trx_cb {
 struct State {
-    u32 bell, voice, line;   // the pulse, the second voice, the line
+    u32 bell, voice, line, high;   // the pulse, the second voice, the lines
     i32 level;               // the pulse's envelope, Q31
     i32 others;              // the second voice's and the line's, Q31
     i32 bump;                // BUMP's bend, Q31
     i32 low1, low2;          // the pulse's low-pass
+    u32 fading;              // samples of the sines' fade in so far
     u32 seed;
     u32 fresh;
 };
@@ -38,6 +44,8 @@ using md::multiply;
 enum { PTCH, DEC, ENH, DAMP, TONE, BUMP };
 
 const i32 bell_octaves = 137236, voice_octaves = 131477, line_octaves = 179793;   // 1117, 1051, 1752 Hz from middle C
+const i32 high_octaves = 254386;       // 3856 Hz
+const i32 high_share = 0x1c28f5c3;     // 13 dB under the 1752 Hz line, moving with it
 const i32 tune_reach = 27307;          // PTCH: a fourth either way, Q16 octaves
 const i32 bump_most = 38229;           // BUMP: up to a fifth
 const i32 bump_time = 600000;          // -60 dB in about 30 ms: the bend is mostly gone in 10
@@ -66,6 +74,28 @@ const i32 enh_darkens = 0x1bd70a3d, damp_darkens = 0x1999999a;   // ENH: -0.87 o
 const i32 bell_level = 0x670a3d71;   // 0.8, with the low-pass's own loss
 const i32 voice_ref = 0x147ae148;    // the second voice's level at its table's 1
 const i32 line_ref = 0x2083126f;     // the line's
+const u32 fade_in = 32;              // the sines' fade in, samples: a power of two
+const u32 fade_shift = 5;
+const i32 pulse_level = 0x10000000;
+
+// 1 / step for the pulse's edges, without a division: the step moved up to [0.5, 1)
+// (Q31, by `shift`), then its reciprocal, Q29, from a line and two Newton steps.
+struct Reciprocal {
+    i32 inverse;
+    u32 shift;
+    explicit Reciprocal(u32 step) {
+        shift = 0;
+        step |= 1u;   // never zero
+        while (step < 0x40000000u) { step <<= 1; ++shift; }
+        const i32 m = static_cast<i32>(step >= 0x80000000u ? 0x7fffffffu : step);
+        i32 x = 0x5d413ccd - (m >> 1);   // 2.914 - 2m, Q29
+        x = multiply(x, 0x40000000 - multiply(m, x)) * 4;
+        x = multiply(x, 0x40000000 - multiply(m, x)) * 4;
+        inverse = x;
+    }
+    // How far `part` is through the step, Q30 (part <= step).
+    i32 of(u32 part) const { return multiply(static_cast<i32>(part << shift), inverse) * 2; }
+};
 
 struct Block {
     i32 tune, bump, decay_step, others_step, duty, cutoff, keep, voice, line;
@@ -91,9 +121,10 @@ struct Block {
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
-    voice.bell = voice.voice = voice.line = 0;
+    voice.bell = voice.voice = voice.line = voice.high = 0;
     voice.level = voice.others = voice.bump = 0;
     voice.low1 = voice.low2 = 0;
+    voice.fading = fade_in;
     voice.seed = 0x2b6e1f3du * owner;
     trigger(voice, shared);
     voice.fresh = 0;
@@ -102,9 +133,11 @@ inline void reset(State& voice, Common& shared, u32 owner) {
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
     const Block b(parameters);
     if (voice.fresh) {
-        voice.bell = static_cast<u32>(md::noise(voice.seed));
+        voice.bell = static_cast<u32>(b.duty);   // half way through the high half: half the pulse's push
+        voice.fading = 0;
         voice.voice = static_cast<u32>(md::noise(voice.seed));
         voice.line = static_cast<u32>(md::noise(voice.seed));
+        voice.high = static_cast<u32>(md::noise(voice.seed));
         voice.level = voice.others = voice.bump = md::one;
         voice.low1 = voice.low2 = 0;
         voice.fresh = 0;
@@ -115,18 +148,32 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const u32 bell_step = md::transpose(pitch[0], bell_octaves + bend);
     const u32 voice_step = md::transpose(pitch[0], voice_octaves + bend);
     const u32 line_step = md::transpose(pitch[0], line_octaves + bend);
-    const u32 duty = static_cast<u32>(b.duty);   // compared with half the phase
+    const u32 high_step = md::transpose(pitch[0], high_octaves + bend);
+    const i32 high = multiply(b.line, high_share);
+    const u32 edge = static_cast<u32>(b.duty) * 2;   // where the high half ends
+    const Reciprocal reciprocal(bell_step);
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 pulse = (voice.bell >> 1) < duty ? 0x10000000 : -0x10000000;
-        voice.bell += bell_step;
+        // The pulse, each sample its average: an edge inside it gives the part-way value.
+        const u32 from = voice.bell, to = from + bell_step;
+        i32 pulse;
+        if (to < from) pulse = pulse_level - multiply(pulse_level, reciprocal.of(0u - from)) * 4;
+        else if (from < edge && to >= edge) pulse = multiply(pulse_level, reciprocal.of(edge - from)) * 4 - pulse_level;
+        else pulse = from < edge ? pulse_level : -pulse_level;
+        voice.bell = to;
         md::smooth(voice.low1, pulse, b.cutoff);
         md::smooth(voice.low2, voice.low1, b.cutoff);
         const i32 bell = multiply(md::gain(multiply(voice.low2, b.keep), 4), bell_level);
-        const i32 others = multiply(md::sine(voice.voice), b.voice) + multiply(md::sine(voice.line), b.line);
+        const i32 others = multiply(md::sine(voice.voice), b.voice) + multiply(md::sine(voice.line), b.line) + multiply(md::sine(voice.high), high);
         voice.voice += voice_step;
         voice.line += line_step;
-        const i32 mixed = multiply(bell, voice.level) + multiply(others, voice.others);
+        voice.high += high_step;
+        i32 sines = voice.others;
+        if (voice.fading < fade_in) {
+            sines = (sines >> fade_shift) * static_cast<i32>(voice.fading);
+            ++voice.fading;
+        }
+        const i32 mixed = multiply(bell, voice.level) + multiply(others, sines);
         output[i] = md::finish(md::gain(mixed, 1));
         voice.level = multiply(voice.level, b.decay_step);
         voice.others = multiply(voice.others, b.others_step);

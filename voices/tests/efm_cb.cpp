@@ -20,6 +20,8 @@ int main() {
     }
     // The level: the Machinedrum's -21.0 dB RMS (first 5 ms), 2 dB up.
     PLAY(bells[1]);
+    // It starts from a zero crossing: the first sound is 0.06 of the peak.
+    expect("the onset starts small", std::fabs(out[1] / 2147483648.0) < 0.15 * peak(0, ms(10)));
     const double level = db(rms(0, ms(5)));
     std::printf("level %.1f dB RMS\n", level);
     expect("the level sits near -19 dB RMS", std::fabs(level + 19) < 1.0);

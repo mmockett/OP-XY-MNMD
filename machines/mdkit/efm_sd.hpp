@@ -13,7 +13,8 @@
 // spreads the tone into a rough band around its pitch rather than clean
 // sidebands. NOIS adds a bright noise (white, through two 2.5 kHz high-passes)
 // in proportion, with NDEC its decay; both pass a one-pole high-pass that HPF
-// sweeps from off to 3.3 kHz.
+// sweeps from off to 3.3 kHz. The tone starts just past its zero crossing,
+// falling, at any pitch: the first sample is 0.07 of its peak, as the Machinedrum's.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_sd {
 struct State {
@@ -76,7 +77,7 @@ inline void reset(State& voice, Common& shared, u32) {
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
     const Block b(parameters);
     if (voice.fresh) {
-        voice.fm.reset();
+        voice.fm.reset(efm::fed_start);
         voice.level = voice.hiss = voice.depth = md::one;
         voice.tail = tail_start;
         voice.low1 = voice.low2 = voice.low = 0;

@@ -14,12 +14,20 @@
 // to 1.8 s. HARD is the strike's force: soft strikes are much quieter and
 // leave mostly the upper pair. TENS bends every mode up at the strike, to
 // twice the pitch, relaxing in 20 ms (TENS 64) to 120 ms (TENS 127); the
-// highest PTCH does not bend.
+// highest PTCH does not bend. Two things sound with the modes and ring as long
+// as they do: the knock of the bar's frame, a low tone near 130 Hz whatever
+// PTCH is and different every hit, 16 dB under the peak at 5 to 20 ms; and a
+// haze above 2 kHz, many faint modes as noise, falling about 9 dB an octave,
+// 10 dB louder for every 64 steps of PTCH.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace pi_ml {
 const unsigned mode_count = 7;
 struct State {
     modal::Mode modes[mode_count];
+    modal::Mode knock;
+    i32 knock_offset; // its pitch this hit, Q16 octaves from middle C
+    i32 haze;        // the haze's envelope, Q31
+    i32 under, low1, low2;   // the haze: a high-pass pole and two low-pass
     i32 bend;        // the strike's stretch still to relax, Q31
     u32 seed;
     u32 fresh;
@@ -50,18 +58,29 @@ const i32 stretch_share[9] = {1288490189, 1503238554, 1717986918, 1932735283, 21
                               858993459, 0};
 // Each hit's balance: every mode's level times 0.55 .. 1, at random (-5 .. 0 dB).
 const i32 vary_low = 0x46666666, vary_span = 0x39999999;
+// The knock: 110 to 155 Hz (Q16 octaves from middle C); its level (Q31).
+// It rings 0.4 octaves shorter than the modes.
+const i32 knock_shorter = 26214;
+const i32 knock_low = -81922, knock_span = 32425, knock_level = 0x30000000;
+// The haze: above 1.5 kHz, two poles at 2 kHz; its level by PTCH at 0, 16, ..., 127 (Q31).
+const i32 haze_under = 0x18a13c35, haze_over = 0x1fbcce9a;
+const i32 haze_levels[9] = {203728187, 271675904, 362285640, 483115666, 644245094, 859114641, 1145647786, 1527745877, 2037281870};
 // The loudest mode peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x08800000;
 
 struct Block {
-    i32 base, step, stretch, relax, lower, upper_level;
+    i32 base, step, knock_step, stretch, relax, lower, upper_level, haze;
     explicit Block(const i32* p) {
         base = md::span(p[PTCH], base_low, base_low + base_span);
-        step = md::decay(md::table9(decay_times, p[DEC]));
+        const i32 time = md::table9(decay_times, p[DEC]);
+        step = md::decay(time);
+        knock_step = md::decay(time - knock_shorter);
         stretch = multiply(md::table9(pi_ml::stretch, p[TENS]), md::table9(stretch_share, p[PTCH]));
         relax = md::decay(md::table9(relax_times, p[TENS]));
         lower = multiply(md::table9(hard_lower, p[HARD]), body_level);
         upper_level = multiply(md::table9(hard_upper, p[HARD]), body_level);
+        // A soft strike leaves little of it: HARD's fall counts twice.
+        haze = multiply(multiply(md::table9(haze_levels, p[PTCH]), lower), md::table9(hard_lower, p[HARD]));
     }
 };
 }
@@ -75,6 +94,10 @@ inline void reset(State& voice, Common& shared, u32 owner) {
         voice.modes[k].phase = voice.modes[k].increment = 0;
         voice.modes[k].level = 0;
     }
+    voice.knock.phase = voice.knock.increment = 0;
+    voice.knock.level = 0;
+    voice.knock_offset = 0;
+    voice.haze = voice.under = voice.low1 = voice.low2 = 0;
     voice.bend = 0;
     voice.seed = 0x68e31da4u * owner;
     trigger(voice, shared);
@@ -93,6 +116,11 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
             voice.modes[k].phase = voice.seed;   // and its own phase
             voice.modes[k].increment = md::scale(md::transpose(pitch[0], b.base + ratios[k]), 0x10000000 + b.stretch);
         }
+        md::noise(voice.seed);
+        voice.knock_offset = knock_low + multiply(static_cast<i32>(voice.seed >> 1), knock_span);
+        voice.knock.phase = voice.seed << 8;
+        voice.knock.level = md::one;
+        voice.haze = md::one;
         voice.bend = md::one;
     }
     voice.bend = multiply(voice.bend, md::per_block(b.relax));
@@ -104,6 +132,24 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         if (mode.level < 0x00010000) continue;
         const u32 target = md::scale(md::transpose(pitch[0], b.base + ratios[k]), ratio);
         modal::ring_glide(mode, b.step, k < upper ? b.lower : b.upper_level, target, mixed);
+    }
+    if (voice.knock.level >= 0x00010000) {
+        voice.knock.increment = md::transpose(pitch[0], voice.knock_offset);
+        modal::ring(voice.knock, b.knock_step, multiply(knock_level, b.lower), mixed);
+    }
+    if (voice.haze >= 0x00010000) {
+        const i32 next = multiply(voice.haze, md::per_block(b.step));
+        i32 level = multiply(voice.haze, b.haze);
+        const i32 slope = (multiply(next, b.haze) - level) / 64;
+        voice.haze = next;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 white = md::noise_eighth(voice.seed);
+            md::smooth(voice.under, white, haze_under);
+            md::smooth(voice.low1, white - voice.under, haze_over);
+            md::smooth(voice.low2, voice.low1, haze_over);
+            mixed[i] += multiply(voice.low2, level) * 64;
+            level += slope;
+        }
     }
     for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(md::gain(mixed[i], 1));
 }

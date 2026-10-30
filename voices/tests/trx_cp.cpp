@@ -72,6 +72,20 @@ int main() {
     // 45 dB under the hands a quarter of a second on, where a dry clap is silent.
     check("the room rings on", rms(out, 11025, 4410) > rms(out, 0, 4410) * 0.003);
 
+    // The room's skirt: an octave and more above it, 25 dB and more under its band.
+    const int band_room[8] = {80, 64, 64, 40, 64, 127, 100, 64};
+    play(band_room, out);
+    {
+        double low1 = 0, low2 = 0, sum = 0, all = 0;
+        const double a = 1 - std::exp(-2 * M_PI * 4800 / 44100);
+        for (unsigned i = 0; i < 13230; ++i) {
+            const double x = out[i] / 2147483648.0;
+            low1 += a * (x - low1); low2 += a * (x - low1 - low2);
+            if (i >= 6615) { const double high = x - low1 - low2; sum += high * high; all += x * x; }
+        }
+        check("the room has no bright skirt", sum < all * 0.003);
+    }
+
     const int hot[8] = {127, 127, 127, 127, 0, 127, 127, 127};
     play(hot, out);
     check("hot settings stay bounded", bounded(out));

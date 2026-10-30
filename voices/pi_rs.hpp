@@ -14,7 +14,9 @@
 // 340 Hz) and with it which rim modes sound, as measured at each step. DEC sets the ring, -60 dB in 0.2 to 1.7 s. The stick's crack is
 // a 5 ms burst of noise, about 1.7 kHz at PTCH 64 and moving with it, that
 // HARD makes louder. RING brings up the head's ringing mode (2.75 times), and
-// RVOL and RDEC are the snare wires, as on PI-SD.
+// RVOL and RDEC are the snare wires: RVOL 127 adds 16 dB over RVOL 0, in equal
+// power per octave from 500 Hz to 8 kHz and less above, falling 60 dB in 100 ms
+// (RDEC 0) to 650 ms (127), 190 ms at the design's 40.
 namespace md {
 namespace pi_rs {
 const unsigned rim_count = 9, mode_count = rim_count + 3;   // the rim, two head modes, the ring
@@ -24,7 +26,7 @@ struct State {
     i32 wires;       // the wires' envelope, Q31
     u32 hold;        // blocks of the crack still held
     u32 seed;
-    i32 low, high;   // the wires' band: one-pole states
+    i32 low, high, top;   // the wires: 200 Hz high-pass, 1.5 kHz low-pass, 5 kHz over their upper part
     md::Svf band;    // the crack's band
     u32 fresh;
 };
@@ -70,10 +72,11 @@ const u32 crack_hold = 3;   // blocks
 const i32 crack_time = 554612;
 const i32 crack_quiet = 0x16b54338, crack_loud = 0x4c106ba6;   // HARD 0 and 127, at half scale (HARD 64: 0x40000000)
 const i32 crack_level = 0x67000000;
-// The wires: RDEC's fall, -60 dB in 20 ms .. 0.68 s at RDEC 0, 16, ..., 127 (longer than PI-SD's mid-way).
-const i32 wire_times[9] = {641246, 662344, 694157, 745118, 831752, 867963, 903390, 935624, 974658};
-const i32 wire_level = 0x0a000000;
-const i32 noise_low = 0x03a5e354, wire_high = 0x49800000;   // one-poles: the wires above 200 Hz, below 6 kHz
+// The wires: RDEC's fall, -60 dB in 100, 122, 160, 200, 240, 305, 375, 500 and
+// 650 ms at RDEC 0, 16, ..., 127 (far longer than PI-SD's at low RDEC).
+const i32 wire_times[9] = {793416, 812217, 837854, 858952, 876190, 898851, 918386, 945586, 970392};
+const i32 wire_level = 0x24000000;
+const i32 noise_low = 0x03a5e354, wire_body = 0x18a13c35, wire_top = 0x41380000;   // the one-poles
 // The rim peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x03600000;
 
@@ -107,7 +110,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     }
     voice.crack = voice.wires = 0;
     voice.hold = 0;
-    voice.low = voice.high = 0;
+    voice.low = voice.high = voice.top = 0;
     voice.band.reset();
     voice.seed = 0x7f4a7c15u * owner;
     trigger(voice, shared);
@@ -144,9 +147,10 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
             const i32 n = md::noise_eighth(voice.seed);
             voice.band.run(n, b.crack_tune, 0x18000000);
             const i32 high = n - md::smooth(voice.low, n, noise_low);
-            md::smooth(voice.high, high, wire_high);
+            const i32 body = md::smooth(voice.high, high, wire_body);
+            const i32 top = md::smooth(voice.top, high, wire_top);
             mixed[i] += md::gain(multiply(voice.band.band, multiply(voice.crack, b.crack_amount)), 3)
-                        + multiply(voice.high, multiply(voice.wires, b.wire_amount)) * 4;
+                        + multiply(body + (top >> 3) + (top >> 4), multiply(voice.wires, b.wire_amount)) * 4;
             voice.crack = multiply(voice.crack, crack_step);
             voice.wires = multiply(voice.wires, b.wire_step);
         }

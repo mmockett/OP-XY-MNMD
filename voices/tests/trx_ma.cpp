@@ -55,6 +55,12 @@ int main() {
     check("stays within the declared peak", bounded(out));
     check("is bright", frequency(out, 0, 2205) > 4000);
     check("is gated off by 100 ms", db(rms(out, 4410, 2205)) < db(rms(out, 0, 2205)) - 40);
+    // The first grain fades in, and RATL 0 has nothing under the band.
+    {
+        double top = 0;
+        for (unsigned i = 0; i < 2205; ++i) if (std::fabs(static_cast<double>(out[i])) > top) top = std::fabs(static_cast<double>(out[i]));
+        check("starts from nothing", std::fabs(static_cast<double>(out[0])) < top * 0.1);
+    }
     // SUS 127 runs about 180 ms.
     const int longer[8] = {0, 127, 0, 0, 40, 0, 64, 64};
     play(longer, out);

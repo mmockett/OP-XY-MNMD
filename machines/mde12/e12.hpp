@@ -6,13 +6,14 @@
 // Machinedrum's own (reference/fit_e12.py). Their page:
 //   PTCH  DEC   HP    (own)
 //   STRT  RTRG  RTIM  BEND
-// As measured: PTCH plays the sample (v - 64) / 32 octaves from its own speed.
+// As measured: PTCH plays the sample (v - 64) / 32 octaves from its own speed
+// on most machines, (v - 64) / 38.4 on OH, RC, CC and TR, (v - 64) / 64 on TA and SH.
 // DEC is an exponential fall, none at 127. HP is a two-pole high-pass from
 // 30 Hz to 7.6 kHz, with HPQ its resonance. STRT starts the sample a step
 // later each, a step of its own for each machine (from the capture). RTRG plays
 // it again from STRT, RTRG - 1 times (without end at 126 and 127), every RTIM,
-// in whole 32-sample blocks as the original. BEND starts the pitch up to an
-// octave away and lets it drift back over tens of seconds. The machines' own
+// in whole 32-sample blocks as the original. BEND starts the pitch (v - 64) / 64
+// octaves away; the speed's difference from its own falls with a time constant of 2.25 s. The machines' own
 // controls: E12-BD's SNAP (in the HP slot) drives the sample up to 3 times
 // harder into a clip, for SPLN's time; RING (SD), RATL (RS), BELL (RC), REAL
 // (BR), SLEW (SH) and BC (BC) crossfade to a second sample; STOP (OH) cuts the
@@ -31,12 +32,14 @@ enum Own { resonance, crossfade, rattle, stop, snap };
 // The machines in id order (48..63), and their samples in private_e12.hpp's order:
 // the sixteen, then the second samples of SD, RS, RC, BR, SH and BC.
 enum { BD, SD, HT, LT, CP, RS, CB, CH, OH, RC, CC, BR, TA, TR, SH, BC };
-struct Machine { unsigned char sample, second, own; };
+// PTCH's reach, as an index into ptch_reach and ptch_middle below.
+enum Range { wide, cymbal, narrow };
+struct Machine { unsigned char sample, second, own, range; };
 const Machine machines[16] = {
-    {0, 0, snap}, {1, 16, crossfade}, {2, 2, resonance}, {3, 3, resonance}, {4, 4, resonance},
-    {5, 17, rattle}, {6, 6, resonance}, {7, 7, resonance}, {8, 8, stop}, {9, 18, crossfade},
-    {10, 10, resonance}, {11, 19, crossfade}, {12, 12, resonance}, {13, 13, resonance},
-    {14, 20, crossfade}, {15, 21, crossfade},
+    {0, 0, snap, wide}, {1, 16, crossfade, wide}, {2, 2, resonance, wide}, {3, 3, resonance, wide}, {4, 4, resonance, wide},
+    {5, 17, rattle, wide}, {6, 6, resonance, wide}, {7, 7, resonance, wide}, {8, 8, stop, cymbal}, {9, 18, crossfade, cymbal},
+    {10, 10, resonance, cymbal}, {11, 19, crossfade, wide}, {12, 12, resonance, narrow}, {13, 13, resonance, cymbal},
+    {14, 20, crossfade, narrow}, {15, 21, crossfade, wide},
 };
 
 struct State {
@@ -55,12 +58,13 @@ namespace {
 // The speed at which a key at middle C plays a sample as recorded: Q27 frames
 // a sample from the key's phase increment (2^55 / middle C, Q28).
 const i32 own_speed = 1414058298;
-const i32 ptch_reach = 260096;                // 127 x 2048: (v - 64) / 32 octaves, Q16
-const i32 ptch_middle = 131072;
+// PTCH, Q16 octaves: 127 / 32, 127 / 38.4 and 127 / 64 across the control, and its middle (64).
+const i32 ptch_reach[3] = {260096, 216747, 130048};
+const i32 ptch_middle[3] = {131072, 109227, 65536};
 const i32 bend_reach = 130048, bend_middle = 65536;   // 127 x 1024: (v - 64) / 64 octaves at the hit
-const i32 bend_return = 1298000;              // and back: -60 dB in 2^19.8 samples, 21 s
-// DEC: -60 dB after 2^(these) samples at DEC 0, 16, ..., 112, 127 (Q16): 15 ms .. 10 s; none above 126.5.
-const i32 falls[9] = {614000, 614000, 734000, 810665, 897187, 995557, 1101005, 1228931, 1376256};
+const i32 bend_return = 1270800;              // and back: -60 dB in 2^19.4 samples, 15.5 s
+// DEC: -60 dB after 2^(these) samples at DEC 0, 16, ..., 112, 127 (Q16): 6 ms .. 10 s; none above 126.5.
+const i32 falls[9] = {527600, 622000, 716000, 810665, 897187, 995557, 1101005, 1228931, 1376256};
 const i32 dec_open = 0x7f7f0000;             // 126.5
 // HP: the cutoff in octaves above 20 Hz (Q16) at HP 0, 16, ..., 127: 45 Hz .. 6.3 kHz.
 // HP 0 is in the capture already, so the filter runs only above it, or with HPQ.
@@ -108,7 +112,7 @@ struct Block {
     Block(const i32* p, opxy::Pitch pitch, unsigned machine) {
         const Machine& m = machines[machine];
         // (+ 1: the 0..127 scale lands a hair under each step, so PTCH 64 plays the sample exactly as recorded.)
-        increment = md::transpose(md::scale(pitch[0], own_speed), multiply(md::positive(p[PTCH]), ptch_reach) + 1 - ptch_middle);
+        increment = md::transpose(md::scale(pitch[0], own_speed), multiply(md::positive(p[PTCH]), ptch_reach[m.range]) + 1 - ptch_middle[m.range]);
         bend = multiply(md::positive(p[BEND]), bend_reach) + 1 - bend_middle;
         decays = p[DEC] < dec_open;
         decay_step = md::decay(md::table9(falls, p[DEC]));
@@ -161,17 +165,21 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.until = b.period;
         voice.filter.reset();
     }
-    // BEND: the pitch starts `bend` away and returns, linear across the block.
-    md::Glide glide;
+    // BEND: the speed starts `bend` octaves away and returns in Hz, not in octaves;
+    // linear across the block.
+    const i32 reach = static_cast<i32>(md::transpose(b.increment, b.bend)) - static_cast<i32>(b.increment);
     const i32 bend_next = multiply(voice.bend, md::per_block(md::decay(bend_return)));
-    glide.plan(b.increment, multiply(voice.bend, b.bend), multiply(bend_next, b.bend));
+    const i32 away = multiply(reach, voice.bend);
+    const i32 slope = (multiply(reach, bend_next) - away) / static_cast<i32>(opxy::block_frames);
+    u32 speed = b.increment + static_cast<u32>(away);
     voice.bend = bend_next;
     const i32 level_a = e12_data::level[m.sample], level_b = e12_data::level[m.second];
     const i32 cut_step = md::decay(stop_fall);
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         i32 x = 0;
-        const u32 step = glide.step();
+        const u32 step = speed;
+        speed += static_cast<u32>(slope);
         if (voice.index < length) {
             x = voice.index < frames ? multiply(at(first + voice.index, voice.fraction), level_a) : 0;
             if (b.share) {

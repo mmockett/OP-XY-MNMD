@@ -7,7 +7,8 @@ TRX-B2 is the Machinedrum's second kick, PTCH DEC RAMP HOLD / TICK NOIS DIRT
 DIST. Swept from PTCH 64, DEC 100, RAMP 0, HOLD 0 and the bottom row at 0: the
 base pitch (RAMP 0), RAMP's extra Hz and its fall, the level's hold (HOLD) and
 fall (DEC), the opening's click (TICK) and noise (NOIS), and what DIRT and
-DIST add.
+DIST add. At DEC 60 the harmonics of DIRT and DIST hold steady from 30 to 400 ms,
+so both come before the envelope.
 """
 import pathlib
 import sys
