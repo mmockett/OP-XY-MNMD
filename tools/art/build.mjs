@@ -231,10 +231,8 @@ function liftStrikes(parts) {
   }
 }
 
-// A kit drawn with the patent plate's right side (--fig): each machine keeps its
-// instrument on the left; the design's panel on the right gives way to the
-// sounding part in section (tools/art/fig.mjs), which the view places.
-const PANEL_X = 236;
+// A kit drawn as the sounding part in section (tools/art/fig.mjs), full screen:
+// the design's instrument and panel give way to the parts the view places.
 const FIG_KITS = Object.keys(FIGS);
 
 export function build(engine, members, pads = false, withFig = false) {
@@ -250,8 +248,8 @@ export function build(engine, members, pads = false, withFig = false) {
       r.free.push(...r.parts.filter(p => PADS_FREE.includes(p.key)).map(p => ({ key: p.key, controls: [] })));
       r.parts = r.parts.filter(p => !PADS_FREE.includes(p.key));
       if (withFig) {
-        r.parts = r.parts.filter(p => bounds(p.shape).cx < PANEL_X);
-        r.free = [];
+        // The section is the whole screen: no instrument, no hit parts, nothing from the design's panel.
+        r.parts = []; r.hit = []; r.free = [];
       }
       padStrikes(r.parts);
       if (!r.hit.length) liftStrikes(r.parts);
@@ -321,7 +319,7 @@ export function build(engine, members, pads = false, withFig = false) {
     }
     machines.push({ name, instrument, nodes: mine, defaults: r.values, labels: r.labels, free: r.free });
   }
-  // The right side's fixed parts: the first take the common nodes' places, the rest follow the instruments.
+  // The sections' fixed parts: the first take the common nodes' places, any more follow the instruments.
   let fig = null;
   if (withFig) {
     fig = FIGS[engine].map((f, k) => {
@@ -366,7 +364,8 @@ function header(engine, art) {
   lines.push(`const opxy::u32 node_count = ${art.nodes.length};`);
   lines.push('// x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,');
   lines.push('// hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}');
-  lines.push(`const md::rig::Part parts[${art.nodes.length}] = {`, ...parts, '};');
+  // A kit drawn whole by its view has no parts: one unused entry keeps the arrays valid C++.
+  lines.push(`const md::rig::Part parts[${Math.max(1, art.nodes.length)}] = {`, ...(parts.length ? parts : ['    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},']), '};');
   lines.push('// control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end');
   lines.push(`const md::rig::Effect effects[${Math.max(1, effects.length)}] = {`, ...(effects.length ? effects : ['    {0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},']), '};');
   const list = [];
@@ -378,7 +377,7 @@ function header(engine, art) {
     list.push(...m.nodes);
   }
   lines.push('};');
-  lines.push(`const opxy::u16 members[${list.length}] = {${list.join(', ')}};`);
+  lines.push(`const opxy::u16 members[${Math.max(1, list.length)}] = {${list.length ? list.join(', ') : '0'}};`);
   lines.push('}', '}', '');
   return lines.join('\n');
 }
@@ -412,7 +411,7 @@ function panel(engine, art, paged, compact = false) {
   const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * (compact ? 1 : 0.5))}`);
   for (let p = 0; p < 4; p++)
     out.push(`  <path id="${engine}_node_${p}" ${park} d="M${seed.join(' L')} Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>`);
-  // A kit drawn with the right side's parts holds them in the common nodes' places.
+  // A kit drawn as sections holds their parts in the common nodes' places.
   const common = new Map((art.fig ?? []).filter(p => p.node < COMMON_NODES).map(p => [p.node, p]));
   const figNode = (p, id) => {
     const [fill, stroke, width] = PALETTE[SHADE[p.style]];

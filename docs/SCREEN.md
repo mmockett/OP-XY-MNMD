@@ -62,11 +62,13 @@ machine, and the rest would not fit. TRX takes 176 nodes, EFM 203,
 P-I 181 and E12 212. The header names the machine while Shift is
 held.
 
-### The kits' right side (MD KIT)
+### The kits' sections (MD KIT, MD E12)
 
-MD KIT draws the right side as fig. 2 of an engraved patent plate: the
-sounding part of the instrument in section, beside the playing drawing on the
-left, with no plot or panel. Each control moves one physical part, the same way
+MD KIT and MD E12 draw one thing, the whole screen: the sounding part of the
+instrument in section, as on an engraved patent plate, centred and widened
+under the header. They draw no instrument from the design, no plot or panel,
+and nothing of the rig: their art.h holds no parts, and `md_rig`'s hit motion
+and the clap's lit hands have nothing to move. Each control moves one physical part, the same way
 across the families:
 
 | Kind of control | What it moves |
@@ -86,16 +88,20 @@ defaults and with every control at 64), measures the band-energy change and
 writes the tables (MD KIT's and MD E12's) in `voices/mdkit_view.hpp` (full travel at 24 dB, at least a
 fifth of it). Run it again after a voice changes.
 
-The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespace
-`fig`). The kit's artwork must stay under the SDK's 64 KB and the instruments
-take about 61 KB of it, so the right side's 27 fixed parts (rings, a rod, a
-hand, clamps, a loudspeaker, wavefronts, beads: `tools/art/fig.mjs`) take the
-common nodes' places, which MD KIT never uses otherwise; `build.mjs` drops the
-design's panel parts for the kits in `FIG_KITS` (MD KIT and MD E12, each with its own parts in `FIGS`). A hit animates in sixteen
+The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespaces
+`fig` and `fig_e12`), laid out about x 362 and drawn shifted to the centre
+(`fig::shift`); every path keeps within 128 px of its origin, the most a path
+at scale 2 may reach. Their fixed parts (rings, a rod, a hand, clamps, a
+loudspeaker, wavefronts, beads; E12's block, slots, blade and patches:
+`tools/art/fig.mjs`) take the common nodes' places, which these kits never use
+otherwise; `build.mjs` drops every design part for the kits in `FIG_KITS`
+(MD KIT and MD E12, each with its parts in `FIGS`). Each kit is 39 nodes and
+about 11 KB of artwork. A hit animates in sixteen
 steps, so the right side redraws a few times a hit rather than every frame.
 
 MD E12 draws its sample as a strip of tape on a splicing block, seen from
-above (namespace `fig_e12`), its recording developed into stripes across it:
+above (namespace `fig_e12`), its recording developed into stripes across it,
+each machine its own recording:
 
 | Control | What it moves |
 | --- | --- |

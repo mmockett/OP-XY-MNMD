@@ -1,6 +1,6 @@
-// The drum kits' right side: the sounding part of each instrument drawn large
-// in section, as on an engraved patent plate, beside the playing drawing on
-// the left (docs/SCREEN.md, "The kits' right side"). The view
+// The drum kits' screens: the sounding part of each instrument drawn large in
+// section, as on an engraved patent plate, the whole screen (docs/SCREEN.md,
+// "The kits' sections"). The view
 // (voices/mdkit_view.hpp) draws the sections themselves on the four paths;
 // these are the few fixed parts it places, moves, turns and hides, shared by
 // every machine that draws them.
@@ -35,9 +35,9 @@ add('rod', 'dim', [0, 0], rect(-1, -84, 2, 168));
 add('clutch', 'o2', [0, 0], rect(-6, -3.5, 12, 7));
 add('hand', 'o2', [0, 0], [[-2, -9], [6, -12], [16, -11], [24, -6], [26, 2], [22, 10], [12, 13], [3, 11], [-2, 6],
                            [4, 4.5], [12, 5], [16, 1], [14, -4], [6, -5], [-1, -3.5]]);
-// A drum's distortion clamps, 160 px long, and a felt damper.
-add('clamp_t', 'o2', [0, 0], rect(-80, -1.5, 160, 3));
-add('clamp_b', 'o2', [0, 0], rect(-80, -1.5, 160, 3));
+// A drum's distortion clamps, 220 px long, and a felt damper.
+add('clamp_t', 'o2', [0, 0], rect(-110, -1.5, 220, 3));
+add('clamp_b', 'o2', [0, 0], rect(-110, -1.5, 220, 3));
 add('felt', 'o2', [0, 0], [[-13, -3], [13, -3], [15, 0], [13, 3], [-13, 3], [-15, 0]]);
 // The echo chamber's loudspeaker and ribbon microphone on its stand.
 add('speaker', 'o2', [0, 0], [[-16, -15], [-4, -15], [-4, -9], [4, -16], [4, 16], [-4, 9], [-4, 15], [-16, 15]]);
@@ -59,14 +59,14 @@ const kit = parts.splice(0);
 // splice where a second sample's tape takes over. The tape, its recorded
 // stripes and the cut-off scrap are paths. voices/mdkit_view.hpp's fig_e12::Part
 // names them in this order.
-add('e12_block', 'mid', [0, 0], [[-110, -28], [110, -28], [112, -26], [112, 26], [110, 28], [-110, 28], [-112, 26], [-112, -26]]);
-add('e12_ch_top', 'dim', [0, 0], rect(-104, -0.6, 208, 1.2));
-add('e12_ch_bot', 'dim', [0, 0], rect(-104, -0.6, 208, 1.2));
-add('e12_slot45', 'dim', [0, 0], [[-28, 28], [-26, 28], [30, -28], [28, -28]]);
-add('e12_slot90', 'dim', [0, 0], rect(-1, -28, 2, 56));
+add('e12_block', 'mid', [0, 0], [[-150, -40], [150, -40], [152, -38], [152, 38], [150, 40], [-150, 40], [-152, 38], [-152, -38]]);
+add('e12_ch_top', 'dim', [0, 0], rect(-144, -0.6, 288, 1.2));
+add('e12_ch_bot', 'dim', [0, 0], rect(-144, -0.6, 288, 1.2));
+add('e12_slot45', 'dim', [0, 0], [[-40, 40], [-38, 40], [42, -40], [40, -40]]);
+add('e12_slot90', 'dim', [0, 0], rect(-1, -40, 2, 80));
 add('e12_blade', 'o2', [0, 0], [[-8, -36], [8, -36], [8, -6], [3, -6], [3, -2], [-3, -2], [-3, -6], [-8, -6]]);
-for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'o2', [0, 0], rect(-3, -15, 6, 30));
-add('e12_diag', 'thin', [0, 0], [[-13, 13], [-12, 13], [14, -13], [13, -13]]);
+for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'o2', [0, 0], rect(-3, -22, 6, 44));
+add('e12_diag', 'thin', [0, 0], [[-20, 20], [-19, 20], [21, -20], [20, -20]]);
 const e12 = parts.splice(0);
 
 // Each kit drawn this way, and its parts.
