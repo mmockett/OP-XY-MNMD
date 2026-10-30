@@ -51,6 +51,27 @@ for (let k = 0; k < 8; k++) ring(`bead${k}`, 'f4', [0, 0], 2.6);
 // The common nodes' places they take (md_view.hpp: nodes 4 .. 30), all of them.
 export const COMMON_SLOTS = 27;
 if (parts.length !== COMMON_SLOTS) throw new Error(`fig.mjs: ${parts.length} parts for ${COMMON_SLOTS} places`);
+// The hardware that tells one machine and one family from another follows
+// the instruments' place (art_first on): TRX's tube lugs, EFM's exciter coil
+// and magnet, P-I's rope tensioning and felt washers, a rack tom's mount, a
+// floor tom's legs, a kick's pillow.
+const lug = [[-2.5, -13], [2.5, -13], [3, -11], [3, 11], [2.5, 13], [-2.5, 13], [-3, 11], [-3, -11]];
+add('lug_l', 'o2', [0, 0], lug);
+add('lug_r', 'o2', [0, 0], lug);
+const coil = [[0, -18]];
+for (let k = 0; k < 9; k++) coil.push([k & 1 ? -4.5 : 4.5, -14 + 3.5 * k]);
+coil.push([0, 18]);
+add('coil', 'mid', [0, 0], coil, false);
+add('magnet', 'o2', [0, 0], rect(-9, -3.5, 18, 7));
+const rope = [];
+for (let k = 0; k <= 8; k++) rope.push([k & 1 ? 3 : -3, -20 + 5 * k]);
+add('rope_l', 'mid', [0, 0], rope, false);
+add('rope_r', 'mid', [0, 0], rope, false);
+add('mount', 'o2', [0, 0], [[0, 0], [16, 0], [16, -3], [3, -3], [3, -20], [0, -20]]);
+add('leg_l', 'mid', [0, 0], [[0, 0], [3, 0], [-8, 26], [-11, 26]]);
+add('leg_r', 'mid', [0, 0], [[0, 0], [-3, 0], [8, 26], [11, 26]]);
+add('pillow', 'o2', [0, 0], [[-34, 0], [-30, -7], [-14, -11], [14, -11], [30, -7], [34, 0]]);
+add('felt2', 'o2', [0, 0], [[-11, -2.5], [11, -2.5], [13, 0], [11, 2.5], [-11, 2.5], [-13, 0]]);
 const kit = parts.splice(0);
 
 // ---- MD E12: a strip of tape on a splicing block, seen from above ----
@@ -67,6 +88,8 @@ add('e12_slot90', 'dim', [0, 0], rect(-1, -40, 2, 80));
 add('e12_blade', 'o2', [0, 0], [[-8, -36], [8, -36], [8, -6], [3, -6], [3, -2], [-3, -2], [-3, -6], [-8, -6]]);
 for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'o2', [0, 0], rect(-3, -22, 6, 44));
 add('e12_diag', 'thin', [0, 0], [[-20, 20], [-19, 20], [21, -20], [20, -20]]);
+// The block's mark for each machine: four notches filed in its right end, as a binary gauge.
+for (let k = 0; k < 4; k++) add(`e12_notch${k}`, 'thin', [0, 0], rect(-1.5, -4, 3, 8));
 const e12 = parts.splice(0);
 
 // Each kit drawn this way, and its parts.

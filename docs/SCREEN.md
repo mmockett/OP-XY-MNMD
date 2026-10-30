@@ -82,6 +82,24 @@ across the families:
 | Room | an echo chamber's depth, ceiling and reflections |
 | Distortion | clamps closing on the head, shown only while it is up |
 
+Every machine is its own drawing, so it can be told apart without a caption,
+and each family shares a trait so the kit reads too:
+
+| | TRX | EFM | P-I |
+| --- | --- | --- | --- |
+| Shell hardware | tube lugs | exciter coil and magnet (an animated spring on BD, XT) | rope tensioning |
+| Striker | round felt ball, round stick tip | square head, flat nylon tip | big felt head, mallet stick |
+| Cymbals | wing nut | exciter coil on the rod (HH's spring) | felt washers |
+
+Machines differ by their shell's depth (kick 148, floor tom 136, rack tom 122,
+snare 112, rimshot 104), a rack tom's mount, a floor tom's legs and slack head
+(TRX-XC), a kick's pillow (TRX-B2), a ride's flat bow and big bell, a crash's
+steep bow and small bell, a china's upturned edge (EFM-CY), an egg shaker
+(PI-MA) beside a maraca (TRX-MA). Each E12 tape carries its own recording
+(`fig_e12::takes`: a kick's wide bands, a hat's fine stripes, a clap's bursts,
+a triangle's even ones) and the machine's number, plus one, as notches filed in
+the block's end.
+
 How far a control moves its part follows how much it changes the sound:
 `tools/art/travel.py` plays each member with each control swept (at its
 defaults and with every control at 64), measures the band-energy change and
@@ -95,8 +113,9 @@ at scale 2 may reach. Their fixed parts (rings, a rod, a hand, clamps, a
 loudspeaker, wavefronts, beads; E12's block, slots, blade and patches:
 `tools/art/fig.mjs`) take the common nodes' places, which these kits never use
 otherwise; `build.mjs` drops every design part for the kits in `FIG_KITS`
-(MD KIT and MD E12, each with its parts in `FIGS`). Each kit is 39 nodes and
-about 11 KB of artwork. A hit animates in sixteen
+(MD KIT and MD E12, each with its parts in `FIGS`). MD KIT is 50 nodes and about 12.7 KB of artwork (its hardware parts
+follow the common nodes, and each view hides them first); MD E12 is 39 nodes
+and about 11 KB. A hit animates in sixteen
 steps, so the right side redraws a few times a hit rather than every frame.
 
 MD E12 draws its sample as a strip of tape on a splicing block, seen from

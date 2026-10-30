@@ -5,11 +5,21 @@
 
 namespace mdkit {
 namespace art {
-const opxy::u32 node_count = 0;
+const opxy::u32 node_count = 11;
 // x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,
 // hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}
-const md::rig::Part parts[1] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+const md::rig::Part parts[11] = {
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 2, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 2, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 2, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 2, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 2, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
 };
 // control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end
 const md::rig::Effect effects[1] = {

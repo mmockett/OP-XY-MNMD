@@ -40,10 +40,10 @@
 <path id="mde12_node_12" d="M-3 -22 L3 -22 L3 22 L-3 22 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mde12_node_13" d="M-3 -22 L3 -22 L3 22 L-3 22 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mde12_node_14" d="M-20 20 L-19 20 L21 -20 L20 -20 Z" fill="none" stroke="#f7f5f5" stroke-width="1"/>
-<path id="mde12_node_15" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
-<path id="mde12_node_16" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
-<path id="mde12_node_17" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
-<path id="mde12_node_18" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
+<path id="mde12_node_15" d="M-1.5 -4 L1.5 -4 L1.5 4 L-1.5 4 Z" fill="none" stroke="#f7f5f5" stroke-width="1"/>
+<path id="mde12_node_16" d="M-1.5 -4 L1.5 -4 L1.5 4 L-1.5 4 Z" fill="none" stroke="#f7f5f5" stroke-width="1"/>
+<path id="mde12_node_17" d="M-1.5 -4 L1.5 -4 L1.5 4 L-1.5 4 Z" fill="none" stroke="#f7f5f5" stroke-width="1"/>
+<path id="mde12_node_18" d="M-1.5 -4 L1.5 -4 L1.5 4 L-1.5 4 Z" fill="none" stroke="#f7f5f5" stroke-width="1"/>
 <path id="mde12_node_19" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
 <path id="mde12_node_20" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
 <path id="mde12_node_21" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
