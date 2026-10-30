@@ -107,19 +107,20 @@ def preset_problems():
     import build_firmware
     from make_engine import kit_keys
     problems, rows = [], []
-    for engine in catalog.KITS:
-        for region, (role, _name, model, controls) in zip(build_firmware.kit_regions(engine), kit_keys(engine)):
-            if (region.get("playmode") == "mute1") != (role in catalog.CHOKED) or region["model"] != "fm slap":
-                problems.append(f"{engine} {role}: region {region}")
-            rows.append(f'{{"{engine} {role}", {{{", ".join(map(str, region["params"]))}}}, {model}, '
-                        f'{{{", ".join(map(str, controls))}}}}}')
+    for engine, kits in catalog.ENGINE_KITS.items():
+        for kit in kits:
+            for region, (role, _name, model, controls) in zip(build_firmware.kit_regions(engine, kit), kit_keys(engine, kit)):
+                if (region.get("playmode") == "mute1") != (role in catalog.CHOKED) or region["model"] != "fm slap":
+                    problems.append(f"{engine} {kit} {role}: region {region}")
+                rows.append(f'{{"{engine} {kit} {role}", {{{", ".join(map(str, region["params"]))}}}, {model}, '
+                            f'{{{", ".join(map(str, controls))}}}, {len(catalog.ENGINES[engine])}}}')
     out = ROOT / "local" / "voice-tests"
     out.mkdir(parents=True, exist_ok=True)
     (out / "kit_presets.cpp").write_text("""#include "drum_storage.hpp"
 #include <cstdio>
 using namespace opxy;
 using namespace opxy::platform;
-struct Row { const char* key; u32 params[4]; u32 model; u8 controls[8]; };
+struct Row { const char* key; u32 params[4]; u32 model; u8 controls[8]; u32 models; };
 const Row rows[] = {
 %s
 };
@@ -129,7 +130,7 @@ int main() {
         i32 words[4];
         for (int i = 0; i < 4; ++i) words[i] = static_cast<i32>(r.params[i] << 16);
         u8 model = 99, controls[8] = {};
-        bool ok = drum_unpack(words, &model, controls) && model == r.model;
+        bool ok = drum_unpack(words, &model, controls, r.models) && model == r.model;
         for (int i = 0; i < 8; ++i) ok = ok && controls[i] == r.controls[i];
         if (!ok) { std::printf("%%s: does not unpack as its key\\n", r.key); ++failed; }
     }

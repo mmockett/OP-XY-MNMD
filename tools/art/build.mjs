@@ -374,7 +374,9 @@ const width = (text, fs) => [...text].reduce((w, ch) => w + (ADVANCE[ch] ?? (/\d
 // A label in a circle is this fraction of its radius tall (em): 12 px in a 20 px operator.
 const LABEL_SCALE = 0.6;
 
-function panel(engine, art, paged) {
+// A drum kit's panel (compact) leaves its lines unindented: a kit of several families
+// draws many machines and must stay within the SDK's 64 KB of artwork.
+function panel(engine, art, paged, compact = false) {
   const out = [`<g id="${engine}_panel">`];
   const stageY = paged ? PAGED_STAGE_Y : STAGE_Y;
   if (paged) out.push(...pageHeader(engine, COMMON_NODES + art.nodes.length));
@@ -421,7 +423,7 @@ function panel(engine, art, paged) {
   PALETTE.forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
-  return out.join('\n') + '\n';
+  return (compact ? out.map(line => line.replace(/^  /, '')) : out).join('\n') + '\n';
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -430,11 +432,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [engine, ...specs] = pads || oneRow ? args.slice(1) : args;
   const art = build(engine, specs.map(s => s.split(':')), pads);
   const dir = path.join(root, 'machines', engine);
-  const paged = !pads && !oneRow, svg = panel(engine, art, paged);
+  const paged = !pads && !oneRow, svg = panel(engine, art, paged, pads);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
   writeFileSync(path.join(dir, 'art.h'), header(engine, art));
   const nodes = COMMON_NODES + art.nodes.length + (paged ? HEADER_NODES : 0);
   console.log(`${engine}: ${art.machines.length} machines, ${nodes} nodes, ${svg.length} bytes of artwork` +
-              (nodes > 256 ? '  OVER 256 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
+              (nodes > 512 ? '  OVER 512 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
   for (const m of art.machines) if (m.free.length) console.log(`  ${m.name}: the view draws ${m.free.map(f => f.key + ' (' + f.controls.join(' ') + ')').join(', ')}`);
 }

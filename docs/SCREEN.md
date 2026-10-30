@@ -45,7 +45,7 @@ a nonzero key; a node's scale is at most 2. The first 31 nodes are common
 
 ## Machinedrum kits
 
-The kits (`mdtrx`, `mdefm`, `mdpi`, `mde12`: the SDK's drum kind) have a
+The kits (`mdkit`, `mde12`: the SDK's drum kind) have a
 machine per key and the encoders on that key, so each shows **the selected
 key's machine** as the design draws one machine: the instrument large on the
 left, the family's panel on the right, at the key's values, with a held

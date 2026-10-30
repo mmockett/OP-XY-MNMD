@@ -22,7 +22,7 @@ python3 tools/test_voices.py
 ```
 
 ```bash
-../open-xy/.venv/bin/python ../open-xy/sdk.py compile --machine machines/mdtrx --out local/module-check
+../open-xy/.venv/bin/python ../open-xy/sdk.py compile --machine machines/mdkit --out local/module-check
 ```
 
 The compile prints each engine's share of the 2,040 KiB module memory.
@@ -52,7 +52,7 @@ This builds every engine in `machines/` into a new folder,
 `~/Library/Application Support/OPXY-MD/builds/NNN/`, and lists the files to
 install. Each build reuses the previous build's `layout.json`, so engines keep
 their numbers and saved projects keep their machines. Keep the build folders.
-Name engines to build only some: `python3 tools/build_firmware.py mdtrx`.
+Name engines to build only some: `python3 tools/build_firmware.py mdkit`.
 
 ## 4. Install
 
@@ -86,12 +86,14 @@ Name engines to build only some: `python3 tools/build_firmware.py mdtrx`.
 
 ## 5. Play
 
-Pick a drum track and choose a kit (MD TRX, MD EFM, MD P-I or MD E12), or a
-synth track for a Monomachine engine. On a kit each key plays its own drum,
-from the drum page's first pad: BD SD HT MT LT CP RS CB CH OH RC CC M1 to M4,
-then the variations. Shift and the first encoder choose the selected key's
-machine, and Shift and the second its choke group; the encoders hold its
-controls, with their alternates on press.
+Pick a drum track and choose a kit (MD KIT or MD E12), or a synth track for a
+Monomachine engine. On a kit each key plays its own drum, from the drum page's
+first pad: BD SD HT MT LT CP RS CB CH OH RC CC M1 to M4, then the variations.
+On MD KIT, Shift and the first encoder choose the selected key's family, the
+second its machine and the third its choke group, and a press switches the
+encoders between its first four controls and its last four. On MD E12, Shift
+and the first encoder choose the machine and the second the choke group, and
+a press switches an encoder to its alternate.
 
 ## Going back to stock
 

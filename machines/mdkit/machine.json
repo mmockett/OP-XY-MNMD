@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "sdk": "1.9",
+  "kind": "drum",
+  "description": "The Machinedrum's KIT machines as a drum kit: each key picks its own machine and keeps its own controls.",
+  "presetDefaults": {
+    "amp": {
+      "attack": 0,
+      "decay": 32767,
+      "sustain": 32767,
+      "release": 32767
+    }
+  }
+}

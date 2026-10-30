@@ -2,8 +2,8 @@
 """Builds OP-XY firmware with every engine in machines/, ready to install.
 
     python3 tools/build_firmware.py                 # every engine
-    python3 tools/build_firmware.py mdtrx mmsaw     # some
-    python3 tools/build_firmware.py mdtrx ../mine/machine  # a machine folder outside machines/
+    python3 tools/build_firmware.py mdkit mmsaw     # some
+    python3 tools/build_firmware.py mdkit ../mine/machine  # a machine folder outside machines/
 
 It runs the SDK's `build` against your own stock OS (the one the SDK patches), copied off your
 OP-XY (docs/DEVICE.md), into a new numbered folder outside this checkout,
@@ -27,7 +27,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
-from make_engine import kit_keys  # noqa: E402
+from make_engine import KIT_FAMILY, kit_keys  # noqa: E402
 from sdk_path import SDK, stock_version  # noqa: E402
 
 SUPPORT = pathlib.Path.home() / "Library" / "Application Support"
@@ -36,20 +36,36 @@ STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / f"stock-{stock_version()}" / "os.l
 BUILDS = SUPPORT / "OPXY-MD" / "builds"
 
 
-def kit_region(key, model, controls, choked):
+def kit_bit(k, models, model, controls):
+    """Bit k of the 60 a key stores (the SDK's drum_storage.hpp, drum_bit): the eight
+    controls (7 bits each) then the model (4). A kit of more than 16 models stores
+    slots 6 and 7 as their step, 0..63, in their top six bits, and their lowest
+    bits hold the model's bits 4 and 5."""
+    if k >= 56:
+        return (model >> (k - 56)) & 1
+    slot, bit = divmod(k, 7)
+    if models <= 16 or slot < 6:
+        return (controls[slot] >> bit) & 1
+    step = 63 if controls[slot] >= 126 else min(62, (controls[slot] + 1) >> 1)
+    return (step >> (bit - 1)) & 1 if bit else (model >> (4 if slot == 6 else 5)) & 1
+
+
+def kit_region(key, model, controls, choked, models=16):
     """A kit key as a preset region, as the SDK stores it (the SDK's docs/abi-<OS version>.md,
-    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the eight
-    controls (7 bits each) then the model (4) fill 15 bits of each param; the
-    play mode mute1 chokes, and oneshot, the default, does not."""
-    bits = [(c >> b) & 1 for c in controls for b in range(7)] + [(model >> b) & 1 for b in range(4)]
+    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the controls and
+    the model fill 15 bits of each param (kit_bit); the play mode mute1 chokes,
+    and oneshot, the default, does not."""
+    bits = [kit_bit(k, models, model, controls) for k in range(60)]
     params = [sum(bit << b for b, bit in enumerate(bits[w * 15:w * 15 + 15])) for w in range(4)]
     region = {"hikey": key, "model": "fm slap", "params": params}
     return {**region, "playmode": "mute1"} if choked else region
 
 
-def kit_regions(engine):
-    return [kit_region(53 + k, model, controls, role in catalog.CHOKED)
-            for k, (role, _name, model, controls) in enumerate(kit_keys(engine))]
+def kit_regions(engine, kit=None):
+    """A drum engine's 24 keys from one of its kits (its first, unless named)."""
+    models = len(catalog.ENGINES[engine])
+    return [kit_region(53 + k, model, controls, role in catalog.CHOKED, models)
+            for k, (role, _name, model, controls) in enumerate(kit_keys(engine, kit))]
 
 
 def preset(entry, amp, params, regions):
@@ -99,10 +115,16 @@ def write_presets(out, engines):
         for name, values in definition.get("presets", {}).items():
             params = [round(values.get(i, p["default"]) * 32767) for i, p in zip(ids, definition["parameters"])]
             files[name.lower().replace(" ", "_")] = params + [0] * (8 - len(params))
-        regions = kit_regions(engine) if engine in catalog.KITS else []
+        kits = catalog.ENGINE_KITS.get(engine, [])
+        regions = kit_regions(engine) if kits else []
         for name, params in files.items():
             path = target / f"{name}.json"
             path.write_text(json.dumps(preset(entries[engine], amp, params, regions), indent=2) + "\n")
+            written.append(path)
+        # A drum engine's other kits, a preset each, named for the family (efm, pi).
+        for kit in kits[1:]:
+            path = target / f"{KIT_FAMILY[kit].lower()}.json"
+            path.write_text(json.dumps(preset(entries[engine], amp, files["default"], kit_regions(engine, kit)), indent=2) + "\n")
             written.append(path)
     return written
 

@@ -7,14 +7,16 @@ the Monomachine CC 48+i.
 
 How the machines are packaged for the OP-XY (ENGINES below):
 
-- The Machinedrum is four drum kits, one per family (TRX, EFM, P-I, E12), on
-  the SDK's drum kind, as the OP-XY's Drumline: each key holds its own machine
-  (Shift and the first encoder) and that machine's eight controls, saved with
-  the project and starting from KITS.
+- The Machinedrum is two drum machines on the SDK's drum kind, as the OP-XY's
+  Drumline: each key holds its own machine and that machine's eight controls,
+  saved with the project and starting from a kit (KITS). MD KIT (mdkit) plays
+  the synthesized families, TRX, EFM, P-I and GND, each a group of its models
+  (GROUPS: Shift and the first encoder choose the family, the second the
+  machine); MD E12 (mde12) plays the sampled one.
 - Each Monomachine machine is an engine of its own, played chromatically, with
   its eight controls on the encoders and their alternates.
 
-18 engines in all, inside the 27 free engine numbers (36..62).
+16 engines in all.
 """
 
 _ = None
@@ -179,14 +181,28 @@ KITS = {
 # the others choke nothing. Shift and the second encoder change a key's group.
 CHOKED = ("CH", "OH", "RC")
 
+# MD KIT's machines, a group per family, in the drum kind's model order. Each
+# family starts with its BD where it has one, so Shift and the first encoder
+# keep a key's place: BD stays BD.
+_family = lambda prefix: [n for n in MACHINES if n.startswith(prefix) and n not in ("GND-SIN", "GND-NOIS")]
+GROUPS = {"mdkit": [("TRX", _family("TRX-")), ("EFM", _family("EFM-")), ("P-I", _family("PI-")), ("GND", _family("GND-"))]}
+# The kits each drum engine plays: its keys start from the first; the others are its presets.
+ENGINE_KITS = {"mdkit": ["mdtrx", "mdefm", "mdpi"], "mde12": ["mde12"]}
+
 ENGINES = {
-    **{kit: sorted({key[1] for key in keys}, key=list(MACHINES).index) for kit, keys in KITS.items()},
+    **{engine: [m for _label, members in groups for m in members] for engine, groups in GROUPS.items()},
+    "mde12": sorted({key[1] for key in KITS["mde12"]}, key=list(MACHINES).index),
     # The Monomachine: a machine per engine.
     "mmsaw": ["SWAVE-SAW"], "mmpulse": ["SWAVE-PULSE"], "mmens": ["SWAVE-ENS"], "mmsid": ["SID-6581"],
     "mmwave": ["DPRO-WAVE"], "mmbbox": ["DPRO-BBOX"], "mmddrw": ["DPRO-DDRW"], "mmdens": ["DPRO-DENS"],
     "mmstat": ["FM+STAT"], "mmpar": ["FM+PAR"], "mmdyn": ["FM+DYN"], "mmvo6": ["VO-6"],
     "mmsin": ["GND-SIN"], "mmnois": ["GND-NOIS"],
 }
+# The numbers a synth asks for, 36 + its place here (engine) and 84 + it (page). The
+# drum kits name none (SDK 1.9); the retired per-family kits keep their places, so
+# the synths keep the numbers they have always asked for.
+NUMBERED = ["mdtrx", "mdefm", "mdpi", "mde12", *[e for e in ENGINES if e not in ENGINE_KITS]]
+
 # Engines that play samples captured from the owner's own ROMs (tools/capture).
 SAMPLED = {"mde12", "mmbbox"}
 
@@ -198,6 +214,7 @@ def controls(name):
 
 assert len(ENGINES) <= 27, len(ENGINES)
 assert all(len(keys) == 24 for keys in KITS.values())
+assert all(set(key[1] for kit in kits for key in KITS[kit]) <= set(ENGINES[engine]) for engine, kits in ENGINE_KITS.items())
 assert {m for ms in ENGINES.values() for m in ms} == set(MACHINES), "every machine in an engine"
 for _kit, _keys in KITS.items():
     assert set(CHOKED) <= {key[0] for key in _keys}, _kit
@@ -211,5 +228,5 @@ if __name__ == "__main__":
     import pathlib
     out = pathlib.Path(__file__).with_name("catalog.json")
     out.write_text(json.dumps({"machines": {n: {"instrument": i, "id": k, "slots": s} for n, (i, k, s) in MACHINES.items()},
-                               "engines": ENGINES, "kits": KITS}, indent=1) + "\n")
+                               "engines": ENGINES, "kits": KITS, "groups": GROUPS}, indent=1) + "\n")
     print(f"wrote {out}")
