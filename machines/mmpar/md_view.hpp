@@ -144,6 +144,47 @@ inline void aside(Point& q, const Point& from, const Point* placed, u32 m) {
     }
 }
 
+// Squares off every turn within about 3.6 degrees of straight back, an eighth of a
+// pixel across: a stroke's mitre at such a point would run far out. An outline with no
+// room left gives up the point that bends it least for it.
+inline void blunt(Point* p, u32& m) {
+    for (u32 i = 0; i < m && m > 3; ++i) {
+        const Point& a = p[i ? i - 1 : m - 1];
+        const Point b = p[i];
+        const Point& c = p[i + 1 < m ? i + 1 : 0];
+        const i32 ux = (b.x - a.x) >> 4, uy = (b.y - a.y) >> 4, vx = (c.x - b.x) >> 4, vy = (c.y - b.y) >> 4;
+        const i32 dot = ux * vx + uy * vy, cross = ux * vy - uy * vx;
+        if (dot >= 0 || (cross < 0 ? -cross : cross) > (-dot >> 4)) continue;
+        const i32 side = cross < 0 ? -1 : 1;
+        Point q = b;
+        q.x += side * (uy > 0 ? -apart : uy < 0 ? apart : 0);
+        q.y += side * (ux > 0 ? apart : ux < 0 ? -apart : 0);
+        if (near(q, c)) continue;
+        if (m == 64) {
+            u32 straightest = 64;
+            i32 least = 0x7fffffff;
+            for (u32 j = 0; j < m; ++j) {
+                if (j == i || j == (i ? i - 1 : m - 1) || j == (i + 1 < m ? i + 1 : 0)) continue;
+                const Point& f = p[j ? j - 1 : m - 1];
+                const Point& g = p[j];
+                const Point& h = p[j + 1 < m ? j + 1 : 0];
+                const i32 sx = (g.x - f.x) >> 4, sy = (g.y - f.y) >> 4, tx = (h.x - g.x) >> 4, ty = (h.y - g.y) >> 4;
+                if (span(f, g) < 4 * apart || span(g, h) < 4 * apart) continue;   // an end already squared
+                const i32 bend = sx * ty - sy * tx, size = bend < 0 ? -bend : bend;
+                if (size < least) { least = size; straightest = j; }
+            }
+            if (straightest == 64) return;
+            for (u32 j = straightest; j + 1 < m; ++j) p[j] = p[j + 1];
+            --m;
+            if (straightest < i) --i;
+        }
+        for (u32 j = m; j > i + 1; --j) p[j] = p[j - 1];
+        p[i + 1] = q;
+        ++m;
+        ++i;   // past the new point
+    }
+}
+
 // Writes n path-local points (Q10) into a path as an outline the OP-XY draws
 // without streaks: it draws them from an outline with no area, as a line
 // traced out and back over itself, or one that turns straight back at a
@@ -165,6 +206,7 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
     }
     while (m > 1 && near(p[m - 1], p[0])) --m;
     if (!m) p[m++] = Point();
+    blunt(p, m);
     // An edge halves while it spans four eighths of a pixel on an axis, so both
     // halves keep the quarter pixel a closing edge needs; edge m - 1 closes the
     // outline.
