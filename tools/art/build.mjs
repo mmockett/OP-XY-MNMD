@@ -374,16 +374,18 @@ const width = (text, fs) => [...text].reduce((w, ch) => w + (ADVANCE[ch] ?? (/\d
 // A label in a circle is this fraction of its radius tall (em): 12 px in a 20 px operator.
 const LABEL_SCALE = 0.6;
 
-// A drum kit's panel (compact) leaves its lines unindented: a kit of several families
-// draws many machines and must stay within the SDK's 64 KB of artwork.
+// A drum kit's panel (compact) leaves its lines unindented, its seeds in whole pixels
+// and the join off single segments: a kit of several families draws many machines
+// and must stay within the SDK's 64 KB of artwork.
 function panel(engine, art, paged, compact = false) {
   const out = [`<g id="${engine}_panel">`];
   const stageY = paged ? PAGED_STAGE_Y : STAGE_Y;
   if (paged) out.push(...pageHeader(engine, COMMON_NODES + art.nodes.length));
   out.push(`  <path d="M0 ${paged ? 38 : 20} L480 ${paged ? 38 : 20} L480 220 L0 220 Z" fill="#000000" stroke="none"/>`);
   const park = 'transform="matrix(1 0 0 1 640 320)"';
-  // Nodes 0..3: the mutable paths, 64 distinct points each.
-  const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * 0.5)}`);
+  // Nodes 0..3: the mutable paths, 64 distinct points each (a seed the first frame
+  // replaces; a compact panel's in whole pixels).
+  const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * (compact ? 1 : 0.5))}`);
   for (let p = 0; p < 4; p++)
     out.push(`  <path id="${engine}_node_${p}" ${park} d="M${seed.join(' L')} Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>`);
   // Rings, handles and the cursor.
@@ -406,7 +408,9 @@ function panel(engine, art, paged, compact = false) {
       out.push(`  <circle id="${engine}_node_${COMMON_NODES + i}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`);
       return;
     }
-    out.push(`  <path id="${engine}_node_${COMMON_NODES + i}" d="${n.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${fill === 'none' ? ' stroke-linejoin="round"' : ''}/>`);
+    // A join matters where segments meet: a compact panel leaves it off a single open segment.
+    const joined = !compact || /Z|[LCQ][^LCQ]*[LCQ]/.test(n.d);
+    out.push(`  <path id="${engine}_node_${COMMON_NODES + i}" d="${n.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${fill === 'none' && joined ? ' stroke-linejoin="round"' : ''}/>`);
   });
   // Static labels, in the device's font: screen coordinates, baseline in the transform.
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -432,7 +436,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [engine, ...specs] = pads || oneRow ? args.slice(1) : args;
   const art = build(engine, specs.map(s => s.split(':')), pads);
   const dir = path.join(root, 'machines', engine);
-  const paged = !pads && !oneRow, svg = panel(engine, art, paged, pads);
+  const paged = !oneRow, svg = panel(engine, art, paged, pads);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
   writeFileSync(path.join(dir, 'art.h'), header(engine, art));
   const nodes = COMMON_NODES + art.nodes.length + (paged ? HEADER_NODES : 0);

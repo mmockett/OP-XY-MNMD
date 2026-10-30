@@ -8,6 +8,7 @@ namespace mdkit {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
     state.shown = 0;
 }
 
@@ -65,9 +66,27 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     case 32: md::gnd_im::view(frame, own, moment); break;
     default: break;
     }
-    // A slot the machine lacks shows nothing (an empty header keeps the stock value).
-    for (u32 i = 0; i < 4; ++i)
-        if (!kit::model[selected].labels[input.shown[i] & 7u][0])
-            opxy::draw::copy(frame.header[i], opxy::draw::header_capacity, " ");
+    // The header last: both rows, the one the encoders edit on its bar, as the
+    // Monomachine engines show their two pages. A slot the machine lacks is
+    // blank on either row. While Shift is held the edited row names Shift's
+    // controls and their choices instead, as the stock header does.
+    static const char* const chokes[4] = {"none", "1", "2", "3"};
+    const char* titles[8];
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) {
+        titles[i] = kit::model[selected].labels[i];
+        if (titles[i][0]) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
+        else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
+    }
+    if (input.shift) {
+        static const char* const shift_titles[4] = {"KIT", "MACHINE", "CHOKE", ""};
+        const char* const shift_values[4] = {kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0], kit::model[selected].name, chokes[input.choices[2] & 3u], ""};
+        const u32 row = input.shown[0] >= 4 ? 4 : 0;
+        for (u32 c = 0; c < 4; ++c) {
+            titles[row + c] = shift_titles[c];
+            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
+        }
+    }
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }
 }

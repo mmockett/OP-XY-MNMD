@@ -123,8 +123,9 @@ def write_presets(out, engines):
             path = target / f"{name}.json"
             path.write_text(json.dumps(preset(entries[engine], amp, params, regions), indent=2) + "\n")
             written.append(path)
-        # A drum engine's other kits, a preset each, named for the family (efm, pi).
-        for kit in kits[1:]:
+        # An engine of several kits names each in a preset, its first too (trx, efm,
+        # pi), so every family is in the list; default is the first.
+        for kit in kits if len(kits) > 1 else []:
             path = target / f"{KIT_FAMILY[kit].lower()}.json"
             path.write_text(json.dumps(preset(entries[engine], amp, files["default"], kit_regions(engine, kit)), indent=2) + "\n")
             written.append(path)

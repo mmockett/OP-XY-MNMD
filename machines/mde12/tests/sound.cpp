@@ -11,7 +11,7 @@
 namespace {
 int failures = 0;
 // Without the private samples a sampled kit is silent: its sounds go unchecked.
-const bool captured = false;
+const bool captured = true;
 // The adapter's whole path for one note (drum_voice.cpp.in): the played key's
 // defaults, its stored model and controls over them, the track's eight offsets
 // around 64 on the eight controls, clamped, then Q31.

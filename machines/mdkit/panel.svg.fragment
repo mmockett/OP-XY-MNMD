@@ -1,9 +1,34 @@
 <g id="mdkit_panel">
-<path d="M0 20 L480 20 L480 220 L0 220 Z" fill="#000000" stroke="none"/>
-<path id="mdkit_node_0" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
-<path id="mdkit_node_1" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
-<path id="mdkit_node_2" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
-<path id="mdkit_node_3" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 0.5 L-30 0 L-29 0.5 L-28 0 L-27 0.5 L-26 0 L-25 0.5 L-24 0 L-23 0.5 L-22 0 L-21 0.5 L-20 0 L-19 0.5 L-18 0 L-17 0.5 L-16 0 L-15 0.5 L-14 0 L-13 0.5 L-12 0 L-11 0.5 L-10 0 L-9 0.5 L-8 0 L-7 0.5 L-6 0 L-5 0.5 L-4 0 L-3 0.5 L-2 0 L-1 0.5 L0 0 L1 0.5 L2 0 L3 0.5 L4 0 L5 0.5 L6 0 L7 0.5 L8 0 L9 0.5 L10 0 L11 0.5 L12 0 L13 0.5 L14 0 L15 0.5 L16 0 L17 0.5 L18 0 L19 0.5 L20 0 L21 0.5 L22 0 L23 0.5 L24 0 L25 0.5 L26 0 L27 0.5 L28 0 L29 0.5 L30 0 L31 0.5 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M0,0 L480,0 L480,38 L0,38 Z" fill="#000000"/>
+<path id="mdkit_node_385" transform="matrix(1 0 0 1 0 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#000000" stroke="#000000" stroke-width="0.5"/>
+<path id="mdkit_node_386" transform="matrix(1 0 0 1 60 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#323232" stroke="#323232" stroke-width="0.5"/>
+<path id="mdkit_node_387" transform="matrix(1 0 0 1 120 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#4B4B4B" stroke="#4B4B4B" stroke-width="0.5"/>
+<path id="mdkit_node_388" transform="matrix(1 0 0 1 180 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#646464" stroke="#646464" stroke-width="0.5"/>
+<path id="mdkit_node_389" transform="matrix(1 0 0 1 240 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#7D7D7D" stroke="#7D7D7D" stroke-width="0.5"/>
+<path id="mdkit_node_390" transform="matrix(1 0 0 1 300 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#969696" stroke="#969696" stroke-width="0.5"/>
+<path id="mdkit_node_391" transform="matrix(1 0 0 1 360 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#AFAFAF" stroke="#AFAFAF" stroke-width="0.5"/>
+<path id="mdkit_node_392" transform="matrix(1 0 0 1 420 0)" d="M0,0 L60,0 L60,20 L0,20 Z" fill="#CDCDCD" stroke="#CDCDCD" stroke-width="0.5"/>
+<text id="mdkit_text_0" transform="matrix(1 0 0 1 5 10)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_1" transform="matrix(1 0 0 1 125 10)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_2" transform="matrix(1 0 0 1 245 10)" fill="#000000" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_3" transform="matrix(1 0 0 1 365 10)" fill="#000000" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_4" transform="matrix(1 0 0 1 65 17.4)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="20px">-</text>
+<text id="mdkit_text_5" transform="matrix(1 0 0 1 185 17.4)" fill="#CBCBCB" font-family="UniversNextPro-Light" font-size="20px">-</text>
+<text id="mdkit_text_6" transform="matrix(1 0 0 1 305 17.4)" fill="#000000" font-family="UniversNextPro-Light" font-size="20px">-</text>
+<text id="mdkit_text_7" transform="matrix(1 0 0 1 425 17.4)" fill="#000000" font-family="UniversNextPro-Light" font-size="20px">-</text>
+<text id="mdkit_text_8" transform="matrix(1 0 0 1 5 33)" fill="#5A5A5A" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_9" transform="matrix(1 0 0 1 125 33)" fill="#5A5A5A" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_10" transform="matrix(1 0 0 1 245 33)" fill="#5A5A5A" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_11" transform="matrix(1 0 0 1 365 33)" fill="#5A5A5A" font-family="UniversNextPro-Light" font-size="10px">-</text>
+<text id="mdkit_text_12" transform="matrix(1 0 0 1 65 33)" fill="#707070" font-family="UniversNextPro-Light" font-size="13px">-</text>
+<text id="mdkit_text_13" transform="matrix(1 0 0 1 185 33)" fill="#707070" font-family="UniversNextPro-Light" font-size="13px">-</text>
+<text id="mdkit_text_14" transform="matrix(1 0 0 1 305 33)" fill="#707070" font-family="UniversNextPro-Light" font-size="13px">-</text>
+<text id="mdkit_text_15" transform="matrix(1 0 0 1 425 33)" fill="#707070" font-family="UniversNextPro-Light" font-size="13px">-</text>
+<path d="M0 38 L480 38 L480 220 L0 220 Z" fill="#000000" stroke="none"/>
+<path id="mdkit_node_0" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 1 L-30 0 L-29 1 L-28 0 L-27 1 L-26 0 L-25 1 L-24 0 L-23 1 L-22 0 L-21 1 L-20 0 L-19 1 L-18 0 L-17 1 L-16 0 L-15 1 L-14 0 L-13 1 L-12 0 L-11 1 L-10 0 L-9 1 L-8 0 L-7 1 L-6 0 L-5 1 L-4 0 L-3 1 L-2 0 L-1 1 L0 0 L1 1 L2 0 L3 1 L4 0 L5 1 L6 0 L7 1 L8 0 L9 1 L10 0 L11 1 L12 0 L13 1 L14 0 L15 1 L16 0 L17 1 L18 0 L19 1 L20 0 L21 1 L22 0 L23 1 L24 0 L25 1 L26 0 L27 1 L28 0 L29 1 L30 0 L31 1 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_1" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 1 L-30 0 L-29 1 L-28 0 L-27 1 L-26 0 L-25 1 L-24 0 L-23 1 L-22 0 L-21 1 L-20 0 L-19 1 L-18 0 L-17 1 L-16 0 L-15 1 L-14 0 L-13 1 L-12 0 L-11 1 L-10 0 L-9 1 L-8 0 L-7 1 L-6 0 L-5 1 L-4 0 L-3 1 L-2 0 L-1 1 L0 0 L1 1 L2 0 L3 1 L4 0 L5 1 L6 0 L7 1 L8 0 L9 1 L10 0 L11 1 L12 0 L13 1 L14 0 L15 1 L16 0 L17 1 L18 0 L19 1 L20 0 L21 1 L22 0 L23 1 L24 0 L25 1 L26 0 L27 1 L28 0 L29 1 L30 0 L31 1 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_2" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 1 L-30 0 L-29 1 L-28 0 L-27 1 L-26 0 L-25 1 L-24 0 L-23 1 L-22 0 L-21 1 L-20 0 L-19 1 L-18 0 L-17 1 L-16 0 L-15 1 L-14 0 L-13 1 L-12 0 L-11 1 L-10 0 L-9 1 L-8 0 L-7 1 L-6 0 L-5 1 L-4 0 L-3 1 L-2 0 L-1 1 L0 0 L1 1 L2 0 L3 1 L4 0 L5 1 L6 0 L7 1 L8 0 L9 1 L10 0 L11 1 L12 0 L13 1 L14 0 L15 1 L16 0 L17 1 L18 0 L19 1 L20 0 L21 1 L22 0 L23 1 L24 0 L25 1 L26 0 L27 1 L28 0 L29 1 L30 0 L31 1 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_3" transform="matrix(1 0 0 1 640 320)" d="M-32 0 L-31 1 L-30 0 L-29 1 L-28 0 L-27 1 L-26 0 L-25 1 L-24 0 L-23 1 L-22 0 L-21 1 L-20 0 L-19 1 L-18 0 L-17 1 L-16 0 L-15 1 L-14 0 L-13 1 L-12 0 L-11 1 L-10 0 L-9 1 L-8 0 L-7 1 L-6 0 L-5 1 L-4 0 L-3 1 L-2 0 L-1 1 L0 0 L1 1 L2 0 L3 1 L4 0 L5 1 L6 0 L7 1 L8 0 L9 1 L10 0 L11 1 L12 0 L13 1 L14 0 L15 1 L16 0 L17 1 L18 0 L19 1 L20 0 L21 1 L22 0 L23 1 L24 0 L25 1 L26 0 L27 1 L28 0 L29 1 L30 0 L31 1 Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
 <circle id="mdkit_node_4" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <circle id="mdkit_node_5" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <circle id="mdkit_node_6" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
@@ -37,59 +62,59 @@
 <path id="mdkit_node_34" d="M-11.7 0 L-11.5 7.6 L-10.9 14.8 L-9.8 21.5 L-8.3 27.4 L-6.5 32.2 L-4.5 35.8 L-2.3 38 L0 38.7 L2.3 38 L4.5 35.8 L6.5 32.2 L8.3 27.4 L9.8 21.5 L10.9 14.8 L11.5 7.6 L11.8 0 L11.5 -7.6 L10.9 -14.8 L9.8 -21.5 L8.3 -27.4 L6.5 -32.2 L4.5 -35.8 L2.3 -38 L0 -38.7 L-2.3 -38 L-4.5 -35.8 L-6.5 -32.2 L-8.3 -27.4 L-9.8 -21.5 L-10.9 -14.8 L-11.5 -7.6 L-11.7 0 Z" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
 <path id="mdkit_node_35" d="M-2.8 0 L-2.6 2.1 L-2 3.8 L-1.6 4.5 L-0.6 5.3 L0 5.4 L1.1 5 L2 3.8 L2.4 3 L2.8 0 L2.6 -2.1 L2 -3.8 L1.6 -4.5 L0.6 -5.3 L0 -5.4 L-0.6 -5.3 L-1.6 -4.5 L-2 -3.8 L-2.6 -2.1 L-2.8 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_36" d="M20.5 2 L-20.5 4 L-20.5 0 L18.5 -4 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_37" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_38" d="M6.8 18.6 L-6.7 -18.6" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_37" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_38" d="M6.8 18.6 L-6.7 -18.6" fill="none" stroke="#f7f5f5" stroke-width="1.6"/>
 <circle id="mdkit_node_39" cx="0" cy="0" r="4.8" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_40" d="M-117 -72 L-117 72" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_41" d="M-107 12 L117 12" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_42" d="M-107 48 L117 48" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_40" d="M-117 -72 L-117 72" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_41" d="M-107 12 L117 12" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_42" d="M-107 48 L117 48" fill="none" stroke="#3a3b3f" stroke-width="1"/>
 <path id="mdkit_node_43" d="M25.4 -0.9 L4.4 0.9 L-13 0.5 L-25.4 -0.9" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_44" d="M-55 -22.2 L-55 5.8 L-53.9 9 L-50.8 12.1 L-45.7 14.9 L-38.9 17.4 L-30.6 19.5 L-21 21 L-10.7 21.9 L0 22.3 L10.7 21.9 L21 21 L30.6 19.5 L38.9 17.4 L45.7 14.9 L50.8 12.1 L53.9 9 L55 5.8 L55 -22.2 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_45" d="M-54.9 0 L-53.9 3.2 L-50.8 6.3 L-45.7 9.2 L-38.9 11.7 L-30.5 13.7 L-21 15.2 L-10.7 16.2 L0 16.5 L10.7 16.2 L21 15.2 L30.5 13.7 L38.9 11.7 L45.7 9.2 L50.8 6.3 L53.9 3.2 L54.9 0 L53.9 -3.2 L50.8 -6.3 L45.7 -9.2 L38.9 -11.7 L30.5 -13.7 L21 -15.2 L10.7 -16.2 L0 -16.5 L-10.7 -16.2 L-21 -15.2 L-30.5 -13.7 L-38.9 -11.7 L-45.7 -9.2 L-50.8 -6.3 L-53.9 -3.2 L-54.9 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_46" d="M-51.4 0 L-50.5 2.9 L-47.5 5.7 L-42.8 8.3 L-36.4 10.5 L-28.6 12.4 L-19.7 13.8 L-10 14.6 L0 14.9 L10 14.6 L19.7 13.8 L28.6 12.4 L36.4 10.5 L42.8 8.3 L47.5 5.7 L50.5 2.9 L51.4 0 L50.5 -2.9 L47.5 -5.7 L42.8 -8.3 L36.4 -10.5 L28.6 -12.4 L19.7 -13.8 L10 -14.6 L0 -14.9 L-10 -14.6 L-19.7 -13.8 L-28.6 -12.4 L-36.4 -10.5 L-42.8 -8.3 L-47.5 -5.7 L-50.5 -2.9 L-51.4 0 Z" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
 <path id="mdkit_node_47" d="M-35.2 -23 L33.2 25.8 L35.2 23 L-33.1 -25.8 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_48" cx="0" cy="0" r="3" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_49" d="M-28 -28.3 L-48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_50" d="M28 -28.3 L48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_51" d="M0 -23.4 L0 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_49" d="M-28 -28.3 L-48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_50" d="M28 -28.3 L48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_51" d="M0 -23.4 L0 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_52" d="M-51 -28.2 L-51 11.8 L-50 15 L-47.1 18.1 L-42.4 20.9 L-36.1 23.4 L-28.3 25.4 L-19.5 26.9 L-9.9 27.8 L0 28.1 L9.9 27.8 L19.5 26.9 L28.3 25.4 L36.1 23.4 L42.4 20.9 L47.1 18.1 L50 15 L51 11.8 L51 -28.2 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_53" d="M-50.9 0 L-50 3.2 L-47.1 6.2 L-42.4 9 L-36 11.5 L-28.3 13.5 L-19.5 15 L-9.9 16 L0 16.3 L9.9 16 L19.5 15 L28.3 13.5 L36 11.5 L42.4 9 L47.1 6.2 L50 3.2 L51 0 L50 -3.2 L47.1 -6.2 L42.4 -9 L36 -11.5 L28.3 -13.5 L19.5 -15 L9.9 -16 L0 -16.3 L-9.9 -16 L-19.5 -15 L-28.3 -13.5 L-36 -11.5 L-42.4 -9 L-47.1 -6.2 L-50 -3.2 L-50.9 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_54" d="M-47.4 0 L-46.5 2.9 L-43.8 5.6 L-39.5 8.2 L-33.6 10.4 L-26.4 12.2 L-18.2 13.6 L-9.3 14.4 L0 14.7 L9.3 14.4 L18.2 13.6 L26.4 12.2 L33.6 10.4 L39.5 8.2 L43.8 5.6 L46.5 2.9 L47.5 0 L46.5 -2.9 L43.8 -5.6 L39.5 -8.2 L33.6 -10.4 L26.4 -12.2 L18.2 -13.6 L9.3 -14.4 L0 -14.7 L-9.3 -14.4 L-18.2 -13.6 L-26.4 -12.2 L-33.6 -10.4 L-39.5 -8.2 L-43.8 -5.6 L-46.5 -2.9 L-47.4 0 Z" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
 <path id="mdkit_node_55" d="M-23.1 -17.2 L20.8 19.8 L23.1 17.2 L-20.9 -19.8 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_56" cx="0" cy="0" r="3" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_57" d="M-108 0 L108 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_58" d="M-61.9 -9.3 L-61.9 -18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_59" d="M-55.4 -6.5 L-52.6 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_60" d="M-52.7 0 L-43.2 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_61" d="M-55.4 6.5 L-52.6 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_62" d="M-61.9 9.3 L-61.9 18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_63" d="M-68.5 6.5 L-71.3 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_64" d="M-71.2 0 L-80.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_65" d="M-68.5 -6.5 L-71.3 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_66" d="M-19 -8.4 L-19 -17" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_67" d="M-13 -6 L-10.5 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_68" d="M-10.5 0 L-1.9 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_69" d="M-13 6 L-10.5 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_70" d="M-19 8.4 L-19 17" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_71" d="M-24.9 6 L-27.5 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_72" d="M-27.4 0 L-36 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_73" d="M-24.9 -6 L-27.5 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_74" d="M24 -7.6 L24 -15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_75" d="M29.3 -5.4 L31.6 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_76" d="M31.6 0 L39.3 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_77" d="M29.3 5.4 L31.6 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_78" d="M24 7.6 L24 15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_79" d="M18.6 5.4 L16.3 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_80" d="M16.4 0 L8.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_81" d="M18.6 -5.4 L16.3 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_82" d="M66.9 -6.8 L66.9 -13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_83" d="M71.7 -4.8 L73.7 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_84" d="M73.7 0 L80.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_85" d="M71.7 4.8 L73.7 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_86" d="M66.9 6.8 L66.9 13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_87" d="M62.1 4.8 L60.1 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_88" d="M60.2 0 L53.2 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_89" d="M62.1 -4.8 L60.1 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_57" d="M-108 0 L108 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_58" d="M-61.9 -9.3 L-61.9 -18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_59" d="M-55.4 -6.5 L-52.6 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_60" d="M-52.7 0 L-43.2 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_61" d="M-55.4 6.5 L-52.6 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_62" d="M-61.9 9.3 L-61.9 18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_63" d="M-68.5 6.5 L-71.3 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_64" d="M-71.2 0 L-80.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_65" d="M-68.5 -6.5 L-71.3 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_66" d="M-19 -8.4 L-19 -17" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_67" d="M-13 -6 L-10.5 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_68" d="M-10.5 0 L-1.9 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_69" d="M-13 6 L-10.5 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_70" d="M-19 8.4 L-19 17" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_71" d="M-24.9 6 L-27.5 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_72" d="M-27.4 0 L-36 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_73" d="M-24.9 -6 L-27.5 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_74" d="M24 -7.6 L24 -15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_75" d="M29.3 -5.4 L31.6 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_76" d="M31.6 0 L39.3 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_77" d="M29.3 5.4 L31.6 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_78" d="M24 7.6 L24 15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_79" d="M18.6 5.4 L16.3 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_80" d="M16.4 0 L8.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_81" d="M18.6 -5.4 L16.3 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_82" d="M66.9 -6.8 L66.9 -13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_83" d="M71.7 -4.8 L73.7 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_84" d="M73.7 0 L80.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_85" d="M71.7 4.8 L73.7 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_86" d="M66.9 6.8 L66.9 13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_87" d="M62.1 4.8 L60.1 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_88" d="M60.2 0 L53.2 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_89" d="M62.1 -4.8 L60.1 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <circle id="mdkit_node_90" cx="-63.7" cy="0" r="5.5" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <circle id="mdkit_node_91" cx="-20.8" cy="0" r="5" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <circle id="mdkit_node_92" cx="22.1" cy="0" r="4.5" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
@@ -98,43 +123,43 @@
 <path id="mdkit_node_95" d="M-22.5 -4 L-20.5 -4 L-20.5 4 L-22.5 4 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_96" d="M20.5 -4 L22.5 -4 L22.5 4 L20.5 4 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_97" d="M63.4 -4 L65.4 -4 L65.4 4 L63.4 4 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_98" d="M-107 50 L117 50" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_98" d="M-107 50 L117 50" fill="none" stroke="#3a3b3f" stroke-width="1"/>
 <path id="mdkit_node_99" d="M-60 -18 L-60 0 L-58.8 3.5 L-55.4 6.9 L-49.9 10 L-42.4 12.7 L-33.3 15 L-23 16.6 L-11.7 17.7 L0 18 L11.7 17.7 L23 16.6 L33.3 15 L42.4 12.7 L49.9 10 L55.4 6.9 L58.8 3.5 L60 0 L60 -18 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_100" d="M-60 0 L-58.8 3.5 L-55.4 6.9 L-49.9 10 L-42.4 12.7 L-33.3 15 L-23 16.6 L-11.7 17.7 L0 18 L11.7 17.7 L23 16.6 L33.3 15 L42.4 12.7 L49.9 10 L55.4 6.9 L58.8 3.5 L60 0 L58.8 -3.5 L55.4 -6.9 L49.9 -10 L42.4 -12.7 L33.3 -15 L23 -16.6 L11.7 -17.7 L0 -18 L-11.7 -17.7 L-23 -16.6 L-33.3 -15 L-42.4 -12.7 L-49.9 -10 L-55.4 -6.9 L-58.8 -3.5 L-60 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_101" d="M-56.5 0 L-55.4 3.2 L-52.2 6.3 L-47 9.1 L-40 11.6 L-31.4 13.6 L-21.6 15.2 L-11 16.1 L0 16.4 L11 16.1 L21.6 15.2 L31.4 13.6 L40 11.6 L47 9.1 L52.2 6.3 L55.4 3.2 L56.5 0 L55.4 -3.2 L52.2 -6.3 L47 -9.1 L40 -11.6 L31.4 -13.6 L21.6 -15.2 L11 -16.1 L0 -16.4 L-11 -16.1 L-21.6 -15.2 L-31.4 -13.6 L-40 -11.6 L-47 -9.1 L-52.2 -6.3 L-55.4 -3.2 L-56.5 0 Z" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
 <path id="mdkit_node_102" d="M-41.9 10.8 L42.7 -6.7 L41.9 -10.7 L-42.7 6.8 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_103" d="M0 20.6 L0 -20.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_103" d="M0 20.6 L0 -20.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_104" d="M-15.7 -27.6 L0.9 -36.9 L15.7 27.8 L-0.9 37 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_105" d="M-24 4.7 L7.4 4.7 L24 -4.6 L-7.4 -4.6 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_106" d="M-15.7 -32.3 L15.7 -32.3 L30.5 32.3 L-30.5 32.3 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_107" d="M-6 -4 L6 -4 L6 4 L-6 4 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_108" d="M-17.6 0 L17.6 0" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_108" d="M-17.6 0 L17.6 0" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_109" d="M-36.1 -21.6 L34.2 24.5 L36.1 21.5 L-34.2 -24.5 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_110" cx="0" cy="0" r="3" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_111" d="M0 -42.8 L0 42.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_112" d="M0 -9 L-30 9" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_113" d="M0 -9 L30 9" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_114" d="M0 -9 L0 9" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_111" d="M0 -42.8 L0 42.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_112" d="M0 -9 L-30 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_113" d="M0 -9 L30 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_114" d="M0 -9 L0 9" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_115" d="M67 0 L66.6 1.1 L65.3 2.2 L63.2 3.3 L60.4 4.4 L52.4 6.3 L41.8 7.9 L29.1 9.1 L7.5 10 L-7.5 10 L-22.1 9.5 L-29.1 9.1 L-41.8 7.9 L-52.4 6.3 L-60.4 4.4 L-63.2 3.3 L-65.3 2.2 L-66.6 1.1 L-67 0 L-66.6 -1.1 L-65.3 -2.2 L-63.2 -3.3 L-60.4 -4.4 L-52.4 -6.3 L-41.8 -7.9 L-29.1 -9.1 L-7.5 -10 L7.5 -10 L22.1 -9.5 L29.1 -9.1 L41.8 -7.9 L52.4 -6.3 L60.4 -4.4 L63.2 -3.3 L65.3 -2.2 L66.6 -1.1 L67 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_116" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_117" d="M67 0 L66.6 1.1 L65.3 2.3 L63.2 3.3 L60.4 4.3 L56.7 5.3 L47.4 7 L35.6 8.5 L29.1 9 L14.9 9.8 L0 10 L-14.9 9.8 L-29.1 9 L-35.6 8.5 L-47.4 7 L-56.7 5.3 L-60.4 4.3 L-63.2 3.3 L-65.3 2.3 L-66.6 1.1 L-67 0 L-66.6 -1.2 L-65.3 -2.2 L-63.2 -3.4 L-60.4 -4.4 L-56.7 -5.4 L-47.4 -7.2 L-35.7 -8.5 L-29.1 -9 L-14.9 -9.9 L0 -10 L14.9 -9.9 L29.1 -9 L35.6 -8.5 L47.4 -7.2 L56.7 -5.4 L60.4 -4.4 L63.2 -3.4 L65.3 -2.2 L66.6 -1.2 L67 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_118" d="M46.9 0 L46.3 1 L44.6 2.1 L41.8 3.1 L37.9 4.1 L33.2 5 L21.3 6.3 L7.3 7 L0 7 L-7.3 7 L-21.3 6.3 L-33.2 5 L-37.9 4.1 L-41.8 3.1 L-44.6 2.1 L-46.3 1 L-46.9 0 L-46.3 -1.2 L-44.6 -2.2 L-41.8 -3.2 L-37.9 -4.2 L-33.2 -5 L-27.6 -5.7 L-21.3 -6.2 L-7.3 -7 L0 -7 L7.3 -7 L21.3 -6.2 L27.6 -5.7 L33.2 -5 L37.9 -4.2 L41.8 -3.2 L44.6 -2.2 L46.3 -1.2 L46.9 0 Z" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
 <path id="mdkit_node_119" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_120" d="M-4 -3 L4 -3 L4 3 L-4 3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_121" d="M0 -5.8 L0 5.8" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_121" d="M0 -5.8 L0 5.8" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_122" d="M-3.5 -0.5 L3.5 -0.5 L3.5 0.5 L-3.5 0.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_123" d="M-3.5 -0.5 L3.5 -0.5 L3.5 0.5 L-3.5 0.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_124" d="M-107 40 L117 40" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_125" d="M0 -46 L0 32" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_126" d="M0 28 L-30 46" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_127" d="M0 28 L30 46" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_128" d="M0 28 L0 46" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_124" d="M-107 40 L117 40" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_125" d="M0 -46 L0 32" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_126" d="M0 28 L-30 46" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_127" d="M0 28 L30 46" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_128" d="M0 28 L0 46" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_129" d="M69.1 0 L68.2 2.1 L65.7 4.1 L61.6 6 L55.9 7.7 L48.8 9.3 L40.6 10.6 L31.4 11.7 L21.3 12.5 L10.8 13 L0 13.1 L-10.8 13 L-21.3 12.5 L-31.4 11.7 L-40.6 10.6 L-48.8 9.3 L-55.9 7.7 L-61.6 6 L-65.7 4.1 L-68.2 2.1 L-69.1 0 L-68.2 -2.1 L-65.7 -4.1 L-61.6 -6 L-55.9 -7.7 L-48.8 -9.3 L-40.6 -10.6 L-31.4 -11.7 L-21.3 -12.5 L-10.8 -13 L0 -13.1 L10.8 -13 L21.3 -12.5 L31.4 -11.7 L40.6 -10.6 L48.8 -9.3 L55.9 -7.7 L61.6 -6 L65.7 -4.1 L68.2 -2.1 L69.1 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_130" d="M51.8 0 L51.2 1.5 L49.3 3 L46.2 4.5 L41.9 5.8 L36.6 7 L30.5 8 L23.5 8.8 L16 9.4 L0 9.8 L-16 9.4 L-23.5 8.8 L-30.5 8 L-36.6 7 L-41.9 5.8 L-46.2 4.5 L-49.3 3 L-51.2 1.5 L-51.8 0 L-51.2 -1.5 L-49.3 -3 L-46.2 -4.5 L-41.9 -5.8 L-36.6 -7 L-30.5 -8 L-23.5 -8.8 L-16 -9.4 L0 -9.8 L16 -9.4 L23.5 -8.8 L30.5 -8 L36.6 -7 L41.9 -5.8 L46.2 -4.5 L49.3 -3 L51.2 -1.5 L51.8 0 Z" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
 <path id="mdkit_node_131" d="M-64.7 4.5 L-54.9 0.7 L-43.1 -1.7 L-17.3 -4.1 L0 -4.5 L17.3 -4.1 L43.1 -1.7 L54.9 0.7 L64.7 4.5" fill="none" stroke="#f7f5f5" stroke-width="1" stroke-linejoin="round"/>
 <path id="mdkit_node_132" d="M-12 0 L-11.8 1.1 L-11.1 2.2 L-10 3.2 L-8.5 4.1 L-6.7 4.8 L-4.6 5.4 L0 5.8 L4.6 5.4 L6.7 4.8 L8.5 4.1 L10 3.2 L11.1 2.2 L11.8 1.1 L12 0 L11.8 -1.1 L11.1 -2.2 L10 -3.2 L8.5 -4.1 L6.7 -4.8 L4.6 -5.4 L0 -5.8 L-4.6 -5.4 L-6.7 -4.8 L-8.5 -4.1 L-10 -3.2 L-11.1 -2.2 L-11.8 -1.1 L-12 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_133" d="M-3 -3 L3 -3 L3 3 L-3 3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_134" d="M-107 60 L117 60" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_134" d="M-107 60 L117 60" fill="none" stroke="#3a3b3f" stroke-width="1"/>
 <path id="mdkit_node_135" d="M-8.9 -26.7 L2.9 28 L8.8 26.8 L-3 -27.9 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_136" d="M20 -4.5 L20.6 -1.1 L20.8 2.3 L20.7 5.7 L20.2 9 L19.3 12.1 L18.2 15 L16.7 17.7 L15 20 L13 22 L10.7 23.7 L8.3 24.9 L5.7 25.7 L3.1 26.1 L0.4 26 L-2.3 25.4 L-5 24.5 L-7.6 23.1 L-10.1 21.3 L-12.4 19.2 L-16.3 14 L-17.8 11 L-19.1 7.8 L-20 4.5 L-20.6 1.1 L-20.8 -2.3 L-20.7 -5.7 L-20.2 -9 L-19.3 -12.1 L-18.2 -15 L-16.7 -17.7 L-15 -20 L-13 -22 L-10.7 -23.7 L-8.3 -24.9 L-5.7 -25.7 L-3.1 -26.1 L-0.4 -26 L2.3 -25.4 L5 -24.5 L7.6 -23.1 L10.1 -21.3 L12.4 -19.2 L16.3 -14 L17.8 -11 L19.1 -7.8 L20 -4.5 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_137" d="M-1 -4.9 L2 -4.9 L2 -1.9 L-1 -1.9 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
@@ -153,8 +178,8 @@
 <path id="mdkit_node_150" d="M0.3 -5.2 L3.3 -5.2 L3.3 -2.2 L0.3 -2.2 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_151" d="M1 2.4 L4 2.4 L4 5.4 L1 5.4 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_152" d="M2.2 -4.3 L5.2 -4.3 L5.2 -1.3 L2.2 -1.3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_153" d="M-107 0 L117 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_154" d="M-20 0 L20 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_153" d="M-107 0 L117 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_154" d="M-20 0 L20 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_155" d="M-28 -5.9 L-25 -5.9 L-25 -2.9 L-28 -2.9 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_156" d="M-26.1 -3.1 L-23.1 -3.1 L-23.1 -0.1 L-26.1 -0.1 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_157" d="M-37.9 9 L-34.9 9 L-34.9 12 L-37.9 12 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
@@ -177,66 +202,66 @@
 <path id="mdkit_node_174" d="M-14.8 -10.2 L12.5 12.8 L14.8 10.2 L-12.5 -12.8 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_175" cx="0" cy="0" r="3" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_176" d="M20.5 2 L-20.5 4 L-20.5 0 L18.5 -4 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_177" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_178" d="M8.1 18 L-8.1 -18" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_177" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_178" d="M8.1 18 L-8.1 -18" fill="none" stroke="#f7f5f5" stroke-width="1.6"/>
 <circle id="mdkit_node_179" cx="0" cy="0" r="4.8" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_180" d="M-107 70 L117 70" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_181" d="M-28.2 9.8 L-27 7.1" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_182" d="M-25.5 4.5 L-23.8 2" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_183" d="M-21.9 -0.3 L-19.8 -2.4" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_184" d="M-17.4 -4.3 L-14.9 -5.9" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_185" d="M-12.2 -7.2 L-9.4 -8.3" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_186" d="M-6.5 -9.1 L-3.6 -9.7" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_187" d="M-0.6 -9.8 L2.4 -9.7" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_188" d="M5.4 -9.3 L8.3 -8.6" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_189" d="M11.1 -7.7 L13.8 -6.5" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_190" d="M16.4 -4.9 L18.8 -3.2" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_191" d="M21.1 -1.1 L23.1 1.1" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_192" d="M24.9 3.4 L26.4 6" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_193" d="M27.7 8.7 L28.2 9.8" fill="none" stroke="#7a7b80" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_180" d="M-107 70 L117 70" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_181" d="M-28.2 9.8 L-27 7.1" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_182" d="M-25.5 4.5 L-23.8 2" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_183" d="M-21.9 -0.3 L-19.8 -2.4" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_184" d="M-17.4 -4.3 L-14.9 -5.9" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_185" d="M-12.2 -7.2 L-9.4 -8.3" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_186" d="M-6.5 -9.1 L-3.6 -9.7" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_187" d="M-0.6 -9.8 L2.4 -9.7" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_188" d="M5.4 -9.3 L8.3 -8.6" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_189" d="M11.1 -7.7 L13.8 -6.5" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_190" d="M16.4 -4.9 L18.8 -3.2" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_191" d="M21.1 -1.1 L23.1 1.1" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_192" d="M24.9 3.4 L26.4 6" fill="none" stroke="#7a7b80" stroke-width="1"/>
+<path id="mdkit_node_193" d="M27.7 8.7 L28.2 9.8" fill="none" stroke="#7a7b80" stroke-width="1"/>
 <path id="mdkit_node_194" d="M-49.5 -11 L-44.5 -3 L-53.5 -4 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_195" d="M46.5 -1 L53.5 5 L46.5 11 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <circle id="mdkit_node_196" cx="0" cy="0" r="22" fill="none" stroke="#f7f5f5" stroke-width="1"/>
 <circle id="mdkit_node_197" cx="0" cy="0" r="22" fill="none" stroke="#f7f5f5" stroke-width="1"/>
-<path id="mdkit_node_198" d="M0 25 L0 -25" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
-<path id="mdkit_node_199" d="M-9.4 4.7 L9.4 -4.7" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_198" d="M0 25 L0 -25" fill="none" stroke="#f7f5f5" stroke-width="1.6"/>
+<path id="mdkit_node_199" d="M-9.4 4.7 L9.4 -4.7" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_200" d="M25.4 -0.9 L4.4 0.9 L-13 0.5 L-25.4 -0.9" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_201" d="M-34.2 -24.3 L32.1 27.2 L34.3 24.3 L-32.2 -27.1 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_202" cx="0" cy="0" r="3" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_203" d="M-3.5 -6 L3.5 0 L-3.5 6 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_204" d="M-108 0 L108 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_205" d="M-57.8 -9.3 L-57.8 -18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_206" d="M-51.3 -6.5 L-48.5 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_207" d="M-48.6 0 L-39.1 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_208" d="M-51.3 6.5 L-48.5 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_209" d="M-57.8 9.3 L-57.8 18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_210" d="M-64.4 6.5 L-67.2 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_211" d="M-67.1 0 L-76.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_212" d="M-64.4 -6.5 L-67.2 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_213" d="M-17.5 -8.4 L-17.5 -17" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_214" d="M-11.6 -6 L-9 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_215" d="M-9.1 0 L-0.5 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_216" d="M-11.6 6 L-9 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_217" d="M-17.5 8.4 L-17.5 17" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_218" d="M-23.5 6 L-26.1 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_219" d="M-26 0 L-34.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_220" d="M-23.5 -6 L-26.1 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_221" d="M22.7 -7.6 L22.7 -15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_222" d="M28.1 -5.4 L30.4 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_223" d="M30.3 0 L38.1 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_224" d="M28.1 5.4 L30.4 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_225" d="M22.7 7.6 L22.7 15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_226" d="M17.4 5.4 L15.1 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_227" d="M15.2 0 L7.4 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_228" d="M17.4 -5.4 L15.1 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_229" d="M63 -6.8 L63 -13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_230" d="M67.8 -4.8 L69.9 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_231" d="M69.8 0 L76.7 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_232" d="M67.8 4.8 L69.9 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_233" d="M63 6.8 L63 13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_234" d="M58.3 4.8 L56.2 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_235" d="M56.3 0 L49.4 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_236" d="M58.3 -4.8 L56.2 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_204" d="M-108 0 L108 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_205" d="M-57.8 -9.3 L-57.8 -18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_206" d="M-51.3 -6.5 L-48.5 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_207" d="M-48.6 0 L-39.1 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_208" d="M-51.3 6.5 L-48.5 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_209" d="M-57.8 9.3 L-57.8 18.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_210" d="M-64.4 6.5 L-67.2 9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_211" d="M-67.1 0 L-76.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_212" d="M-64.4 -6.5 L-67.2 -9.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_213" d="M-17.5 -8.4 L-17.5 -17" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_214" d="M-11.6 -6 L-9 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_215" d="M-9.1 0 L-0.5 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_216" d="M-11.6 6 L-9 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_217" d="M-17.5 8.4 L-17.5 17" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_218" d="M-23.5 6 L-26.1 8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_219" d="M-26 0 L-34.6 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_220" d="M-23.5 -6 L-26.1 -8.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_221" d="M22.7 -7.6 L22.7 -15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_222" d="M28.1 -5.4 L30.4 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_223" d="M30.3 0 L38.1 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_224" d="M28.1 5.4 L30.4 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_225" d="M22.7 7.6 L22.7 15.4" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_226" d="M17.4 5.4 L15.1 7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_227" d="M15.2 0 L7.4 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_228" d="M17.4 -5.4 L15.1 -7.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_229" d="M63 -6.8 L63 -13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_230" d="M67.8 -4.8 L69.9 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_231" d="M69.8 0 L76.7 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_232" d="M67.8 4.8 L69.9 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_233" d="M63 6.8 L63 13.7" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_234" d="M58.3 4.8 L56.2 6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_235" d="M56.3 0 L49.4 0" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_236" d="M58.3 -4.8 L56.2 -6.8" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <circle id="mdkit_node_237" cx="-59.7" cy="0" r="5.2" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <circle id="mdkit_node_238" cx="-19.4" cy="0" r="4.8" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <circle id="mdkit_node_239" cx="20.9" cy="0" r="4.2" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
@@ -248,15 +273,15 @@
 <path id="mdkit_node_245" d="M-121 21 L-121 39 L-119.8 42.5 L-116.4 45.9 L-110.9 49 L-103.4 51.7 L-94.3 54 L-84 55.6 L-72.7 56.7 L-61 57 L-49.3 56.7 L-38 55.6 L-27.7 54 L-18.6 51.7 L-11.1 49 L-5.6 45.9 L-2.2 42.5 L-1 39 L-1 21 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <circle id="mdkit_node_246" cx="0" cy="0" r="22" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_247" d="M-15 0 L-13.1 -6.4 L-11.2 -9 L-8.7 -4.5 L-5.6 6.4 L-3.7 9 L-1.9 6.4 L3.1 -8.7 L5 -7.8 L10.6 8.7 L12.5 7.8 L15 0" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_248" d="M0 25 L0 -25" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_248" d="M0 25 L0 -25" fill="none" stroke="#f7f5f5" stroke-width="1.6"/>
 <path id="mdkit_node_249" d="M-36.1 -21.6 L34.2 24.5 L36.1 21.5 L-34.2 -24.5 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_250" d="M0 -39.5 L0 39.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_250" d="M0 -39.5 L0 39.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_251" d="M66.9 0 L66.5 1.1 L65.3 2.2 L63.2 3.3 L60.3 4.4 L52.3 6.3 L47.3 7.1 L35.6 8.5 L22.1 9.5 L7.5 10 L-7.5 10 L-22.1 9.5 L-35.6 8.5 L-47.3 7.1 L-52.3 6.3 L-60.3 4.4 L-63.2 3.3 L-65.2 2.2 L-66.5 1.1 L-66.9 0 L-66.5 -1.1 L-65.3 -2.2 L-63.2 -3.3 L-60.3 -4.4 L-52.3 -6.3 L-47.3 -7.1 L-35.6 -8.5 L-22.1 -9.5 L-7.5 -10 L7.5 -10 L22.1 -9.5 L41.7 -7.9 L52.3 -6.3 L60.3 -4.4 L63.2 -3.3 L65.2 -2.2 L66.5 -1.1 L66.9 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_252" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_253" d="M66.9 0 L66.5 1.1 L65.3 2.2 L63.2 3.3 L60.3 4.4 L52.3 6.3 L47.3 7.1 L35.6 8.5 L22.1 9.5 L7.5 10 L-7.5 10 L-22.1 9.5 L-35.6 8.5 L-47.3 7.1 L-52.3 6.3 L-60.3 4.4 L-63.2 3.3 L-65.2 2.2 L-66.5 1.1 L-66.9 0 L-66.5 -1.1 L-65.3 -2.2 L-63.2 -3.3 L-60.3 -4.4 L-52.3 -6.3 L-47.3 -7.1 L-35.6 -8.5 L-22.1 -9.5 L-7.5 -10 L7.5 -10 L22.1 -9.5 L41.7 -7.9 L52.3 -6.3 L60.3 -4.4 L63.2 -3.3 L65.2 -2.2 L66.5 -1.1 L66.9 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_254" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_255" d="M-4 -3 L4 -3 L4 3 L-4 3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_256" d="M0 -2.5 L0 2.5" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_256" d="M0 -2.5 L0 2.5" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_257" d="M-3.5 -3 L3.5 -3 L3.5 -2 L-3.5 -2 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_258" d="M-3.5 2 L3.5 2 L3.5 3 L-3.5 3 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_259" d="M68.9 0 L68.1 2 L65.5 4 L61.4 5.9 L55.8 7.7 L48.7 9.3 L40.5 10.6 L31.3 11.7 L21.3 12.5 L0 13.1 L-21.3 12.5 L-31.3 11.7 L-40.5 10.6 L-48.7 9.3 L-55.8 7.7 L-61.4 5.9 L-65.5 4 L-68.1 2 L-68.9 0 L-68.1 -2 L-65.5 -4 L-61.4 -5.9 L-55.8 -7.7 L-48.7 -9.3 L-40.5 -10.6 L-31.3 -11.7 L-21.3 -12.5 L0 -13.1 L21.3 -12.5 L31.3 -11.7 L40.5 -10.6 L48.7 -9.3 L55.8 -7.7 L61.4 -5.9 L65.5 -4 L68.1 -2 L68.9 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
@@ -265,24 +290,24 @@
 <path id="mdkit_node_262" d="M-12 0 L-11.8 1.1 L-11.1 2.2 L-10 3.2 L-8.5 4.1 L-6.7 4.8 L-4.6 5.4 L0 5.8 L4.6 5.4 L6.7 4.8 L8.5 4.1 L10 3.2 L11.1 2.2 L11.8 1.1 L12 0 L11.8 -1.1 L11.1 -2.2 L10 -3.2 L8.5 -4.1 L6.7 -4.8 L4.6 -5.4 L0 -5.8 L-4.6 -5.4 L-6.7 -4.8 L-8.5 -4.1 L-10 -3.2 L-11.1 -2.2 L-11.8 -1.1 L-12 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_263" d="M-3 -3 L3 -3 L3 3 L-3 3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_264" d="M20.5 2 L-20.5 4 L-20.5 0 L18.5 -4 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
-<path id="mdkit_node_265" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_266" d="M9 17.6 L-9 -17.6" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
+<path id="mdkit_node_265" d="M0 3.5 L0 -3.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_266" d="M9 17.6 L-9 -17.6" fill="none" stroke="#f7f5f5" stroke-width="1.6"/>
 <circle id="mdkit_node_267" cx="0" cy="0" r="6" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_268" d="M25.4 -2.1 L4.4 -0.3 L-13 -0.7 L-25.4 -2.1" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_269" d="M25.4 0.3 L4.4 2.1 L-13 1.7 L-25.4 0.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_270" d="M-107 14 L117 14" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_271" d="M-28 -28.3 L-48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_272" d="M28 -28.3 L48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_273" d="M0 -23.4 L0 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_270" d="M-107 14 L117 14" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_271" d="M-28 -28.3 L-48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_272" d="M28 -28.3 L48.4 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_273" d="M0 -23.4 L0 28.3" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_274" d="M-51 -28.2 L-51 11.8 L-50 15 L-47.1 18.1 L-42.4 20.9 L-36.1 23.4 L-28.3 25.4 L-19.5 26.9 L-9.9 27.8 L0 28.1 L9.9 27.8 L19.5 26.9 L28.3 25.4 L36.1 23.4 L42.4 20.9 L47.1 18.1 L50 15 L51 11.8 L51 -28.2 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_275" d="M-51 0 L-50 3.2 L-47.1 6.2 L-42.4 9.1 L-36.1 11.5 L-28.3 13.6 L-19.5 15.1 L-9.9 16 L0 16.3 L9.9 16 L19.5 15.1 L28.3 13.6 L36.1 11.5 L42.4 9.1 L47.1 6.2 L50 3.2 L51 0 L50 -3.2 L47.1 -6.2 L42.4 -9.1 L36.1 -11.5 L28.3 -13.6 L19.5 -15.1 L9.9 -16 L0 -16.3 L-9.9 -16 L-19.5 -15.1 L-28.3 -13.6 L-36.1 -11.5 L-42.4 -9.1 L-47.1 -6.2 L-50 -3.2 L-51 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_276" d="M-47.5 0 L-46.6 2.9 L-43.9 5.6 L-39.5 8.2 L-33.6 10.4 L-26.4 12.2 L-18.2 13.6 L-9.3 14.4 L0 14.7 L9.3 14.4 L18.2 13.6 L26.4 12.2 L33.6 10.4 L39.5 8.2 L43.9 5.6 L46.6 2.9 L47.5 0 L46.6 -2.9 L43.9 -5.6 L39.5 -8.2 L33.6 -10.4 L26.4 -12.2 L18.2 -13.6 L9.3 -14.4 L0 -14.7 L-9.3 -14.4 L-18.2 -13.6 L-26.4 -12.2 L-33.6 -10.4 L-39.5 -8.2 L-43.9 -5.6 L-46.6 -2.9 L-47.5 0 Z" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
-<path id="mdkit_node_277" d="M-7 0 L7 0" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_278" d="M0 -4 L0 4" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_277" d="M-7 0 L7 0" fill="none" stroke="#606166" stroke-width="1"/>
+<path id="mdkit_node_278" d="M0 -4 L0 4" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_279" d="M-23.1 -17.2 L20.9 19.8 L23.1 17.2 L-20.8 -19.8 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <circle id="mdkit_node_280" cx="0" cy="0" r="5" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<path id="mdkit_node_281" d="M-51 -11 L-51 11" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
-<path id="mdkit_node_282" d="M51 -11 L51 11" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_281" d="M-51 -11 L-51 11" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
+<path id="mdkit_node_282" d="M51 -11 L51 11" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_283" d="M-75 -4 L75 -4 L75 4 L-75 4 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_284" d="M-88 7 L62 7 L88 -7 L-62 -7 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_285" d="M-32.2 -27 L29.8 29.6 L32.2 27 L-29.9 -29.6 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
@@ -327,20 +352,20 @@
 <path id="mdkit_node_324" d="M27.7 -2.2 L2.6 -0.2 L-12.9 -0.6 L-27.7 -2.2" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_325" d="M27.7 0.2 L2.6 2.2 L-12.9 1.8 L-27.7 0.2" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_326" d="M-64.6 4.5 L-60.6 2.5 L-54.8 0.6 L-47.3 -1 L-43 -1.7 L-38.3 -2.4 L-28.3 -3.4 L-11.6 -4.4 L-5.8 -4.5 L11.6 -4.4 L28.3 -3.4 L38.3 -2.4 L47.3 -1 L54.8 0.6 L60.6 2.5 L64.6 4.5" fill="none" stroke="#f7f5f5" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_327" d="M0 -44.5 L0 44.5" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
+<path id="mdkit_node_327" d="M0 -44.5 L0 44.5" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>
 <path id="mdkit_node_328" d="M66.9 0 L66.5 1.1 L65.3 2.2 L63.2 3.3 L60.3 4.4 L52.3 6.3 L47.3 7.1 L35.6 8.5 L22.1 9.5 L7.5 10 L-7.5 10 L-22.1 9.5 L-35.6 8.5 L-47.3 7.1 L-52.3 6.3 L-60.3 4.4 L-63.2 3.3 L-65.2 2.2 L-66.5 1.1 L-66.9 0 L-66.5 -1.1 L-65.3 -2.2 L-63.2 -3.3 L-60.3 -4.4 L-52.3 -6.3 L-47.3 -7.1 L-35.6 -8.5 L-22.1 -9.5 L-7.5 -10 L7.5 -10 L22.1 -9.5 L41.7 -7.9 L52.3 -6.3 L60.3 -4.4 L63.2 -3.3 L65.2 -2.2 L66.5 -1.1 L66.9 0 Z" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
 <path id="mdkit_node_329" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_330" d="M66.9 0 L66.5 1.1 L65.3 2.2 L63.2 3.3 L60.3 4.4 L52.3 6.3 L47.3 7.1 L35.6 8.5 L22.1 9.5 L7.5 10 L-7.5 10 L-22.1 9.5 L-35.6 8.5 L-47.3 7.1 L-52.3 6.3 L-60.3 4.4 L-63.2 3.3 L-65.2 2.2 L-66.5 1.1 L-66.9 0 L-66.5 -1.1 L-65.3 -2.2 L-63.2 -3.3 L-60.3 -4.4 L-52.3 -6.3 L-47.3 -7.1 L-35.6 -8.5 L-22.1 -9.5 L-7.5 -10 L7.5 -10 L22.1 -9.5 L41.7 -7.9 L52.3 -6.3 L60.3 -4.4 L63.2 -3.3 L65.2 -2.2 L66.5 -1.1 L66.9 0 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
 <path id="mdkit_node_331" d="M-11.4 0 L-11.2 1.1 L-10.5 2.1 L-9.5 3.1 L-8.1 3.9 L-6.3 4.6 L-4.4 5.1 L0 5.5 L4.4 5.1 L6.3 4.6 L8.1 3.9 L9.5 3.1 L10.5 2.1 L11.2 1.1 L11.4 0 L11.2 -1.1 L10.5 -2.1 L9.5 -3.1 L8.1 -3.9 L6.3 -4.6 L4.4 -5.1 L0 -5.5 L-4.4 -5.1 L-6.3 -4.6 L-8.1 -3.9 L-9.5 -3.1 L-10.5 -2.1 L-11.2 -1.1 L-11.4 0 Z" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 <path id="mdkit_node_332" d="M-4 -3 L4 -3 L4 3 L-4 3 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_333" d="M0 -7.5 L0 7.5" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_333" d="M0 -7.5 L0 7.5" fill="none" stroke="#606166" stroke-width="1"/>
 <path id="mdkit_node_334" d="M-3.5 -0.5 L3.5 -0.5 L3.5 0.5 L-3.5 0.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <path id="mdkit_node_335" d="M-3.5 -0.5 L3.5 -0.5 L3.5 0.5 L-3.5 0.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
 <circle id="mdkit_node_336" cx="0" cy="0" r="46" fill="none" stroke="#f7f5f5" stroke-width="1"/>
-<path id="mdkit_node_337" d="M-196 0 L-116 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_338" d="M-38 -72 L-38 72" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_339" d="M-28 12 L196 12" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_340" d="M-28 48 L196 48" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_337" d="M-196 0 L-116 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_338" d="M-38 -72 L-38 72" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_339" d="M-28 12 L196 12" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_340" d="M-28 48 L196 48" fill="none" stroke="#3a3b3f" stroke-width="1"/>
 <path id="mdkit_node_341" d="M-35.9 0 L-31.4 -19.2 L-29.6 -22.6 L-27.8 -22.5 L-25.1 -16.1 L-17.9 16.6 L-16.1 21.4 L-14.4 23 L-12.6 21 L-10.8 15.8 L-3.6 -16.8 L-1.8 -21.5 L0 -23 L1.8 -20.9 L3.6 -15.6 L10.8 17 L12.6 21.7 L14.4 23 L17.9 15.3 L25.1 -17.3 L26.9 -21.8 L28.7 -22.9 L31.4 -18.2 L35.9 1.7" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
 <path id="mdkit_node_342" d="M-20.1 -9.4 L-6.9 -7.7 L2 -4.5 L11.8 1.5 L20 9.4" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_343" d="M-56 -52 L56 -52 L56 52 L-56 52 Z" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
@@ -380,10 +405,10 @@
 <path id="mdkit_node_377" d="M5.6 -10.7 L7.2 -10.7 L7.2 -9.1 L5.6 -9.1 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_378" d="M-38.1 41.9 L-36.5 41.9 L-36.5 43.5 L-38.1 43.5 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
 <path id="mdkit_node_379" d="M12.3 -9.5 L13.8 -9.5 L13.8 -7.9 L12.3 -7.9 Z" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<path id="mdkit_node_380" d="M0 -72 L0 72" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_381" d="M-200 0 L-104 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_382" d="M-34 -72 L-34 72" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
-<path id="mdkit_node_383" d="M-24 0 L200 0" fill="none" stroke="#3a3b3f" stroke-width="1" stroke-linejoin="round"/>
+<path id="mdkit_node_380" d="M0 -72 L0 72" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_381" d="M-200 0 L-104 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_382" d="M-34 -72 L-34 72" fill="none" stroke="#3a3b3f" stroke-width="1"/>
+<path id="mdkit_node_383" d="M-24 0 L200 0" fill="none" stroke="#3a3b3f" stroke-width="1"/>
 <path id="mdkit_node_384" d="M-48 21 L-26 21 L-26 -21 L-6.9 -21 L-6.9 21 L48 21" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>
 <circle id="mdkit_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
 <circle id="mdkit_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>

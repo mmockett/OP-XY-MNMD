@@ -53,6 +53,9 @@ const Model model[models] = {
     {"NS", 1, {"DEC", "", "", "", "", "", "", ""}},
     {"IM", 4, {"UP", "UVAL", "DOWN", "DVAL", "", "", "", ""}},
 };
+// The families, each a run of the models above (the drum kind's model groups).
+const u32 family_count = 4;
+const char* const families[family_count] = {"TRX", "EFM", "P-I", "GND"};
 // Each key's machine, and its eight controls, 0..127, as the drum kind stores them.
 const unsigned char key_model[keys] = {0, 1, 2, 2, 2, 3, 4, 5, 6, 7, 8, 8, 9, 10, 11, 12, 0, 1, 11, 11, 3, 6, 5, 12};
 const unsigned char key_values[keys][8] = {

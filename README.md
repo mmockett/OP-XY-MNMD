@@ -146,8 +146,8 @@ To go back to stock, reinstall the official OS 1.2.0 update.
 Load MD KIT or MD E12 on a drum track. The 24 keys start as the
 Machinedrum's default kit: BD, SD, three toms, CP, RS, CB, CH, OH, RC, CC and
 four more machines (M1 to M4), then eight variations, such as a second kick,
-snare or cowbell. MD KIT starts on the TRX kit, and its presets `efm` and
-`pi` load the EFM and P-I kits. Each kit's keys are listed in `tools/catalog.py`.
+snare or cowbell. MD KIT starts on the TRX kit, and its presets `trx`, `efm`
+and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/catalog.py`.
 
 - **Choose a key's machine:** select the key and hold **Shift**. On MD KIT,
   **encoder 1** chooses the family (KIT: TRX, EFM, P-I or GND) and keeps the

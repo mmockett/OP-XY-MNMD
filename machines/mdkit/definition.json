@@ -105,12 +105,12 @@
     "outputPeakQ31": 1073741824,
     "modelCount": 33,
     "display": {
-      "stateBytes": 24,
+      "stateBytes": 44,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 385,
-      "texts": 0,
+      "nodes": 393,
+      "texts": 16,
       "palette": 16
     },
     "modelGroups": [
