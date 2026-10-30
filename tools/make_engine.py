@@ -57,6 +57,10 @@ ENUMS = {"VO-6": {"V-SW": ["OFF", "ON"],
                            "TH", "V", "Z"]}}
 ENUMS["SID-6581"] = {"PWRS": ["OFF", "ON"], "WAVE": ["TRI", "SAW", "PULS", "MIX", "NOIS"],
                      "MOD": ["OFF", "RING", "SYNC", "R+S"], "MSRC": ["MFRQ", "PRCH"]}
+# A step's caption on the screen where its name would not fit the header's 53 px
+# in the device font (OP-XY-Dev tools/caption_width.py): MFRQ is 58.1, PRCH 53.3.
+# The definition keeps the name.
+CAPTIONS = {"SID-6581": {"MFRQ": "FREQ", "PRCH": "PREV"}}
 # FM+STAT and FM+PAR's listed ratios, in the order the sound steps through them
 # (reference/README.md: the original's LCD shows 5/32 five steps later).
 FM_RATIOS = ["1:64", "1:32", "1:16", "3:32", "1:8", "5:32", "3:16", "1:4", "5:16", "3:8", "7:16", "1:2",
@@ -246,7 +250,7 @@ def generate(engine, index):
         second = [4 + c for c in range(4)]
         titles = ", ".join(f'"{control(label, 0)["label"].lower() if label else ""}"' for label in named)
         captions = "".join(f"""
-    static const char* const steps{i}[{len(enums[label])}] = {{{", ".join(f'"{n}"' for n in enums[label])}}};
+    static const char* const steps{i}[{len(enums[label])}] = {{{", ".join(f'"{CAPTIONS.get(name, {}).get(n, n)}"' for n in enums[label])}}};
     opxy::draw::copy(values[{i}], opxy::draw::header_capacity,
                      steps{i}[(static_cast<u32>(md::positive(input.slots[{i}])) >> 16) * {len(enums[label])}u >> 15]);"""
                            for i, label in enumerate(named) if label in enums)
