@@ -155,8 +155,8 @@ Lessons from the device (build 039), for any view on a reshaping path:
   points ends in a straight line. Fit the spacing to the points, not the reverse.
 - **Keep every point within 128 px of its path's origin** (64 local px at scale 2),
   and everything below the header: art draws over it, so a hanging rod crossed the
-  controls. Check with the SDK's `opxy::draw::valid`, which `check_kit_frames` does
-  not call.
+  controls. `check_kit_frames` checks every frame with the SDK's
+  `opxy::draw::valid`.
 - **Sweep all 128 values** of every control, struck, not a few: `check_kit_frames`.
 
 So that a control is never timid or dead:
@@ -170,8 +170,8 @@ So that a control is never timid or dead:
 - **A shade fades** through the palette's greys (`fig::grey`), never dark to white.
 - **Motion eases.** A hit's `pose` swings up over 33 ms and eases back; `arc` runs out
   and comes home. Nothing jumps at the hit's start or end.
-- **Measure it:** walk each control in steps of 8 and count the steps that change
-  nothing in the frame. No more than a fifth may.
+- **Measure it:** `tools/check_kit_frames.cpp` walks each control in steps of 8 and
+  fails one with more than a fifth of its steps changing nothing in the frame.
 
 ## Monomachine engines
 

@@ -5,8 +5,11 @@
 // every other machine. Beyond the SDK's rules it checks what the device's
 // renderer does with an outline (OP-XY-Dev docs/screens.md): no outline without
 // area and no turn straight back, neighbours at least 1/8 px apart, a closing
-// edge of at least 1/4 px, and every point on the stage; and it counts the
-// nodes each frame changes.
+// edge of at least 1/4 px, and every point on the stage; it checks every frame
+// with the SDK's own opxy::draw::valid (a path reaching past 128 px of its origin
+// passes the rest and fails the device's); it counts the nodes each frame changes;
+// and it walks each control through its range, failing one whose drawing stands
+// still for more than a fifth of the walk (a dead span or a two-state switch).
 //
 //   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<kit> -DENGINE=<kit> tools/check_kit_frames.cpp -o local/check
 #include "display.cpp"
@@ -37,6 +40,7 @@ bool fail(const char* when, const char* what, unsigned path) {
 }
 
 bool check(const EngineFrame& f, const EngineFrame& before, const char* when, bool counted = true) {
+    if (!valid(f)) { std::printf("%s: not a valid frame (opxy::draw::valid)\n", when); ++failures; return false; }
     for (opxy::u32 p = 0; p < EngineFrame::path_count; ++p) {
         if (f.nodes[p].x >= hidden_x * unit) continue;
         Point xy[EngineFrame::point_count];
@@ -119,6 +123,48 @@ bool run(opxy::u32 model, const opxy::i32* slots, const char* setting, int from)
 }
 }
 
+// Whether anything drawn differs between two frames: a node shown or hidden, moved,
+// scaled, turned or recoloured, or a shown path reshaped.
+bool differs(const EngineFrame& a, const EngineFrame& b) {
+    for (opxy::u32 i = 0; i < EngineFrame::node_count; ++i) {
+        const Node& n = a.nodes[i];
+        const Node& m = b.nodes[i];
+        const bool shown = n.x < hidden_x * unit, was = m.x < hidden_x * unit;
+        if (shown != was) return true;
+        if (!shown) continue;
+        if (n.x != m.x || n.y != m.y || n.scale != m.scale || n.cos != m.cos || n.sin != m.sin || n.shade != m.shade) return true;
+        if (i < EngineFrame::path_count && a.paths[i].key != b.paths[i].key) return true;
+    }
+    return false;
+}
+
+// Walks a machine's control through its range in steps of 8, the others at their
+// middle, at rest: a player turning it must see the drawing move.
+void walk(opxy::u32 model, int control) {
+    static ENGINE::DisplayState state;
+    static EngineFrame now, last;
+    unsigned steps = 0, still = 0;
+    for (int v = 0; v <= 127; v += 8) {
+        Input input = Input();
+        for (int i = 0; i < 8; ++i) input.slots[i] = 64 << 24;
+        input.slots[control] = v << 24;
+        for (int i = 0; i < 4; ++i) { input.parameters[i] = input.slots[i]; input.shown[i] = static_cast<opxy::u8>(i); }
+        input.model = model;
+        input.track = 1;
+        input.elapsed = 1024 / 60;
+        ENGINE::display_reset(state);
+        now = EngineFrame();
+        ENGINE::display(state, input, now);
+        if (v) { ++steps; if (!differs(now, last)) ++still; }
+        last = now;
+    }
+    if (still * 5 > steps) {
+        std::printf("%s (%u), %s: %u of %u steps change nothing in the drawing\n", ENGINE::kit::model[model].name, model,
+                    ENGINE::kit::model[model].labels[control], still, steps);
+        ++failures;
+    }
+}
+
 int main() {
     const opxy::i32 middle = 64 << 24;
     for (opxy::u32 m = 0; m < ENGINE::kit::models; ++m) {
@@ -141,6 +187,8 @@ int main() {
             run(from, slots, "middle", -1);
             run(m, slots, "middle", static_cast<int>(from));
         }
+        for (int c = 0; c < 8; ++c)
+            if (ENGINE::kit::model[m].labels[c][0]) walk(m, c);
     }
     std::printf("%s: %u machines checked; most nodes changed in a frame while playing: %u (%s); "
                 "on a switch: %u (%s)\n", failures ? "FAIL" : "PASS", ENGINE::kit::models, worst, worst_when,
