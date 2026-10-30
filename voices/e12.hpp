@@ -131,6 +131,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: a retrig.
+inline bool waiting(const State& voice) { return voice.retrigs != 0; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32) {
     voice.index = 0xffffffffu;   // nothing playing

@@ -159,6 +159,80 @@ int main() {
             }
         }
     }
+    // The silent tail: a voice stops running its machine only once the machine
+    // itself would stay under the floor. Each machine with all its controls at
+    // 0, at the middle and at 127, then each at either end, rendered by the
+    // engine and by the machine alone for 24 s: the same until the engine
+    // stops, the machine under the floor from then on.
+    for (opxy::u32 m = 0; m < mdkit::kit::models; ++m)
+        for (int c = -3; c < 16; ++c) {
+            opxy::i32 values[8];
+            for (int i = 0; i < 8; ++i) values[i] = c == -3 ? 0 : c == -1 ? 0x7fffffff : 64 << 24;
+            if (c >= 0) values[c / 2] = c & 1 ? 0x7fffffff : 0;
+            static mdkit::Voice engine_voice, alone;
+            mdkit::Shared a = mdkit::Shared(), b = mdkit::Shared();
+            std::memset(&engine_voice, 0, sizeof engine_voice);
+            std::memset(&alone, 0, sizeof alone);
+            mdkit::initialize(engine_voice, a, 1);
+            mdkit::drum_select(engine_voice, a, 1, m);
+            mdkit::start(engine_voice, a, 1);
+            alone.machine = m; alone.owner = 1;
+            mdkit::begin_member(alone, b);
+            opxy::u32 pitch[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+            opxy::i32 own[8];
+            mdkit::kit::controls(m, values, own);
+            opxy::u32 tuned[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
+            bool cut = false, ended = false;
+            unsigned blk = 0;
+            for (; blk < 24 * 689 && !cut; ++blk) {
+                opxy::i32 x[opxy::block_frames], y[opxy::block_frames];
+                mdkit::drum_select(engine_voice, a, 1, m);
+                mdkit::render(engine_voice, a, 1, x, values, pitch);
+                switch (m) {
+                case 0: md::trx_bd::render(alone.u.m0, b.common, y, own, tuned); break;
+                case 1: md::trx_sd::render(alone.u.m1, b.common, y, own, tuned); break;
+                case 2: md::trx_xt::render(alone.u.m2, b.common, y, own, tuned); break;
+                case 3: md::trx_cp::render(alone.u.m3, b.common, y, own, tuned); break;
+                case 4: md::trx_rs::render(alone.u.m4, b.common, y, own, tuned); break;
+                case 5: md::trx_cb::render(alone.u.m5, b.common, y, own, tuned); break;
+                case 6: md::trx_ch::render(alone.u.m6, b.common, y, own, tuned); break;
+                case 7: md::trx_oh::render(alone.u.m7, b.common, y, own, tuned); break;
+                case 8: md::trx_cy::render(alone.u.m8, b.common, y, own, tuned); break;
+                case 9: md::trx_ma::render(alone.u.m9, b.common, y, own, tuned); break;
+                case 10: md::trx_cl::render(alone.u.m10, b.common, y, own, tuned); break;
+                case 11: md::trx_xc::render(alone.u.m11, b.common, y, own, tuned); break;
+                case 12: md::trx_b2::render(alone.u.m12, b.common, y, own, tuned); break;
+                case 13: md::efm_bd::render(alone.u.m13, b.common, y, own, tuned); break;
+                case 14: md::efm_sd::render(alone.u.m14, b.common, y, own, tuned); break;
+                case 15: md::efm_xt::render(alone.u.m15, b.common, y, own, tuned); break;
+                case 16: md::efm_cp::render(alone.u.m16, b.common, y, own, tuned); break;
+                case 17: md::efm_rs::render(alone.u.m17, b.common, y, own, tuned); break;
+                case 18: md::efm_cb::render(alone.u.m18, b.common, y, own, tuned); break;
+                case 19: md::efm_hh::render(alone.u.m19, b.common, y, own, tuned); break;
+                case 20: md::efm_cy::render(alone.u.m20, b.common, y, own, tuned); break;
+                case 21: md::pi_bd::render(alone.u.m21, b.common, y, own, tuned); break;
+                case 22: md::pi_sd::render(alone.u.m22, b.common, y, own, tuned); break;
+                case 23: md::pi_mt::render(alone.u.m23, b.common, y, own, tuned); break;
+                case 24: md::pi_ml::render(alone.u.m24, b.common, y, own, tuned); break;
+                case 25: md::pi_ma::render(alone.u.m25, b.common, y, own, tuned); break;
+                case 26: md::pi_rs::render(alone.u.m26, b.common, y, own, tuned); break;
+                case 27: md::pi_rc::render(alone.u.m27, b.common, y, own, tuned); break;
+                case 28: md::pi_cc::render(alone.u.m28, b.common, y, own, tuned); break;
+                case 29: md::pi_hh::render(alone.u.m29, b.common, y, own, tuned); break;
+                case 30: md::gnd_sn::render(alone.u.m30, b.common, y, own, tuned); break;
+                case 31: md::gnd_ns::render(alone.u.m31, b.common, y, own, tuned); break;
+                case 32: md::gnd_im::render(alone.u.m32, b.common, y, own, tuned); break;
+                default: break;
+                }
+                for (unsigned i = 0; i < opxy::block_frames; ++i)
+                    cut = cut || (ended ? y[i] >= mdkit::quiet_floor || y[i] <= -mdkit::quiet_floor : x[i] != y[i]);
+                ended = ended || mdkit::finished(engine_voice, a);
+            }
+            if (cut) { std::printf("FAIL %s (%u), case %d: the silent tail cuts its sound at %.2f s (%s)\n", mdkit::model_name(m), m, c,
+                                 blk * 64.0 / 44100, ended ? "it sounds again" : "the engine differs"); ++failures; }
+        }
     if (!failures) std::puts("PASS mdkit");
     return failures ? 1 : 0;
 }

@@ -63,6 +63,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: a clap.
+inline bool waiting(const State& voice) { return voice.claps != 0; }
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }

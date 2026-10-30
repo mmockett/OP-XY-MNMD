@@ -83,6 +83,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: the burst, or REV's second shake.
+inline bool waiting(const State& voice) { return voice.left != 0 || voice.again != 0; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.rise = voice.gate = voice.grain = voice.tail = voice.dark = 0;

@@ -98,12 +98,13 @@
   ],
   "presets": {},
   "resources": {
-    "voiceBytes": 232,
+    "voiceBytes": 240,
     "voiceAlignment": 4,
     "voiceCapacity": 16,
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "modelCount": 33,
+    "chokeSameKey": 1,
     "display": {
       "stateBytes": 44,
       "stateAlignment": 4,

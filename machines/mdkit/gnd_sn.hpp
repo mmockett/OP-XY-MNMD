@@ -53,6 +53,10 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: the envelope still
+// open (-102 dB). A pitch RAMP holds at the cap (half the sample rate) samples a
+// sine at its zeros, silent until the ramp falls back below it.
+inline bool waiting(const State& voice) { return multiply(voice.level, level) >= (1 << 14); }
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }

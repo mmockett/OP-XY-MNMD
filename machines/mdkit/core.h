@@ -42,6 +42,8 @@ struct Voice {
     u32 next;      // the played key's machine, from drum_select
     u32 owner;
     u32 pending;   // a note started
+    u32 quiet;     // blocks in a row under the floor
+    u32 done;      // the sound has ended: render writes silence
     union {
         md::trx_bd::State m0;   // TRX-BD
         md::trx_sd::State m1;   // TRX-SD

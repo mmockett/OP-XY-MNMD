@@ -70,6 +70,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: DUAL's main strike.
+inline bool waiting(const State& voice) { return voice.wait != 0; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.phase = voice.second = 0;

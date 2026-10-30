@@ -89,6 +89,8 @@ inline i32 sum(const i32 (&table)[8][9], const i32* p) {
 }
 }
 
+// Whether a sound is still to come however quiet it is now: the grab, or the pedal's close.
+inline bool waiting(const State& voice) { return voice.waiting != 0; }
 inline void trigger(State& voice, Common& shared) {
     voice.fresh = 1;
     voice.seed += 0x9e3779b9u * ++shared.strikes;   // each hit its own

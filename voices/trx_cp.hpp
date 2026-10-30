@@ -63,6 +63,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: a hand.
+inline bool waiting(const State& voice) { return voice.fired < hands; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.seed = 0x41c64e6du * owner;

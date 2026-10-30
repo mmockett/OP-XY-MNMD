@@ -62,14 +62,50 @@ inline void initialize(Voice& voice, Shared&, u32 owner) {
     voice.next = 0;
     voice.owner = owner;
     voice.pending = 0;
+    voice.quiet = voice.done = 0;
 }
 inline void start(Voice& voice, Shared&, u32) { voice.pending = 1; }
+
+// A sound has ended once it has stayed 12 dB under the floor (-90 dB) for 90 ms
+// with nothing still to come: a DUAL strike, a clap, a shake, a grab or a
+// retrig. A long tail hovering at the floor would come back over it; 12 dB
+// under, none does (tests/sound.cpp). Its voice then writes silence without
+// running the machine, and finished tells the SDK it may free the voice.
+const i32 quiet_floor = 1 << 16, quiet_under = quiet_floor >> 2;
+const u32 quiet_blocks = 62;
+inline bool waiting(const Voice& voice) {
+    switch (voice.machine) {
+    case 0: return md::e12::waiting(voice.u.m0);
+    case 1: return md::e12::waiting(voice.u.m1);
+    case 2: return md::e12::waiting(voice.u.m2);
+    case 3: return md::e12::waiting(voice.u.m3);
+    case 4: return md::e12::waiting(voice.u.m4);
+    case 5: return md::e12::waiting(voice.u.m5);
+    case 6: return md::e12::waiting(voice.u.m6);
+    case 7: return md::e12::waiting(voice.u.m7);
+    case 8: return md::e12::waiting(voice.u.m8);
+    case 9: return md::e12::waiting(voice.u.m9);
+    case 10: return md::e12::waiting(voice.u.m10);
+    case 11: return md::e12::waiting(voice.u.m11);
+    case 12: return md::e12::waiting(voice.u.m12);
+    case 13: return md::e12::waiting(voice.u.m13);
+    case 14: return md::e12::waiting(voice.u.m14);
+    case 15: return md::e12::waiting(voice.u.m15);
+    default: return false;
+    }
+}
+inline bool finished(const Voice& voice, const Shared&) { return voice.done != 0; }
 inline void destroy(Voice&, Shared&, u32) {}
 inline void drum_select(Voice& voice, Shared&, u32, u32 model) { voice.next = model < kit::models ? model : 0; }
 
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {
+    if (voice.pending) voice.quiet = voice.done = 0;
+    if (voice.done) {
+        for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0;
+        return;
+    }
     if (voice.pending || voice.next != voice.machine) {
         voice.pending = 0;
         voice.machine = voice.next;
@@ -98,5 +134,9 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     case 15: md::e12_bc::render(voice.u.m15, shared.common, output, own, tuned); break;
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }
+    bool loud = false;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) loud = loud || output[i] >= quiet_under || output[i] <= -quiet_under;
+    voice.quiet = loud ? 0 : voice.quiet + 1;
+    if (voice.quiet >= quiet_blocks && !waiting(voice)) voice.done = 1;
 }
 }

@@ -564,6 +564,8 @@ struct Voice {{
     u32 next;      // the played key's machine, from drum_select
     u32 owner;
     u32 pending;   // a note started
+    u32 quiet;     // blocks in a row under the floor
+    u32 done;      // the sound has ended: render writes silence
     union {{
 {state}
     }} u;
@@ -581,6 +583,9 @@ u32 parameter_count(u32 model);
 """)
 
     # --- engine.cpp
+    # The members whose module can sound again after a quiet spell (its waiting()).
+    waits = "\n".join(f"    case {member[m]}: return md::{sound_header(m)}::waiting(voice.u.m{member[m]});" for m in machines
+                      if "inline bool waiting(" in (VOICES / f"{sound_header(m)}.hpp").read_text())
     cases = lambda verb, args, indent="    ": "\n".join(
         f"{indent}case {member[m]}: md::{slug(m)}::{verb}(voice.u.m{member[m]}, {args}); break;" for m in machines)
     (folder / "engine.cpp").write_text(f"""#include "core.h"
@@ -617,14 +622,35 @@ inline void initialize(Voice& voice, Shared&, u32 owner) {{
     voice.next = 0;
     voice.owner = owner;
     voice.pending = 0;
+    voice.quiet = voice.done = 0;
 }}
 inline void start(Voice& voice, Shared&, u32) {{ voice.pending = 1; }}
+
+// A sound has ended once it has stayed 12 dB under the floor (-90 dB) for 90 ms
+// with nothing still to come: a DUAL strike, a clap, a shake, a grab or a
+// retrig. A long tail hovering at the floor would come back over it; 12 dB
+// under, none does (tests/sound.cpp). Its voice then writes silence without
+// running the machine, and finished tells the SDK it may free the voice.
+const i32 quiet_floor = 1 << 16, quiet_under = quiet_floor >> 2;
+const u32 quiet_blocks = 62;
+inline bool waiting(const Voice& voice) {{
+    switch (voice.machine) {{
+{waits}
+    default: return false;
+    }}
+}}
+inline bool finished(const Voice& voice, const Shared&) {{ return voice.done != 0; }}
 inline void destroy(Voice&, Shared&, u32) {{}}
 inline void drum_select(Voice& voice, Shared&, u32, u32 model) {{ voice.next = model < kit::models ? model : 0; }}
 
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {{
+    if (voice.pending) voice.quiet = voice.done = 0;
+    if (voice.done) {{
+        for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0;
+        return;
+    }}
     if (voice.pending || voice.next != voice.machine) {{
         voice.pending = 0;
         voice.machine = voice.next;
@@ -638,6 +664,10 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
 {cases("render", "shared.common, output, own, tuned")}
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }}
+    bool loud = false;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) loud = loud || output[i] >= quiet_under || output[i] <= -quiet_under;
+    voice.quiet = loud ? 0 : voice.quiet + 1;
+    if (voice.quiet >= quiet_blocks && !waiting(voice)) voice.done = 1;
 }}
 }}
 """)
@@ -752,6 +782,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     definition = {"schema": 1, "id": engine, "name": title, "parameters": params, "presets": {},
                   "resources": {"voiceBytes": 4, "voiceAlignment": 4, "voiceCapacity": 16, "sharedBytes": 16,
                                 "outputPeakQ31": 1073741824, "modelCount": len(machines),
+                                # One voice a pad, as the Machinedrum's one a track: a new note cuts the last.
+                                "chokeSameKey": 1,
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
                                             "nodes": 0, "texts": 0, "palette": 16}}}
     if groups:
@@ -773,6 +805,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }, indent=2) + "\n")
 
     # --- tests: every key's own sound, every machine at its controls' ends
+    alone_cases = "\n".join(f"                case {member[m]}: md::{slug(m)}::render(alone.u.m{member[m]}, b.common, y, own, tuned); break;"
+                            for m in machines)
     (folder / "tests" / "sound.cpp").write_text(f"""// Checks for {title}, written by tools/make_engine.py: each key's stored
 // machine and controls sound as that machine, within the declared peak; every
 // machine stays bounded with its controls at both ends; the names fit, and
@@ -934,6 +968,48 @@ int main() {{
             }}
         }}
     }}
+    // The silent tail: a voice stops running its machine only once the machine
+    // itself would stay under the floor. Each machine with all its controls at
+    // 0, at the middle and at 127, then each at either end, rendered by the
+    // engine and by the machine alone for 24 s: the same until the engine
+    // stops, the machine under the floor from then on.
+    for (opxy::u32 m = 0; m < {engine}::kit::models; ++m)
+        for (int c = -3; c < 16; ++c) {{
+            opxy::i32 values[8];
+            for (int i = 0; i < 8; ++i) values[i] = c == -3 ? 0 : c == -1 ? 0x7fffffff : 64 << 24;
+            if (c >= 0) values[c / 2] = c & 1 ? 0x7fffffff : 0;
+            static {engine}::Voice engine_voice, alone;
+            {engine}::Shared a = {engine}::Shared(), b = {engine}::Shared();
+            std::memset(&engine_voice, 0, sizeof engine_voice);
+            std::memset(&alone, 0, sizeof alone);
+            {engine}::initialize(engine_voice, a, 1);
+            {engine}::drum_select(engine_voice, a, 1, m);
+            {engine}::start(engine_voice, a, 1);
+            alone.machine = m; alone.owner = 1;
+            {engine}::begin_member(alone, b);
+            opxy::u32 pitch[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+            opxy::i32 own[8];
+            {engine}::kit::controls(m, values, own);
+            opxy::u32 tuned[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
+            bool cut = false, ended = false;
+            unsigned blk = 0;
+            for (; blk < 24 * 689 && !cut; ++blk) {{
+                opxy::i32 x[opxy::block_frames], y[opxy::block_frames];
+                {engine}::drum_select(engine_voice, a, 1, m);
+                {engine}::render(engine_voice, a, 1, x, values, pitch);
+                switch (m) {{
+{alone_cases}
+                default: break;
+                }}
+                for (unsigned i = 0; i < opxy::block_frames; ++i)
+                    cut = cut || (ended ? y[i] >= {engine}::quiet_floor || y[i] <= -{engine}::quiet_floor : x[i] != y[i]);
+                ended = ended || {engine}::finished(engine_voice, a);
+            }}
+            if (cut) {{ std::printf("FAIL %s (%u), case %d: the silent tail cuts its sound at %.2f s (%s)\\n", {engine}::model_name(m), m, c,
+                                 blk * 64.0 / 44100, ended ? "it sounds again" : "the engine differs"); ++failures; }}
+        }}
     if (!failures) std::puts("PASS {engine}");
     return failures ? 1 : 0;
 }}
