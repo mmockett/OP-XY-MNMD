@@ -8,6 +8,7 @@
 // SDK's text slots are not usable (docs/SCREEN.md) and the trace shows it.
 #include "md_view.hpp"
 #include "md_rig.hpp"
+#include "live_view.hpp"
 
 namespace md {
 namespace mgnd_view {
@@ -21,6 +22,7 @@ inline void draw32(F& frame, u32 path, const i32* xs, const i32* ys, i32 ox, i32
         Point points[32];
         for (u32 i = 0; i < 32; ++i) { points[i].x = (xs[i] - ox * unit) / 2; points[i].y = (ys[i] - oy * unit) / 2; }
         polyline(p, points, 32, key);
+        md::live::unfold(p);
     }
     show_path(frame, path, ox, oy, tone, 2 * unit);
 }
@@ -44,11 +46,11 @@ namespace gnd_sin {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace mgnd_view;
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
     const i32 wx = 104 * unit, x1 = 472 * unit;
     // Cycles over the span, Q16: 2 + 3 TUNE; the orb's turn, 1.5 cycles over the hit.
     const u32 cycles = 131072u + static_cast<u32>(multiply(md::positive(s[7]), 196608));
-    const u32 turn = ph > 0 ? static_cast<u32>(ph) * 12582912u : 0u;   // the design's 6 pi ph: 3 cycles over the hit
+    // The design's 6 pi ph, 3 cycles over the hit, then one a second for as long as the note is held.
+    const u32 turn = md::live::turning(md::live::of(m), 24214400u, md::rig::drum.length, md::live::one_hz);
     const u32 per_step = cycles * 1057u;                                // a 62nd of the cycles, as a phase (2^32 / 62 / 2^16)
     i32 xs[32], ys[32];
     for (u32 side = 0; side < 2; ++side) {
@@ -58,7 +60,7 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
             const u32 u = static_cast<u32>(k) * per_step + turn;
             ys[i] = 80 * unit - multiply(md::sine(u), 40 * unit);
         }
-        draw32(frame, side ? view::wave : view::contour, xs, ys, side ? 380 : 196, 80, key_of(s[7], ph + 1, 7, 1 + side), view::line);
+        draw32(frame, side ? view::wave : view::contour, xs, ys, side ? 380 : 196, 80, md::live::sealed(md::live::mix(md::live::mix(1u + side, s[7]), static_cast<i32>(turn))), view::line);
     }
     // The orb's radius, its tip and the tip's projection turn with the wave's
     // start, about the orb's centre (the design's line#rad, its node and
@@ -106,7 +108,7 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
             i32 hx[32], hy[32];
             for (u32 i = 0; i < 32; ++i) { hx[i] = xs[side * 31 + i]; hy[i] = ys[side * 31 + i]; }
             const u32 path = trace ? (side ? view::extra : view::comb) : (side ? view::wave : view::contour);
-            draw32(frame, path, hx, hy, side ? 354 : 126, 80, key_of(red, st, s[2], static_cast<i32>(shift + 4 * trace + 2 * side) << 24), stereo && !trace ? view::mid : view::line);
+            draw32(frame, path, hx, hy, side ? 354 : 126, 80, md::live::sealed(md::live::mix(md::live::mix(md::live::mix(trace * 4u + side * 2u, red), st), s[2]) + shift * 2u), stereo && !trace ? view::mid : view::line);
         }
     }
 }
