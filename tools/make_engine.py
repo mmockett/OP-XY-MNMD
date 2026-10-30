@@ -443,27 +443,21 @@ KIT_FAMILY = {"mdtrx": "TRX", "mdefm": "EFM", "mdpi": "PI", "mde12": "E12", "mdk
 SHAKERS = ("TRX-MA", "PI-MA", "E12-SH", "E12-TA")   # the design's 1100 ms hit
 
 
-def stored(models, slot, value):
-    """A control as the drum kind stores it: a kit of more than 16 models keeps
-    slots 6 and 7 at 64 steps (0, 2, ..., 124 and 127), the nearest (the SDK's
-    drum_storage.hpp, drum_stored)."""
-    if models <= 16 or slot < 6:
-        return value
-    step = 63 if value >= 126 else min(62, (value + 1) >> 1)
-    return 127 if step == 63 else step * 2
+def control_count(name):
+    """A machine's controls on the drum kind (its parameter_count): up to its last named slot."""
+    return max(i for i, s in enumerate(catalog.MACHINES[name][2]) if s) + 1
 
 
 def kit_keys(engine, kit=None):
     """Each key of a kit an engine plays (its first, unless named): (role, machine,
-    its model in the engine, its eight controls 0..127 as the drum kind stores them)."""
+    its model in the engine, its eight controls 0..127)."""
     machines = catalog.ENGINES[engine]
     keys = []
     for role, name, over in catalog.KITS[kit or catalog.ENGINE_KITS[engine][0]]:
         values = defaults(name)
         for label, v in over.items():
             values[catalog.MACHINES[name][2].index(label)] = v
-        raw = [stored(len(machines), c, int(round(v))) if s else 0
-               for c, (v, s) in enumerate(zip(values, catalog.MACHINES[name][2]))]
+        raw = [int(round(v)) if s else 0 for v, s in zip(values, catalog.MACHINES[name][2])]
         keys.append((role, name, machines.index(name), raw))
     return keys
 
@@ -492,7 +486,7 @@ def generate_drum_kit(engine, index):
     models, rows, key_models, shown = [], [], [], {}
     for name in machines:
         slots = catalog.MACHINES[name][2]
-        count = max(i for i, s in enumerate(slots) if s) + 1   # an empty slot inside stays unlabelled
+        count = control_count(name)   # an empty slot inside stays unlabelled
         labels = [f'"{s}"' if s else '""' for s in slots]
         short = name.split("-", 1)[1] if groups or family(name) == fam else name
         models.append(f'    {{"{short}", {count}, {{{", ".join(labels)}}}}},')
@@ -719,10 +713,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
                                             "nodes": 0, "texts": 0, "palette": 16}}}
     if groups:
-        # The families as the drum kind's model groups, and a press that pages the
-        # whole row (slots 0..3, then 4..7), as the newer synths do.
+        # The families as the drum kind's model groups (KIT on the Shift page).
         definition["resources"]["modelGroups"] = [{"label": label, "count": len(members)} for label, members in groups]
-        definition["press"] = "page"
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
     voice_bytes, shared_bytes, display_bytes = sizes(engine)
     nodes = int(re.search(r"node_count = (\d+);", (folder / "art.h").read_text()).group(1)) + 31

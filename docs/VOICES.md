@@ -52,9 +52,9 @@ machine is skipped.
 **MD kits** (`mdkit`, `mde12`): the machines on the SDK 1.9 drum kind, as
 stock Drumline, where each key keeps its own machine and settings in the
 project. MD KIT holds the TRX, EFM, P-I and GND families' 33 machines, a model
-group each (`catalog.GROUPS`); with more than 16 machines the drum kind keeps
-slots 6 and 7 at 64 steps, so their stored values round to the nearest even
-step (127 at the top). MD E12 holds its 16. The kits share their
+group each (`catalog.GROUPS`). With more than 16 machines the drum kind stores
+its keys in a prefix code that keeps every control at 7 bits and holds at most
+15 machines with eight controls: MD KIT has exactly 15. MD E12 holds its 16. The kits share their
 voices' code and tables: inline functions and template statics
 (`md_tables.hpp`, the E12 samples) link once.
 

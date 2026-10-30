@@ -27,7 +27,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
-from make_engine import KIT_FAMILY, kit_keys  # noqa: E402
+from make_engine import KIT_FAMILY, control_count, kit_keys  # noqa: E402
 from sdk_path import SDK, stock_version  # noqa: E402
 
 SUPPORT = pathlib.Path.home() / "Library" / "Application Support"
@@ -36,35 +36,37 @@ STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / f"stock-{stock_version()}" / "os.l
 BUILDS = SUPPORT / "OPXY-MD" / "builds"
 
 
-def kit_bit(k, models, model, controls):
-    """Bit k of the 60 a key stores (the SDK's drum_storage.hpp, drum_bit): the eight
-    controls (7 bits each) then the model (4). A kit of more than 16 models stores
-    slots 6 and 7 as their step, 0..63, in their top six bits, and their lowest
-    bits hold the model's bits 4 and 5."""
-    if k >= 56:
-        return (model >> (k - 56)) & 1
-    slot, bit = divmod(k, 7)
-    if models <= 16 or slot < 6:
-        return (controls[slot] >> bit) & 1
-    step = 63 if controls[slot] >= 126 else min(62, (controls[slot] + 1) >> 1)
-    return (step >> (bit - 1)) & 1 if bit else (model >> (4 if slot == 6 else 5)) & 1
+def kit_value(model, controls, counts):
+    """The 60 bits a key stores (the SDK's drum_storage.hpp). A kit of up to 16 models:
+    the eight controls (7 bits each), then the model (4). A larger one, by its models'
+    control counts: a model with eight stores its rank among those in the top four
+    bits over its eight controls; any other 15 there, its model in bits 49..54 and
+    its first seven controls."""
+    value = sum(c << (7 * i) for i, c in enumerate(controls))
+    if len(counts) <= 16:
+        return value | model << 56
+    full = [m for m, n in enumerate(counts) if n == 8]
+    assert len(full) <= 15, f"{len(full)} machines with eight controls; a kit of more than 16 holds 15"
+    if model in full:
+        return value | full.index(model) << 56
+    return (value & ((1 << 49) - 1)) | model << 49 | 15 << 56
 
 
-def kit_region(key, model, controls, choked, models=16):
+def kit_region(key, model, controls, choked, counts=(8,) * 16):
     """A kit key as a preset region, as the SDK stores it (the SDK's docs/abi-<OS version>.md,
-    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the controls and
-    the model fill 15 bits of each param (kit_bit); the play mode mute1 chokes,
-    and oneshot, the default, does not."""
-    bits = [kit_bit(k, models, model, controls) for k in range(60)]
-    params = [sum(bit << b for b, bit in enumerate(bits[w * 15:w * 15 + 15])) for w in range(4)]
+    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the 60 bits
+    (kit_value) fill 15 bits of each param; the play mode mute1 chokes, and
+    oneshot, the default, does not."""
+    value = kit_value(model, controls, counts)
+    params = [(value >> (15 * w)) & 0x7fff for w in range(4)]
     region = {"hikey": key, "model": "fm slap", "params": params}
     return {**region, "playmode": "mute1"} if choked else region
 
 
 def kit_regions(engine, kit=None):
     """A drum engine's 24 keys from one of its kits (its first, unless named)."""
-    models = len(catalog.ENGINES[engine])
-    return [kit_region(53 + k, model, controls, role in catalog.CHOKED, models)
+    counts = [control_count(name) for name in catalog.ENGINES[engine]]
+    return [kit_region(53 + k, model, controls, role in catalog.CHOKED, counts)
             for k, (role, _name, model, controls) in enumerate(kit_keys(engine, kit))]
 
 
