@@ -98,6 +98,11 @@ struct Block {
 };
 }
 
+// The settled body's gain: DEC's level over the quiet tail, with the opening's boost.
+inline i32 settled_gain(i32 level, i32 tail, i32 boost) {
+    const i32 settled = multiply(level > tail ? level : tail, body_level);
+    return settled + multiply(settled, boost);
+}
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -146,6 +151,39 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 slope = (static_cast<i32>(next) - static_cast<i32>(now)) / 64;
     voice.thump = thump_next;
     voice.ramp = ramp_next;
+
+    if (voice.age >= click_cycle + body_in) {
+        // Settled: the click is over and the body faded in. Its gain and the
+        // burst's, envelopes and levels together, in straight lines across the block.
+        const i32 level_next = multiply(voice.level, md::per_block(b.decay_step));
+        const i32 tail_next = multiply(voice.tail, md::per_block(tail_step));
+        const i32 boost_next = multiply(voice.boost, md::per_block(boost_step));
+        const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
+        i32 body_gain = settled_gain(voice.level, voice.tail, voice.boost);
+        const i32 body_slope = (settled_gain(level_next, tail_next, boost_next) - body_gain) / 64;
+        i32 burst_gain = multiply(multiply(voice.burst, b.noise), body_level);
+        const i32 burst_end = multiply(multiply(burst_next, b.noise), body_level);
+        const i32 burst_slope = (burst_end - burst_gain) / 64;
+        // The burst's noise runs only while it can be heard (-102 dB).
+        const bool bursting = burst_gain >= (1 << 14) || burst_end >= (1 << 14);
+        voice.level = level_next;
+        voice.tail = tail_next;
+        voice.boost = boost_next;
+        voice.burst = burst_next;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 sine = md::sine(voice.phase);
+            const i32 pulse = voice.phase < 0x20000000u ? b.harm : -(b.harm >> 3);
+            voice.phase += increment;
+            increment += static_cast<u32>(slope);
+            i32 mixed = multiply(opxy::q31::half(pulse) - opxy::q31::half(sine), body_gain) * 2;
+            if (bursting)
+                mixed += multiply(md::smooth(voice.tone, opxy::q31::half(md::noise(voice.seed)), burst_tone), burst_gain) * 2;
+            output[i] = md::finish(md::gain(b.clip.run(mixed, voice.highpass), 1));
+            body_gain += body_slope;
+            burst_gain += burst_slope;
+        }
+        return;
+    }
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 sine = md::sine(voice.phase);

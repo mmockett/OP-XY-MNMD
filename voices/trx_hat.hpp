@@ -93,6 +93,21 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
 
     u32 increment[partial_count];
     for (unsigned k = 0; k < partial_count; ++k) increment[k] = md::transpose(pitch[0], partials[k]);
+    // The level after the hold, in a straight line across the block.
+    i32 next = voice.level;
+    if (voice.hold >= opxy::block_frames) {
+        voice.hold -= opxy::block_frames;
+    } else {
+        if (voice.hold) {
+            for (unsigned i = voice.hold; i < opxy::block_frames; ++i) next = multiply(next, fall);
+        } else {
+            next = multiply(next, md::per_block(fall));
+        }
+        voice.hold = 0;
+    }
+    i32 level = voice.level;
+    const i32 level_slope = (next - level) / 64;
+    voice.level = next;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         i32 low = 0, high = 0;
         for (unsigned k = 0; k < lower_partials; ++k) {
@@ -110,9 +125,8 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
         const i32 band = metal - voice.low1 - voice.low2;
         md::smooth(voice.top1, band, b.lowpass);
         md::smooth(voice.top2, voice.top1, b.lowpass);
-        output[i] = md::finish(multiply(md::gain(voice.top2, 3), voice.level));
-        if (voice.hold) --voice.hold;
-        else voice.level = multiply(voice.level, fall);
+        output[i] = md::finish(multiply(md::gain(voice.top2, 3), level));
+        level += level_slope;
     }
 }
 }

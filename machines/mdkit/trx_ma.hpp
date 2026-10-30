@@ -113,6 +113,31 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 release = md::decay(release_time);
     const i32 tail_step = md::decay(tail_time);
 
+    if (voice.rise == md::one && voice.left >= opxy::block_frames &&
+        (!voice.again || voice.again > opxy::block_frames)) {
+        // Shaking: the attack is over and the burst runs through the block, so
+        // the gate holds and only the rattle's tail falls, in a straight line.
+        const i32 tail_next = multiply(voice.tail, md::per_block(tail_step));
+        i32 envelope = multiply(voice.gate, level) + multiply(voice.tail, level);
+        const i32 envelope_slope = (multiply(voice.gate, level) + multiply(tail_next, level) - envelope) / 64;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 white = md::noise_eighth(voice.seed);
+            if (static_cast<u32>(md::noise(voice.seed)) < b.chance) voice.grain = md::one;
+            md::smooth(voice.low1, white, highpass);
+            md::smooth(voice.low2, white - voice.low1, highpass);
+            md::smooth(voice.top1, white - voice.low1 - voice.low2, lowpass);
+            md::smooth(voice.top2, voice.top1, lowpass);
+            output[i] = md::finish(md::gain(multiply(multiply(voice.top2, voice.grain), envelope), 4));
+            voice.grain = multiply(voice.grain, b.grain_step);
+            envelope += envelope_slope;
+        }
+        voice.tail = tail_next;
+        voice.left -= opxy::block_frames;
+        if (voice.again) voice.again -= opxy::block_frames;
+        voice.dark = voice.dark < md::one - damp_step ? voice.dark + damp_step : md::one;
+        return;
+    }
+
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 white = md::noise_eighth(voice.seed);
         // A grain starts now and then; each rings briefly.

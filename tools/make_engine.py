@@ -801,6 +801,11 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         # SDK 1.9: drum kits, numberless; each build's layout gives the engine and page.
         "schema": 1, "sdk": "1.9", "kind": "drum",
         "description": f"The Machinedrum's {fam.replace('PI', 'P-I')} machines as a drum kit: each key picks its own machine and keeps its own controls."[:160],
+        # The longest release: a step's note ends long before most tails do (125 ms
+        # at 120 BPM; TRX-BD and the EFM machines ring 14-18 s at DEC 127, and
+        # GND-SN, GND-NS, TRX-B2 and E12's RTRG hold), so any shorter one cuts some
+        # machine's own decay. It costs nothing once a sound has ended: finished()
+        # frees the voice then, whatever the release.
         "presetDefaults": {"amp": {"attack": 0, "decay": 32767, "sustain": 32767, "release": 32767}},
     }, indent=2) + "\n")
 

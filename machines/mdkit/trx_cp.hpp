@@ -86,6 +86,33 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.fired = 0;
         voice.fresh = 0;
     }
+    if (voice.fired == hands) {
+        // Every hand has started: no more timing. The two gains in straight
+        // lines across the block, and the hands' filters only while they can
+        // be heard (-102 dB).
+        const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
+        const i32 room_next = multiply(voice.room, md::per_block(b.room_step));
+        i32 burst = voice.burst, room = voice.room;
+        const i32 burst_slope = (burst_next - burst) / 64, room_slope = (room_next - room) / 64;
+        const bool clapping = burst >= (1 << 14) || burst_next >= (1 << 14);
+        voice.burst = burst_next;
+        voice.room = room_next;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) {
+            const i32 white = md::noise_eighth(voice.seed);
+            i32 mixed = 0;
+            if (clapping) {
+                md::smooth(voice.low, white, b.highpass);
+                md::smooth(voice.brighter, md::smooth(voice.bright, white - voice.low, b.bright), b.bright);
+                mixed = multiply(voice.brighter * 2, burst);
+            }
+            voice.space.run(white, b.room_frequency, room_damping);
+            mixed += multiply(multiply(voice.space.band, room_damping) * 2, room);
+            output[i] = md::finish(mixed * 3);
+            burst += burst_slope;
+            room += room_slope;
+        }
+        return;
+    }
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         // Each hand starts on its beat, nudged by CLPY; the room opens with the last.
         const i32 white = md::noise_eighth(voice.seed);

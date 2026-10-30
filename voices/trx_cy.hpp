@@ -290,6 +290,8 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 top_slope = (multiply(top_next, b.top) - top_gain) / 64;
     voice.body = body_next;
     voice.top = top_next;
+    // The top falls faster than the body: its filters run only while it can be heard (-102 dB).
+    const bool topping = top_gain >= (1 << 14) || top_gain + top_slope * 64 >= (1 << 14);
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         i32 low = 0, high = 0;
@@ -306,11 +308,14 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         i32 body = metal;
         for (unsigned k = 0; k < 4; ++k) body -= md::smooth(voice.size[k], body, b.size);
         body = md::smooth(voice.dull, body, body_lowpass);
-        // The top: the high-pass at 6 kHz with a pole at 3 kHz, then TTUN's low-pass.
-        i32 top = highpass(top_highpass, voice.top_state[0], metal - md::smooth(voice.under, metal, top_under));
-        top = lowpass(b.low0, voice.top_state[1], top);
-        top = lowpass(b.low1, voice.top_state[2], top);
-        const i32 mixed = multiply(body, body_gain) + multiply(top, top_gain) * 2;
+        i32 mixed = multiply(body, body_gain);
+        if (topping) {
+            // The top: the high-pass at 6 kHz with a pole at 3 kHz, then TTUN's low-pass.
+            i32 top = highpass(top_highpass, voice.top_state[0], metal - md::smooth(voice.under, metal, top_under));
+            top = lowpass(b.low0, voice.top_state[1], top);
+            top = lowpass(b.low1, voice.top_state[2], top);
+            mixed += multiply(top, top_gain) * 2;
+        }
         output[i] = md::finish(md::gain(mixed, 6));
         body_gain += body_slope;
         top_gain += top_slope;

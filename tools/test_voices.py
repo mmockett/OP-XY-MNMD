@@ -4,6 +4,7 @@
     python3 tools/test_voices.py            # every module with checks
     python3 tools/test_voices.py trx_bd     # some
     python3 tools/test_voices.py --record   # take the kits' cases as they sound now
+    python3 tools/test_voices.py --accept TRX-SD   # take one machine's again, the others kept
 
 Every run also plays the drum kits' members through their fixed cases
 (voices/tests/cases.hpp) and compares them with voices/tests/cases.json: by
@@ -252,11 +253,15 @@ def main():
             print(f"PASS {check}: {passed}")
         problems += found
     record = "--record" in sys.argv
+    accepted = [a for i, a in enumerate(sys.argv[1:], 1) if sys.argv[i - 1] == "--accept"]
     played = run_cases()
-    if record:
-        CASES.write_text("[\n" + ",\n".join(json.dumps(m, separators=(",", ":")) for m in played.values()) + "\n]\n")
-        print(f"recorded {len(played)} cases in {CASES.relative_to(ROOT)}")
     recorded = {(m["machine"], m["case"]): m for m in json.loads(CASES.read_text())} if CASES.exists() else {}
+    if record or accepted:
+        kept = {k: m for k, m in recorded.items() if not record and k[0] not in accepted}
+        taken = {k: m for k, m in played.items() if record or k[0] in accepted}
+        recorded = {**kept, **taken}
+        CASES.write_text("[\n" + ",\n".join(json.dumps(m, separators=(",", ":")) for m in recorded.values()) + "\n]\n")
+        print(f"recorded {len(taken)} cases in {CASES.relative_to(ROOT)}")
     found = case_problems(played, recorded)
     for p in found:
         print(f"FAIL cases: {p}")
@@ -264,7 +269,7 @@ def main():
         print(f"PASS cases: {len(played)} cases sound as recorded and fall silent within {LIFETIME:.0f} s, but for {len(HELD)} that hold")
     problems += found
     tests = sorted((ROOT / "voices" / "tests").glob("*.cpp"))
-    wanted = [a for a in sys.argv[1:] if not a.startswith("--")]
+    wanted = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and sys.argv[i - 1] != "--accept"]
     out = ROOT / "local" / "voice-tests"
     out.mkdir(parents=True, exist_ok=True)
     failed = []
