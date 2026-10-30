@@ -14,12 +14,18 @@
 //   which both roughens it and, because the late feedback leaves the
 //   modulator with a mean, pulls the carrier's pitch down: the Machinedrum's
 //   drift of the carrier with MFB, and its chaos near the top.
-// - Both oscillators start 0.11 cycle in, the carrier heading down.
+// - Both oscillators start 0.11 cycle in, the carrier heading down, in EFM-BD
+//   and EFM-RS, whose first sample is about half their peak. The other machines
+//   start at a zero crossing, one sample in, and rise over the first quarter
+//   cycle (first sample / peak 0.06 on EFM-CB, 0.09 on EFM-CP, 0.07 on EFM-SD,
+//   0.05 on EFM-HH): they pass from_zero or fed_start to reset().
 #include "md_dsp.hpp"
 
 namespace md_mmsaw {} namespace md = md_mmsaw; namespace md_mmsaw {
 namespace efm {
 const u32 start_phase = 0x1c28f5c3u;   // 0.11 cycle
+const u32 from_zero = 0;
+const u32 fed_start = 0x02d0e560u;     // 0.011 cycle: EFM-SD's pair, and EFM-CP's modulator
 
 // The swept machines' times (EFM-BD and EFM-XT measure the same), -60 dB as
 // Q16 log2 samples at the controls 0, 16, ..., 112, 127 (md::table9).
@@ -41,7 +47,7 @@ inline i32 feedback(i32 control) { return multiply(positive(control), 0x205bc01a
 struct Pair {
     u32 carrier, modulator;
     i32 last;   // the modulator's previous output, for feedback
-    void reset() { carrier = modulator = start_phase; last = 0; }
+    void reset(u32 phase = start_phase) { carrier = modulator = phase; last = 0; }
     // One sample: the carrier's sine (Q31). `increment` is the carrier's,
     // `deviation` its swing at full modulator output (both phase increments),
     // `modulation` the modulator's increment and `fb` from feedback().
@@ -60,7 +66,7 @@ struct Pair {
 struct Fed {
     u32 carrier, modulator;
     i32 last;   // the carrier's previous output, for feedback
-    void reset() { carrier = modulator = start_phase; last = 0; }
+    void reset(u32 phase = start_phase) { carrier = modulator = phase; last = 0; }
     i32 run(u32 increment, i32 deviation, u32 modulation, i32 fb) {
         const i32 y = sine(carrier + (static_cast<u32>(multiply(fb, last)) << 3));
         last = y;
