@@ -53,7 +53,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 x = voice.count < up ? first : voice.count < down ? second : 0;
         if (voice.count < down) ++voice.count;
-        voice.low += multiply(x - voice.low, highpass);
+        // A step too small to take settles the filter, so it ends at zero.
+        const i32 step = multiply(x - voice.low, highpass);
+        voice.low = step ? voice.low + step : x;
         output[i] = md::finish(x - voice.low);
     }
 }

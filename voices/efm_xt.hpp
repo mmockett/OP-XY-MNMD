@@ -82,7 +82,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 s = multiply(voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()),
                                             sweep.modulator.step(), 0),
                                multiply(voice.level, body_level));
-        voice.low += multiply(s - voice.low, highpass);
+        // A step too small to take settles the filter, so it ends at zero.
+        const i32 step = multiply(s - voice.low, highpass);
+        voice.low = step ? voice.low + step : s;
         output[i] = md::finish(voice.low - s);
         voice.level = multiply(voice.level, b.decay_step);
     }

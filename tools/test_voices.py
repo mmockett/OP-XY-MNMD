@@ -3,6 +3,13 @@
 
     python3 tools/test_voices.py            # every module with checks
     python3 tools/test_voices.py trx_bd     # some
+    python3 tools/test_voices.py --record   # take the kits' cases as they sound now
+
+Every run also plays the drum kits' members through their fixed cases
+(voices/tests/cases.hpp) and compares them with voices/tests/cases.json: by
+level, and by the energy in eight bands across 16 windows, so an optimisation
+can't drift a sound. Each case must also fall silent within LIFETIME seconds and
+stay silent for two more.
 
 A kit engine's SDK test (machines/<kit>/tests/sound.cpp) checks that every key
 sounds and stays bounded; these check each voice against its fitted measures.
@@ -155,6 +162,84 @@ int main() {
     return problems + (lines or ([f"kit_presets exited {result.returncode}"] if result.returncode else []))
 
 
+# The kits whose members the fixed cases cover.
+CASE_KITS = ("mdkit", "mde12")
+CASES = ROOT / "voices" / "tests" / "cases.json"
+LIFETIME = 20.0          # seconds a case may sound, at most: TRX-BD at DEC 127 falls 60 dB in 14 s
+# Cases that hold, as on the original: they may sound without end, and no other may.
+HELD = {("TRX-B2", "DEC 127"), ("GND-SN", "DEC 127"), ("GND-NS", "DEC 127")} | {
+    (f"E12-{m}", "RTRG 127") for m in "BD SD HT LT CP RS CB CH OH RC CC BR TA TR SH BC".split()}
+PEAK_DB, LEVEL_DB = 1.0, 0.5
+BAND_DB = 2.0            # a band's energy in a window, where it is within RANGE_DB of the window's loudest
+RANGE_DB = 50.0
+QUIET_DB = -90.0         # bands below this are silence, as the lifetime counts it
+
+
+def run_cases():
+    """Plays every kit member's cases; returns {(machine, case): measures}."""
+    import catalog
+    from make_engine import defaults, slug, sound_header
+    headers, calls = [], []
+    for kit in CASE_KITS:
+        for name in catalog.ENGINES[kit]:
+            header = f'#include "{sound_header(name)}.hpp"'
+            if header not in headers:
+                headers.append(header)
+            values = defaults(name)
+            ns = f"md::{slug(name)}"
+            cases = [("default", values)]
+            for i, label in enumerate(catalog.MACHINES[name][2]):
+                if label:
+                    for end in (0, 127):
+                        moved = list(values)
+                        moved[i] = end
+                        cases.append((f"{label} {end}", moved))
+            for label, v in cases:
+                calls.append(f'    {{ const int v[8] = {{{", ".join(map(str, v))}}}; '
+                             f'cases::measure<{ns}::State>("{name}", "{label}", v, {ns}::reset, {ns}::trigger, '
+                             f'{ns}::render); }}')
+    out = ROOT / "local" / "voice-tests"
+    out.mkdir(parents=True, exist_ok=True)
+    source = "\n".join(headers) + '\n#include "tests/cases.hpp"\nint main() {\n' + "\n".join(calls) + "\n}\n"
+    (out / "cases.cpp").write_text(source)
+    subprocess.run(["c++", "-std=c++11", "-O2", f"-I{SDK_INCLUDE}", f"-I{ROOT / 'lib'}", f"-I{ROOT / 'voices'}",
+                    *private_includes(), str(out / "cases.cpp"), "-o", str(out / "cases")], check=True)
+    lines = subprocess.run([str(out / "cases")], capture_output=True, text=True, check=True).stdout.splitlines()
+    return {(m["machine"], m["case"]): m for m in map(json.loads, lines)}
+
+
+def case_problems(played, recorded):
+    """Where a case no longer sounds as recorded, or never falls silent."""
+    problems = []
+    for key, now in played.items():
+        where = f"{key[0]} {key[1]}"
+        if key in HELD:
+            pass
+        elif not now["silent"] or now["lasts"] > LIFETIME:
+            problems.append(f"{where}: still sounding after {now['lasts']:.1f} s" if now["silent"] else
+                            f"{where}: never falls silent (above -90 dB after {now['lasts']:.1f} s)")
+        then = recorded.get(key)
+        if then is None:
+            problems.append(f"{where}: not recorded (run with --record)")
+            continue
+        if abs(now["peak"] - then["peak"]) > PEAK_DB or abs(now["level"] - then["level"]) > LEVEL_DB:
+            problems.append(f"{where}: peak {then['peak']:.1f} -> {now['peak']:.1f} dB, "
+                            f"level {then['level']:.1f} -> {now['level']:.1f} dB")
+            continue
+        worst = (0.0, 0, 0)
+        for w, (a, b) in enumerate(zip(then["bands"], now["bands"])):
+            top = max(a)
+            for band, (x, y) in enumerate(zip(a, b)):
+                if x > max(QUIET_DB, top - RANGE_DB) and abs(x - y) > worst[0]:
+                    worst = (abs(x - y), w, band)
+        if worst[0] > BAND_DB:
+            problems.append(f"{where}: band {worst[2]} in window {worst[1]} moved {worst[0]:.1f} dB")
+    for key in recorded:
+        if key not in played:
+            problems.append(f"{key[0]} {key[1]}: recorded but no longer played")
+    return problems
+
+
 def main():
     problems = []
     for check, passed, find in (("detents", "every stepped control moves a step a detent", detent_problems),
@@ -166,8 +251,20 @@ def main():
         if not found:
             print(f"PASS {check}: {passed}")
         problems += found
+    record = "--record" in sys.argv
+    played = run_cases()
+    if record:
+        CASES.write_text("[\n" + ",\n".join(json.dumps(m, separators=(",", ":")) for m in played.values()) + "\n]\n")
+        print(f"recorded {len(played)} cases in {CASES.relative_to(ROOT)}")
+    recorded = {(m["machine"], m["case"]): m for m in json.loads(CASES.read_text())} if CASES.exists() else {}
+    found = case_problems(played, recorded)
+    for p in found:
+        print(f"FAIL cases: {p}")
+    if not found:
+        print(f"PASS cases: {len(played)} cases sound as recorded and fall silent within {LIFETIME:.0f} s, but for {len(HELD)} that hold")
+    problems += found
     tests = sorted((ROOT / "voices" / "tests").glob("*.cpp"))
-    wanted = sys.argv[1:]
+    wanted = [a for a in sys.argv[1:] if not a.startswith("--")]
     out = ROOT / "local" / "voice-tests"
     out.mkdir(parents=True, exist_ok=True)
     failed = []
@@ -182,7 +279,7 @@ def main():
         if result.returncode:
             failed.append(test.stem)
     if problems:
-        failed.append("detents, slots and presets")
+        failed.append("detents, slots, presets and cases")
     if failed:
         sys.exit(f"failed: {', '.join(failed)}")
 

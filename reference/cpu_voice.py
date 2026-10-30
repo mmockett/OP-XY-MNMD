@@ -2,6 +2,10 @@
 """The SDK's host CPU estimate for one voice module, before any engine holds it.
 
     python3 reference/cpu_voice.py PI-BD [PI-SD ...]
+    python3 reference/cpu_voice.py --kits [--save before.json] [--against before.json]
+
+--kits times every member of the drum kits; --save keeps the figures and
+--against prints each beside a saved run, to show what an optimisation bought.
 
 Times the module's render as the SDK's test does (../open-xy/tooling/cpu.py):
 its defaults (tools/presets.py, else the design's), then each control at nine
@@ -19,6 +23,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT.parent / "open-xy"))
 import catalog  # noqa: E402
 from make_engine import defaults, slug, sound_header  # noqa: E402
+from test_voices import private_includes  # noqa: E402
 from tooling.cpu import HARNESS, REFERENCE, REFERENCE_INSTRUCTIONS  # noqa: E402
 
 BENCH = r'''
@@ -54,7 +59,7 @@ def run(source, name, compiler):
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{name}.cpp").write_text(source)
     subprocess.run([compiler, "-std=c++11", "-O2", f"-I{ROOT.parent / 'open-xy' / 'sdk' / 'include'}",
-                    f"-I{ROOT / 'lib'}", f"-I{ROOT / 'voices'}", str(folder / f"{name}.cpp"), "-o", str(folder / name)],
+                    f"-I{ROOT / 'lib'}", f"-I{ROOT / 'voices'}", *private_includes(), str(folder / f"{name}.cpp"), "-o", str(folder / name)],
                    check=True)
     return float(subprocess.run([str(folder / name)], capture_output=True, text=True, check=True).stdout)
 
@@ -72,12 +77,27 @@ def estimate(name, compiler):
     return run(source, slug(name), compiler)
 
 
+def option(flag):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else None
+
+
 def main():
+    import json
     compiler = cxx()
     reference = run(REFERENCE, "reference", compiler)
-    for name in sys.argv[1:]:
-        print(f"{name}: about {round(estimate(name, compiler) / reference * REFERENCE_INSTRUCTIONS, -2):,.0f} "
-              f"instructions per voice block at its heaviest setting")
+    names = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and sys.argv[i - 1] not in ("--save", "--against")]
+    if "--kits" in sys.argv:
+        names = [name for kit in ("mdkit", "mde12") for name in catalog.ENGINES[kit]]
+    before = json.loads(pathlib.Path(option("--against")).read_text()) if option("--against") else {}
+    figures = {}
+    for name in names:
+        # The host's timing wanders 10-15% run to run: the fastest of three.
+        figures[name] = round(min(estimate(name, compiler) / run(REFERENCE, "reference", compiler)
+                                  for _ in range(3)) * REFERENCE_INSTRUCTIONS, -2)
+        was = f" (was {before[name]:,.0f}, {100 * (figures[name] / before[name] - 1):+.0f}%)" if name in before else ""
+        print(f"{name}: about {figures[name]:,.0f} instructions per voice block at its heaviest setting{was}")
+    if option("--save"):
+        pathlib.Path(option("--save")).write_text(json.dumps(figures, indent=1) + "\n")
 
 
 if __name__ == "__main__":
