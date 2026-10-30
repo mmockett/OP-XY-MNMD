@@ -98,6 +98,24 @@ inline bool finished(const Voice& voice, const Shared&) { return voice.done != 0
 inline void destroy(Voice&, Shared&, u32) {}
 inline void drum_select(Voice& voice, Shared&, u32, u32 model) { voice.next = model < kit::models ? model : 0; }
 
+const u32 tuned[opxy::block_frames] = {::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c};
+__attribute__((noinline)) void sound0(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_bd::render(voice.u.m0, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound1(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_sd::render(voice.u.m1, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound2(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_ht::render(voice.u.m2, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound3(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_lt::render(voice.u.m3, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound4(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_cp::render(voice.u.m4, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound5(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_rs::render(voice.u.m5, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound6(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_cb::render(voice.u.m6, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound7(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_ch::render(voice.u.m7, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound8(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_oh::render(voice.u.m8, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound9(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_rc::render(voice.u.m9, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound10(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_cc::render(voice.u.m10, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound11(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_br::render(voice.u.m11, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound12(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_ta::render(voice.u.m12, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound13(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_tr::render(voice.u.m13, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound14(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_sh::render(voice.u.m14, shared.common, output, own, tuned); }
+__attribute__((noinline)) void sound15(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_bc::render(voice.u.m15, shared.common, output, own, tuned); }
+
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {
@@ -113,25 +131,23 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     }
     i32 own[8];
     kit::controls(voice.machine, parameters, own);
-    u32 tuned[opxy::block_frames];
-    for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
     switch (voice.machine) {
-    case 0: md::e12_bd::render(voice.u.m0, shared.common, output, own, tuned); break;
-    case 1: md::e12_sd::render(voice.u.m1, shared.common, output, own, tuned); break;
-    case 2: md::e12_ht::render(voice.u.m2, shared.common, output, own, tuned); break;
-    case 3: md::e12_lt::render(voice.u.m3, shared.common, output, own, tuned); break;
-    case 4: md::e12_cp::render(voice.u.m4, shared.common, output, own, tuned); break;
-    case 5: md::e12_rs::render(voice.u.m5, shared.common, output, own, tuned); break;
-    case 6: md::e12_cb::render(voice.u.m6, shared.common, output, own, tuned); break;
-    case 7: md::e12_ch::render(voice.u.m7, shared.common, output, own, tuned); break;
-    case 8: md::e12_oh::render(voice.u.m8, shared.common, output, own, tuned); break;
-    case 9: md::e12_rc::render(voice.u.m9, shared.common, output, own, tuned); break;
-    case 10: md::e12_cc::render(voice.u.m10, shared.common, output, own, tuned); break;
-    case 11: md::e12_br::render(voice.u.m11, shared.common, output, own, tuned); break;
-    case 12: md::e12_ta::render(voice.u.m12, shared.common, output, own, tuned); break;
-    case 13: md::e12_tr::render(voice.u.m13, shared.common, output, own, tuned); break;
-    case 14: md::e12_sh::render(voice.u.m14, shared.common, output, own, tuned); break;
-    case 15: md::e12_bc::render(voice.u.m15, shared.common, output, own, tuned); break;
+    case 0: sound0(voice, shared, output, own); break;
+    case 1: sound1(voice, shared, output, own); break;
+    case 2: sound2(voice, shared, output, own); break;
+    case 3: sound3(voice, shared, output, own); break;
+    case 4: sound4(voice, shared, output, own); break;
+    case 5: sound5(voice, shared, output, own); break;
+    case 6: sound6(voice, shared, output, own); break;
+    case 7: sound7(voice, shared, output, own); break;
+    case 8: sound8(voice, shared, output, own); break;
+    case 9: sound9(voice, shared, output, own); break;
+    case 10: sound10(voice, shared, output, own); break;
+    case 11: sound11(voice, shared, output, own); break;
+    case 12: sound12(voice, shared, output, own); break;
+    case 13: sound13(voice, shared, output, own); break;
+    case 14: sound14(voice, shared, output, own); break;
+    case 15: sound15(voice, shared, output, own); break;
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }
     bool loud = false;
