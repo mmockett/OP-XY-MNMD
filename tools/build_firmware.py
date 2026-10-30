@@ -5,7 +5,7 @@
     python3 tools/build_firmware.py mdtrx mmsaw     # some
     python3 tools/build_firmware.py mdtrx ../mine/machine  # a machine folder outside machines/
 
-It runs the SDK's `build` against your own stock OS 1.2.0, copied off your
+It runs the SDK's `build` against your own stock OS (the one the SDK patches), copied off your
 OP-XY (docs/DEVICE.md), into a new numbered folder outside this checkout,
 
     ~/Library/Application Support/OPXY-MD/builds/NNN/
@@ -28,15 +28,16 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
 from make_engine import kit_keys  # noqa: E402
+from sdk_path import SDK, stock_version  # noqa: E402
 
-SDK = ROOT.parent / "open-xy"
 SUPPORT = pathlib.Path.home() / "Library" / "Application Support"
-STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / "stock-1.2.0" / "os.ldr"
+# The stock OS the SDK's newest platform patches.
+STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / f"stock-{stock_version()}" / "os.ldr"
 BUILDS = SUPPORT / "OPXY-MD" / "builds"
 
 
 def kit_region(key, model, controls, choked):
-    """A kit key as a preset region, as the SDK stores it (../open-xy/docs/abi-1.2.0.md,
+    """A kit key as a preset region, as the SDK stores it (the SDK's docs/abi-<OS version>.md,
     the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the eight
     controls (7 bits each) then the model (4) fill 15 bits of each param; the
     play mode mute1 chokes, and oneshot, the default, does not."""
@@ -109,7 +110,7 @@ def write_presets(out, engines):
 def main():
     parser = argparse.ArgumentParser(description="Build OP-XY firmware with this repository's engines")
     parser.add_argument("engines", nargs="*", help="engine folders in machines/ (default: all)")
-    parser.add_argument("--stock-os", default=str(STOCK_OS), help="your OP-XY's own OS 1.2.0 os.ldr")
+    parser.add_argument("--stock-os", default=str(STOCK_OS), help="your OP-XY's own stock os.ldr")
     parser.add_argument("--profiling", choices=("on", "off"), default="on",
                         help="the stock per-voice CPU profiling (on, the SDK's default, for development)")
     parser.add_argument("--layout", help="the engine and page numbers to keep (default: the last build's layout.json)")

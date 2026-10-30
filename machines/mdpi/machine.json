@@ -1,12 +1,8 @@
 {
   "schema": 1,
-  "sdk": "1.3",
+  "sdk": "1.9",
   "kind": "drum",
   "description": "The Machinedrum's P-I machines as a drum kit: each key picks its own machine and keeps its own controls.",
-  "identity": {
-    "engine": 38,
-    "page": 86
-  },
   "presetDefaults": {
     "amp": {
       "attack": 0,

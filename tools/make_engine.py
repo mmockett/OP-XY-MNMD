@@ -26,9 +26,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
 from presets import PRESETS  # noqa: E402
+from sdk_path import SDK_INCLUDE  # noqa: E402
 
 VOICES = ROOT / "voices"
-SDK_INCLUDE = ROOT.parent / "open-xy" / "sdk" / "include"
 # Samples and waves captured from the owner's ROMs (docs/FAMILIES.md): never in git.
 PRIVATE = pathlib.Path.home() / "Library" / "Application Support" / "OPXY-MD" / "private"
 
@@ -711,9 +711,9 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 
     # --- machine.json
     (folder / "machine.json").write_text(json.dumps({
-        "schema": 1, "sdk": "1.3", "kind": "drum",
+        # SDK 1.9: drum kits, numberless; each build's layout gives the engine and page.
+        "schema": 1, "sdk": "1.9", "kind": "drum",
         "description": f"The Machinedrum's {fam.replace('PI', 'P-I')} machines as a drum kit: each key picks its own machine and keeps its own controls."[:160],
-        "identity": {"engine": 36 + index, "page": 84 + index},
         "presetDefaults": {"amp": {"attack": 0, "decay": 32767, "sustain": 32767, "release": 32767}},
     }, indent=2) + "\n")
 

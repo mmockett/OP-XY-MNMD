@@ -13,7 +13,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SDK_INCLUDE = ROOT.parent / "open-xy" / "sdk" / "include"
+sys.path.insert(0, str(ROOT / "tools"))
+from sdk_path import SDK_INCLUDE, platform  # noqa: E402
 # Data captured from the owner's ROMs (docs/FAMILIES.md), where this Mac has it;
 # otherwise the silent stand-ins in voices/silent.
 PRIVATE = pathlib.Path.home() / "Library" / "Application Support" / "OPXY-MD" / "private"
@@ -27,16 +28,16 @@ def detent_problems():
     """Where an encoder detent would not move a control to its next shown step.
 
     Stock steps a custom engine's control about 1% a detent, which moves its
-    0..127 readout every detent; the SDK steps an enum a choice a detent to the
-    choice's midpoint (its synth_controls.cpp). So every control whose header
-    names its steps (make_engine.ENUMS) must be an enum with those labels, the
-    SDK must step enums, and each midpoint must read as its own step."""
-    sys.path.insert(0, str(ROOT / "tools"))
+    0..127 readout every detent; the SDK answers an enum's choice count, so stock
+    steps it a choice a detent and stores the choice's bucket centre (its
+    synth_controls.cpp). So every control whose header names its steps
+    (make_engine.ENUMS) must be an enum with those labels, the SDK must step
+    enums, and each centre must read as its own step."""
     import catalog
     import make_engine
     problems = []
-    if "choices[parameter_slots]" not in (ROOT.parent / "open-xy" / "sdk" / "platform" / "opxy-1.2.0" / "synth_controls.hpp").read_text():
-        problems.append("the SDK steps enums 1% a detent (needs its branch drum-synthesis-enum-detents)")
+    if "steps[parameter_slots]" not in (platform() / "synth_controls.hpp").read_text():
+        problems.append("the SDK steps enums 1% a detent (needs SDK 1.3's stepped enums)")
     for engine, names in catalog.ENGINES.items():
         folder = ROOT / "machines" / engine
         if len(names) != 1 or not (folder / "definition.json").exists():
@@ -53,10 +54,12 @@ def detent_problems():
             if mapping["kind"] != "enum" or mapping["labels"] != steps:
                 problems.append(f"{engine} {label}: {len(steps)} steps, declared {mapping['kind']}")
                 continue
-            # The SDK's midpoint of each choice, (2^30 / n)(2c + 1), read back as the header reads it.
+            # Stock's centre of each choice's bucket, c q + q / 2 with q = (2^31 - 1) / n, read back
+            # as the header reads it.
             n = len(steps)
-            if any((((0x40000000 // n) * (2 * c + 1)) >> 16) * n >> 15 != c for c in range(n)):
-                problems.append(f"{engine} {label}: a choice's midpoint reads as another step")
+            q = 0x7fffffff // n
+            if any(((c * q + q // 2) >> 16) * n >> 15 != c for c in range(n)):
+                problems.append(f"{engine} {label}: a choice's centre reads as another step")
     return problems
 
 
@@ -133,7 +136,7 @@ int main() {
     return failed;
 }
 """ % ",\n".join(rows))
-    subprocess.run(["c++", "-std=c++11", f"-I{SDK_INCLUDE}", f"-I{ROOT.parent / 'open-xy' / 'sdk' / 'platform' / 'opxy-1.2.0'}",
+    subprocess.run(["c++", "-std=c++11", f"-I{SDK_INCLUDE}", f"-I{platform()}",
                     str(out / "kit_presets.cpp"), "-o", str(out / "kit_presets")], check=True)
     result = subprocess.run([str(out / "kit_presets")], capture_output=True, text=True)
     lines = result.stdout.splitlines()

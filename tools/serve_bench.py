@@ -19,7 +19,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SDK = ROOT.parent / "open-xy"
+sys.path.insert(0, str(ROOT / "tools"))
+from sdk_path import SDK  # noqa: E402
 STAGE = ROOT / "local" / "bench"
 
 
