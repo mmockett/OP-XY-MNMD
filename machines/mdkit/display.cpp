@@ -8,13 +8,21 @@ namespace mdkit {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.shown = 0;
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
+    const u32 selected = input.model < kit::models ? input.model : 0;
+    // A view keeps a path whose key is unchanged, and the key comes from its
+    // values: another machine's outline can carry the same key. A new machine
+    // starts its paths afresh (begin shapes each again).
+    if (state.shown != selected + 1) {
+        state.shown = selected + 1;
+        for (u32 p = 0; p < Frame::path_count; ++p) frame.paths[p].key = 0;
+    }
     md::view::begin(frame, input);
     state.hit.update(input);
     const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet};
-    const u32 selected = input.model < kit::models ? input.model : 0;
     i32 own[8];
     kit::controls(selected, input.slots, own);
     for (u32 m = 0; m < kit::models; ++m)

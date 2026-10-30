@@ -115,7 +115,8 @@ inline void hat(F& frame, const i32* s, int mtal, int gap, i32 struck) {
     i32 xs[32], ys[32];
     u32 n = 0;
     for (u32 i = 0; i < 6; ++i) {
-        const i32 h = multiply(tall + multiply(tall, multiply(struck, 0x26666666)), md::one - static_cast<i32>(i) * 0x07ae147b);
+        i32 h = multiply(tall + multiply(tall, multiply(struck, 0x26666666)), md::one - static_cast<i32>(i) * 0x07ae147b);
+        if (h > 118 * unit) h = 118 * unit;   // the struck partials stay under the header
         xs[n] = at[i] * unit; ys[n++] = 120 * unit;
         xs[n] = at[i] * unit; ys[n++] = 120 * unit - h;
         xs[n] = at[i] * unit + 1; ys[n++] = 120 * unit;
@@ -190,6 +191,15 @@ inline i32 mul16(i32 a, u32 b) { return static_cast<i32>(((static_cast<u32>(a) >
 // Spikes along an axis at y = base (Q10): up to ten per path, each from the axis
 // to its peak (h above the axis, Q10, negative below) and back.
 struct Spike { i32 x, h, w; };
+// Scattered grains as one outline: left to right, so it never doubles back to
+// close beside its start, and each at least a pixel tall, so none is a flat
+// out-and-back (both of which the device draws as slivers and streaks).
+inline void settle(Spike* g, u32 n) {
+    for (u32 i = 1; i < n; ++i)
+        for (u32 j = i; j > 0 && g[j].x < g[j - 1].x; --j) { const Spike t = g[j]; g[j] = g[j - 1]; g[j - 1] = t; }
+    for (u32 i = 0; i < n; ++i)
+        if (g[i].h > -unit && g[i].h < unit) g[i].h = g[i].h < 0 ? -unit : unit;
+}
 template <class F>
 inline void spikes(F& frame, u32 path, const Spike* sp, u32 n, i32 base, u32 key, u32 tone) {
     if (!n) return;
@@ -261,6 +271,7 @@ inline void grains(F& frame, const i32* s, int rev_slot, int damp_slot, int rate
         g[count].w = 2 * unit;
         ++count;
     }
+    settle(g, count);
     const u32 key = key_of(static_cast<i32>(raw(s, rate_slot, 64) << 24), static_cast<i32>(damp << 24),
                            scatter ? 0x7f000000 : 0, 9) + (rev ? 1u : 0u) + (ph < 0 ? 0u : (shake + 1) << 26);
     for (u32 p = 0; p < 3; ++p) {

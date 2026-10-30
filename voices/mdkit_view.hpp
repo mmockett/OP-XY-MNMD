@@ -178,6 +178,7 @@ inline void pi(F& frame, const i32* s, const Pi& c, const view::Moment& m) {
         if (c.metal && i > 2) a = multiply(a, 0x33333333 + multiply(ring, 0x4ccccccd));
         sp[n].x = x; sp[n].w = unit / 2;
         sp[n].h = multiply(tall, a) + multiply(multiply(tall, a), multiply(h, 0x26666666));
+        if (sp[n].h > base - 2 * unit) sp[n].h = base - 2 * unit;   // a struck spike stays under the header
         ++n;
     }
     const u32 key = key_of(s[c.ptch < 0 ? 0 : c.ptch], k << 12, ring, 31) ^ (static_cast<u32>(h) >> 26);
@@ -195,6 +196,7 @@ inline void pi(F& frame, const i32* s, const Pi& c, const view::Moment& m) {
             g[count2].w = unit;
             ++count2;
         }
+        trx_panel::settle(g, count2);
         spread(frame, comb, 2, g, count2, 146 * unit, key_of(s[c.rvol], 0, 0, 33) + (ph < 0 ? 0u : (shake + 1) << 26), view::dim);
     }
 }

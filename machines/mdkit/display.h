@@ -13,5 +13,6 @@ using opxy::u32;
 using Frame = opxy::draw::Frame<4, 64, md::view::art_first + art::node_count, 0, 16>;
 struct DisplayState {
     md::view::Hit hit;
+    u32 shown;   // the machine last drawn, plus one; 0 after a reset
 };
 }
