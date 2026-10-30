@@ -29,6 +29,8 @@ struct State {
     i32 under;                // the top's extra high-pass pole
     i32 top_state[3][4];      // the top's three biquads: x1 x2 y1 y2
     u32 seed;
+    i32 body_out, top_out;   // the gains each block ended on, which the next starts from
+    u32 carrying;     // they are set: a note's first block starts from its envelope
     u32 fresh;
 };
 namespace {
@@ -267,6 +269,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.body = voice.top = 0;
     clear(voice);
     voice.seed = 0x3c6ef372u * owner;
+    voice.carrying = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -277,6 +280,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] = static_cast<u32>(md::noise(voice.seed));
         voice.body = voice.top = md::one;
         clear(voice);
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     u32 increment[partial_count];
@@ -285,9 +289,14 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 body_next = multiply(voice.body, md::per_block(b.body_step));
     const i32 top_next = multiply(voice.top, md::per_block(b.top_step));
     const i32 body_scale = multiply(body_level, b.level);
-    i32 body_gain = multiply(voice.body, body_scale), top_gain = multiply(voice.top, b.top);
-    const i32 body_slope = (multiply(body_next, body_scale) - body_gain) / 64;
-    const i32 top_slope = (multiply(top_next, b.top) - top_gain) / 64;
+    // Each from where the last block's ended, so RICH, TOP or PEAK moved glides.
+    i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_scale);
+    i32 top_gain = voice.carrying ? voice.top_out : multiply(voice.top, b.top);
+    voice.body_out = multiply(body_next, body_scale);
+    voice.top_out = multiply(top_next, b.top);
+    const i32 body_slope = (voice.body_out - body_gain) / 64;
+    const i32 top_slope = (voice.top_out - top_gain) / 64;
+    voice.carrying = 1;
     voice.body = body_next;
     voice.top = top_next;
     // The top falls faster than the body: its filters run only while it can be heard (-102 dB).

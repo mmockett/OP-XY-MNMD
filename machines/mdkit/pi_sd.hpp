@@ -27,6 +27,8 @@ struct State {
     i32 bright;      // the strike's high-pass state
     u32 hold;        // blocks of the strike's burst still held
     u32 age;         // blocks since the strike, through the head's swell
+    i32 wires_out;   // the wires' gain the last block ended on, which the next starts from
+    u32 carrying;    // it is set: a note's first block starts from the envelope
     u32 fresh;
 };
 namespace {
@@ -95,6 +97,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.hold = 0;
     voice.age = swell_blocks;
     voice.seed = 0x9e3779b9u * owner;
+    voice.carrying = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -111,6 +114,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.wires = md::one;
         voice.hold = burst_hold;
         voice.age = 0;
+        voice.carrying = 0;
     }
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
@@ -132,9 +136,12 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         // The two gains in straight lines across the block.
         const i32 burst_next = multiply(voice.burst, md::per_block(burst_step));
         const i32 wires_next = multiply(voice.wires, md::per_block(b.wire_step));
-        i32 burst = multiply(voice.burst, burst_level), wires = multiply(voice.wires, b.wire_amount);
+        // The wires' from where the last block's ended, so RVOL moved glides.
+        i32 burst = multiply(voice.burst, burst_level), wires = voice.carrying ? voice.wires_out : multiply(voice.wires, b.wire_amount);
+        voice.wires_out = multiply(wires_next, b.wire_amount);
+        voice.carrying = 1;
         const i32 burst_slope = (multiply(burst_next, burst_level) - burst) / 64;
-        const i32 wires_slope = (multiply(wires_next, b.wire_amount) - wires) / 64;
+        const i32 wires_slope = (voice.wires_out - wires) / 64;
         voice.burst = burst_next;
         voice.wires = wires_next;
         for (unsigned i = 0; i != opxy::block_frames; ++i) {

@@ -31,6 +31,8 @@ struct State {
     i32 snap_low, snap_low2;    // SNAP's high-pass states
     i32 snap_high, snap_high2;  // SNAP's low-pass states
     i32 highpass;     // CLIP's high-pass state
+    i32 body_out, wires_out, snap_out;   // the gains each block ended on, which the next starts from
+    u32 carrying;     // they are set: a note's first block starts from its envelope
     u32 fresh;
 };
 namespace {
@@ -77,6 +79,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.body = voice.wires = voice.swell = voice.bump = voice.snap = 0;
     voice.snap_age = 0;
     voice.seed = 0x2545f491u * owner;
+    voice.carrying = 0;
     voice.wires_low = voice.snap_low = voice.snap_low2 = voice.snap_high = voice.snap_high2 = voice.highpass = 0;
     trigger(voice, shared);
     voice.fresh = 0;
@@ -91,6 +94,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.snap_age = snap_hold;
         voice.highpass = 0;
         voice.snap_low = voice.snap_low2 = voice.snap_high = voice.snap_high2 = 0;
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     const i32 snap_step = md::decay(snap_time);
@@ -117,13 +121,17 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         for (unsigned i = voice.snap_age; i < opxy::block_frames; ++i) snap_next = multiply(snap_next, snap_step);
         voice.snap_age = 0;
     }
-    i32 body_gain = multiply(voice.body, body_level);
-    const i32 body_slope = (multiply(body_next, body_level) - body_gain) / 64;
-    i32 wires_gain = multiply(multiply(voice.wires, multiply(voice.swell, voice.swell)), b.wires);
-    const i32 wires_slope = (multiply(multiply(wires_next, multiply(swell_next, swell_next)), b.wires) - wires_gain) / 64;
-    i32 snap_gain = multiply(voice.snap, b.snap);
-    const i32 snap_end = multiply(snap_next, b.snap);
+    // Each from where the last block's ended, so TONE or SNAP moved glides.
+    i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_level);
+    voice.body_out = multiply(body_next, body_level);
+    const i32 body_slope = (voice.body_out - body_gain) / 64;
+    i32 wires_gain = voice.carrying ? voice.wires_out : multiply(multiply(voice.wires, multiply(voice.swell, voice.swell)), b.wires);
+    voice.wires_out = multiply(multiply(wires_next, multiply(swell_next, swell_next)), b.wires);
+    const i32 wires_slope = (voice.wires_out - wires_gain) / 64;
+    i32 snap_gain = voice.carrying ? voice.snap_out : multiply(voice.snap, b.snap);
+    const i32 snap_end = voice.snap_out = multiply(snap_next, b.snap);
     const i32 snap_slope = (snap_end - snap_gain) / 64;
+    voice.carrying = 1;
     voice.body = body_next;
     voice.wires = wires_next;
     voice.swell = swell_next;

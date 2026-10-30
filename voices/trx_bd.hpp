@@ -30,6 +30,8 @@ struct State {
     u32 seed;       // noise
     i32 tone;       // one-pole state for the burst
     i32 highpass;   // CLIP's high-pass state
+    i32 burst_out;  // the burst's gain the last block ended on, which the next starts from
+    u32 carrying;   // it is set: the settled loop's first block starts from the envelope
     u32 fresh;      // a note has started and render has not yet run
 };
 namespace {
@@ -111,6 +113,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.age = click_cycle + body_in;
     voice.gate = md::one;
     voice.seed = 0x1234567u * owner;
+    voice.carrying = 0;
     voice.level = voice.tail = voice.boost = voice.ramp = voice.burst = voice.thump = 0;
     voice.tone = voice.highpass = 0;
     trigger(voice, shared);
@@ -133,6 +136,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.burst = md::one;
         voice.thump = b.depth;
         voice.tone = 0;
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     const i32 tail_step = md::decay(tail_time);
@@ -161,8 +165,10 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
         i32 body_gain = settled_gain(voice.level, voice.tail, voice.boost);
         const i32 body_slope = (settled_gain(level_next, tail_next, boost_next) - body_gain) / 64;
-        i32 burst_gain = multiply(multiply(voice.burst, b.noise), body_level);
-        const i32 burst_end = multiply(multiply(burst_next, b.noise), body_level);
+        // From where the last block's ended, so NOIS moved glides.
+        i32 burst_gain = voice.carrying ? voice.burst_out : multiply(multiply(voice.burst, b.noise), body_level);
+        const i32 burst_end = voice.burst_out = multiply(multiply(burst_next, b.noise), body_level);
+        voice.carrying = 1;
         const i32 burst_slope = (burst_end - burst_gain) / 64;
         // The burst's noise runs only while it can be heard (-102 dB).
         const bool bursting = burst_gain >= (1 << 14) || burst_end >= (1 << 14);
