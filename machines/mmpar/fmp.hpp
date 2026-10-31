@@ -291,18 +291,74 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
 // ratios into one carrier, each with its own ENV: static to 64, above it a
 // decay from the depth curve's own value. TONE filters all three.
 namespace fmppar {
+// A modulator's block values, kept while what they are made from holds.
+struct Kept {
+    i32 control, depth, decay;   // from its ENV control: depth(control), and its decay above the middle
+    i32 tone;                    // TONE and the modulator's increment: tone_filter()
+    u32 increment;
+    i32 gain;
+};
 struct State {
     u32 carrier;
     fmp::Op m[3];
     u32 fresh;
+    Kept kept[3];
+    u32 cached;                  // bit k: kept[k]'s control values, bit 3 + k: its tone
 };
 namespace {
 enum { FRQ1, ENV1, FRQ2, ENV2, FRQ3, ENV3, TONE, TUNE };
+// A modulator's swings for the block, s.at(run(m)) a sample: into `swings`
+// (md::add(0, x) is x), then added on.
+__attribute__((noinline)) void first_swing(i32* swings, fmp::Op& m, const fmp::Ramp& s) {
+    u32 phase = m.phase;
+    const u32 increment = m.increment;
+    i32 now = s.now;
+    const i32 step = s.step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        swings[i] = multiply(md::sine(phase), now);
+        phase += increment;
+        now += step;
+    }
+    m.phase = phase;
+}
+__attribute__((noinline)) void add_swing(i32* swings, fmp::Op& m, const fmp::Ramp& s) {
+    u32 phase = m.phase;
+    const u32 increment = m.increment;
+    i32 now = s.now;
+    const i32 step = s.step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        swings[i] = md::add(swings[i], multiply(md::sine(phase), now));
+        phase += increment;
+        now += step;
+    }
+    m.phase = phase;
+}
+// The carrier: its sine out, then its increment, fmp::increment(carrier, swings):
+// md::clamp(md::add(own, swing), -most, most). As own >= 0 and most >= own, that
+// is own + the swing held within -most - own .. most - own (the low end no
+// further than the swing can reach), without saturating on the way.
+__attribute__((noinline)) void carry(opxy::Output out, const i32* swings, u32& phase_of, u32 carrier) {
+    const i32 own = static_cast<i32>(carrier > 0x7fffffffu ? 0x7fffffffu : carrier);
+    const i32 most = own > fmp::limit ? own : fmp::limit;
+    const u32 below = static_cast<u32>(most) + static_cast<u32>(own);   // -low, at most 2^32 - 2
+    const i32 low = below >= 0x80000000u ? static_cast<i32>(0x80000000u) : -static_cast<i32>(below);
+    const i32 high = most - own;
+    u32 phase = phase_of;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] = md::finish(fmp::level(md::sine(phase)));
+        i32 x = swings[i];
+        x = x > high ? high : x;
+        x = x < low ? low : x;
+        phase += static_cast<u32>(own + x);
+    }
+    phase_of = phase;
+}
 }
 inline void trigger(State& v, Common&) { v.fresh = 1; }
 inline void reset(State& v, Common& shared, u32) {
     v.carrier = 0;
     for (unsigned k = 0; k < 3; ++k) { fmp::start(v.m[k]); v.m[k].swing = 0; }
+    v.cached = 0;
     trigger(v, shared);
 }
 
@@ -319,18 +375,38 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
     for (unsigned k = 0; k < 3; ++k) {
         const i32 control = p[2 * k + 1];
         fmp::Op& m = v.m[k];
+        Kept& kept = v.kept[k];
         m.increment = md::scale(carrier, fmp::ratio(p[2 * k]));
-        const i32 index = multiply(fmp::target(m, control, fmp::depth(control), fresh), fmp::tone_filter(p[TONE], m.increment));
+        if (!(v.cached & (1u << k)) || kept.control != control) {
+            kept.control = control;
+            kept.depth = fmp::depth(control);
+            kept.decay = fmp::decays(control) ? fmp::decay_per_block(fmp::env_times, control) : 0;
+            v.cached |= 1u << k;
+        }
+        if (!(v.cached & (8u << k)) || kept.tone != p[TONE] || kept.increment != m.increment) {
+            kept.tone = p[TONE];
+            kept.increment = m.increment;
+            kept.gain = fmp::tone_filter(p[TONE], m.increment);
+            v.cached |= 8u << k;
+        }
+        // fmp::target(m, control, depth(control), fresh), from the kept values.
+        i32 reach = kept.depth;
+        if (fmp::decays(control)) {
+            if (!fresh) m.envelope = multiply(m.envelope, kept.decay);
+            reach = multiply(kept.depth, m.envelope);
+        }
+        const i32 index = multiply(reach, kept.gain);
         s[k].plan(m.swing, fmp::swing(index, m.increment), fresh);
         sum += index;
     }
     if (fresh) v.carrier = fmp::carrier_start(sum);
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 swings = 0;
-        for (unsigned k = 0; k < 3; ++k) swings = md::add(swings, s[k].at(fmp::run(v.m[k])));
-        out[i] = md::finish(fmp::level(md::sine(v.carrier)));
-        v.carrier += fmp::increment(carrier, swings);
-    }
+    // The samples in passes, each a short loop with its state in locals: the
+    // modulators' swings summed in order, then the carrier.
+    i32 swings[opxy::block_frames];
+    first_swing(swings, v.m[0], s[0]);
+    add_swing(swings, v.m[1], s[1]);
+    add_swing(swings, v.m[2], s[2]);
+    carry(out, swings, v.carrier, carrier);
 }
 }
 
