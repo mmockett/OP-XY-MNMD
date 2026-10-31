@@ -173,14 +173,17 @@ inline void draw(F& frame, const i32* s, const Moment& moment) {
         // Ten grains, each up from the line and back, a tenth of the width apart.
         i32 xs[32], ys[32];
         const i32 pitch = multiply(width, 0x0ccccccd);   // 1 / 10
-        // No taller than 18 pitches: a narrower grain is a turn nearly straight back.
-        const i32 tall = md::clamp(2 * unit + multiply(cvol, 28 * unit), 0, 18 * pitch);
+        // A thin tall grain is a turn nearly straight back, whose stroke escapes as a long
+        // line, and at CLEN 0 its points sit at the device's merging distance. So a tall
+        // grain widens as it needs to, keeping a flat foot, and is no taller than 10 pitches.
+        const i32 tall = md::clamp(2 * unit + multiply(cvol, 28 * unit), 0, 10 * pitch);
+        const i32 side = md::clamp(multiply(tall, 0x03d70a3d), pitch / 4, multiply(pitch, 0x26666666));   // 0.03 of its height, up to 0.3 pitch
         for (u32 g = 0; g < 10; ++g) {
             const i32 x = tx + static_cast<i32>(g) * pitch;
             xs[3 * g] = x; ys[3 * g] = ty;
-            xs[3 * g + 1] = x + multiply(pitch, 0x20000000);
+            xs[3 * g + 1] = x + side;
             ys[3 * g + 1] = ty - multiply(tall, 0x33333333 + multiply(0x4ccccccd, half + opxy::q31::half(noise[(g * 7 + cons * 5) & 31])));
-            xs[3 * g + 2] = x + multiply(pitch, half); ys[3 * g + 2] = ty;
+            xs[3 * g + 2] = x + 2 * side; ys[3 * g + 2] = ty;
         }
         xs[30] = tx + width; ys[30] = ty;
         lines(frame, extra, xs, ys, 31, 270, 104, 2, md::live::sealed(md::live::mix(md::live::mix(cons, clen), cvol)), mid);
