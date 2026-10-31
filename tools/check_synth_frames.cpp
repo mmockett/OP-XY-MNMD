@@ -276,6 +276,27 @@ int main() {
             }
         }
     }
+    // Every pair of controls together, at rest: a control can draw nothing until another
+    // turns it on (VO-6's burst waits for CONS), so one at a time from the defaults misses it.
+    for (int b = 0; b < 2; ++b) {
+        i32 base[8];
+        baseline_of(b ? 3 : 0, base);
+        for (int c = 0; c < control_count; ++c)
+            for (int d = 0; d < control_count; ++d) {
+                if (d == c) continue;
+                begin_run(base);
+                for (int v = 0; v < 128; v += 3)
+                    for (int w = 0; w < 128; w += 9) {
+                        std::snprintf(where, sizeof where, "%s, %s=%d %s=%d", baseline_names[b ? 3 : 0], controls[c].name, v, controls[d].name, w);
+                        i32 s[8];
+                        std::memcpy(s, base, sizeof s);
+                        s[controls[c].slot] = q(v);
+                        s[controls[d].slot] = q(w);
+                        set(s);
+                        step();
+                    }
+            }
+    }
     // Random settings, with chords.
     unsigned seed = 0x1234567u;
     for (int r = 0; r < 3000; ++r) {
