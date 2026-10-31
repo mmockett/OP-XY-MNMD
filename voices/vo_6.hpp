@@ -33,6 +33,16 @@ struct State {
     i32 limit;          // the limiter's gain, Q16 octaves (0 or less)
     u32 peak;           // the last block's peak
     u32 fresh;
+    // Block values kept while what they are made from holds (cached: bit 0 the
+    // pitch's, bit 1 the formants'); each is worked out again when it moves.
+    u32 cached;
+    u32 tuned_from;     // pitch[0] and TUNE's octaves: the increment and its log2
+    i32 tuned_by;
+    u32 increment;
+    i32 log2_increment;
+    i32 formants[2];    // o1 and o2: the formants' coefficients and the power's gain
+    i32 frequency, damp, a1[3];
+    i32 shape;          // normal(o1, o2) + log2 of the cascade's gain at DC - 30 octaves
 };
 namespace {
 using md::multiply;
@@ -243,6 +253,132 @@ inline void reset(State& voice, Common&, u32 owner) {
     voice.limit = 0;
     voice.peak = 0;
     voice.fresh = 0;
+    voice.cached = 0;
+}
+
+namespace {
+namespace block {
+// A resonant pole can swing past full scale for a moment. The sums are done in
+// unsigned words, which wrap by definition; a signed overflow would be undefined.
+inline i32 wrapped(i32 x) { return static_cast<i32>(static_cast<u32>(x) * 2u); }   // x * 2
+inline i32 fed(i32 in, i32 a, i32 b) {                                              // in + (a + b) * 2
+    return static_cast<i32>(static_cast<u32>(in) + (static_cast<u32>(a) + static_cast<u32>(b)) * 2u);
+}
+// md::noise without its zero check: xorshift never returns to 0, so a seed
+// checked once before a run of draws (first_seed) stays nonzero through it.
+inline u32 first_seed(u32 seed) { return seed ? seed : 0x9e3779b9u; }
+inline i32 noise(u32& seed) {
+    u32 x = seed;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    seed = x;
+    return static_cast<i32>(x);
+}
+// md::gain(x, 2) without branches: x * 4 inside +-one / 4, else +-one
+// (+-(limit * 4 + 3)).
+inline i32 limited(i32 value, i32 low, i32 high) {   // md::clamp, as MIN and MAX
+    value = value > high ? high : value;
+    return value < low ? low : value;
+}
+inline i32 gain4(i32 value) {
+    const i32 limit = md::one >> 2;
+    const i32 within = limited(value, -limit, limit);
+    const i32 beyond = limited(value, -limit - 1, limit + 1) - within;   // -1, 0 or 1
+    return within * 4 + beyond * 3;
+}
+// The buzz's impulses and, when Breathing, the noise, written to out. Returns the
+// noise's seed after the block.
+template <bool Breathing>
+__attribute__((noinline)) u32 excite(i32* out, State& voice, u32 increment, u32 whole, i32 inverse, i32 pulse, i32 pulse_mean,
+                                     i32 noise_gain, i32 noise_slope) {
+    u32 phase = voice.phase, seed = first_seed(voice.seed);
+    i32 carry = voice.carry;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) {
+        i32 e = carry - pulse_mean;
+        carry = 0;
+        const u32 before = phase;
+        phase += increment;
+        if (__builtin_expect(phase < before, 0)) {
+            // Crossed alpha = phase / increment samples ago: alpha here, the rest next sample.
+            const i32 alpha = md::clamp(wrapped(multiply(static_cast<i32>((phase << (30 - whole)) & 0x7fffffffu), inverse)), 0, md::one);
+            const i32 here = multiply(pulse, alpha);
+            e += here;
+            carry = pulse - here;
+        }
+        if (Breathing) { e += multiply(noise(seed), noise_gain); noise_gain += noise_slope; }
+        out[i] = e;
+    }
+    voice.phase = phase;
+    voice.carry = carry;
+    return seed;
+}
+// The first formant (md::Svf::run, on locals).
+__attribute__((noinline)) void first(i32* out, md::Svf& svf, i32 frequency, i32 damping) {
+    i32 low = svf.low, band = svf.band, high = svf.high;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) {
+        low += multiply(frequency, band) * 2;
+        high = out[i] - low - multiply(damping, band) * 2;
+        band += multiply(frequency, high) * 2;
+        out[i] = low;
+    }
+    svf.low = low; svf.band = band; svf.high = high;
+}
+// One all-pole formant.
+__attribute__((noinline)) void pole(i32* out, i32* y, i32 a1, i32 a2) {
+    // Two samples a turn, so the last two outputs swap roles instead of moving.
+    i32 y0 = y[0], y1 = y[1];
+    for (unsigned i = 0; i < opxy::block_frames; i += 2) {
+        y1 = fed(out[i], multiply(a1, y0), multiply(a2, y1));
+        out[i] = y1;
+        y0 = fed(out[i + 1], multiply(a1, y1), multiply(a2, y0));
+        out[i + 1] = y0;
+    }
+    y[0] = y0; y[1] = y1;
+}
+// Two all-pole formants in cascade.
+__attribute__((noinline)) void poles(i32* out, i32 (*y)[2], const i32* a1, const i32* a2) {
+    i32 p0 = y[0][0], p1 = y[0][1], q0 = y[1][0], q1 = y[1][1];
+    const i32 a = a1[0], b = a2[0], c = a1[1], d = a2[1];
+    for (unsigned i = 0; i < opxy::block_frames; i += 2) {
+        p1 = fed(out[i], multiply(a, p0), multiply(b, p1));
+        q1 = fed(p1, multiply(c, q0), multiply(d, q1));
+        out[i] = q1;
+        p0 = fed(out[i + 1], multiply(a, p1), multiply(b, p0));
+        q0 = fed(p0, multiply(c, q1), multiply(d, q0));
+        out[i + 1] = q0;
+    }
+    y[0][0] = p0; y[0][1] = p1; y[1][0] = q0; y[1][1] = q1;
+}
+// The hiss: the block's noise again from `seed`, through the band-pass twice,
+// added to out. Returns the seed after the block.
+__attribute__((noinline)) u32 hiss(i32* out, i32 (*z)[4], u32 seed, i32 hiss_gain, i32 hiss_slope, const Band& band) {
+    const i32 b0 = band.b0, a1 = band.a1, a2 = band.a2;
+    seed = first_seed(seed);
+    i32 x1 = z[0][0], x2 = z[0][1], y1 = z[0][2], y2 = z[0][3];
+    i32 u1 = z[1][0], u2 = z[1][1], v1 = z[1][2], v2 = z[1][3];
+    for (unsigned i = 0; i < opxy::block_frames; ++i) {
+        const i32 h = multiply(noise(seed), hiss_gain);
+        const i32 y = (multiply(b0, h - x2) - multiply(a1, y1) - multiply(a2, y2)) * 2;
+        x2 = x1; x1 = h; y2 = y1; y1 = y;
+        const i32 v = (multiply(b0, y - u2) - multiply(a1, v1) - multiply(a2, v2)) * 2;
+        u2 = u1; u1 = y; v2 = v1; v1 = v;
+        out[i] += gain4(v);
+        hiss_gain += hiss_slope;
+    }
+    z[0][0] = x1; z[0][1] = x2; z[0][2] = y1; z[0][3] = y2;
+    z[1][0] = u1; z[1][1] = u2; z[1][2] = v1; z[1][3] = v2;
+    return seed;
+}
+// The block's peak, from `peak`, and the output's ceiling.
+__attribute__((noinline)) u32 finish(opxy::Output out, const i32* in, u32 peak) {
+    for (unsigned i = 0; i < opxy::block_frames; ++i) {
+        const i32 e = in[i];
+        const u32 size = static_cast<u32>(e < 0 ? -e : e);
+        if (size > peak) peak = size;
+        out[i] = md::finish(e);
+    }
+    return peak;
+}
+}
 }
 
 inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::Pitch pitch) {
@@ -258,9 +394,16 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
         voice.gains[0] = voice.gains[1] = voice.gains[2] = 0;
     }
     const i32 tune = multiply(md::positive(p[TUNE]) - 0x40810204, 21675);   // (TUNE - 64) / 32 semitones: 127 / 384 octave per unit
-    const u32 increment = md::transpose(pitch[0], tune);
+    if (!(voice.cached & 1u) || voice.tuned_from != pitch[0] || voice.tuned_by != tune) {
+        voice.tuned_from = pitch[0];
+        voice.tuned_by = tune;
+        voice.increment = md::transpose(pitch[0], tune);
+        voice.log2_increment = log2_of(voice.increment);
+        voice.cached |= 1u;
+    }
+    const u32 increment = voice.increment;
     // 1 / increment, for where an impulse falls within a sample.
-    const i32 l = log2_of(increment);
+    const i32 l = voice.log2_increment;
     const u32 whole = static_cast<u32>(l) >> 16;
     const i32 inverse = md::exp2_table[256 - ((static_cast<u32>(l) >> 8) & 255u)];   // 2^(1 - fraction), Q30
 
@@ -280,19 +423,27 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
     }
 
     // The formants, and the gain that keeps their power.
-    const i32 octaves[4] = {m.o1, m.o2, m.o2 + f3_above_f2 > f3 ? m.o2 + f3_above_f2 : f3, f4};
-    const i32 frequency = md::cutoff(octaves[0]), damp = damping(first_width, octaves[0]);
-    i32 a1[3], a2[3];
-    i32 dc = 0x40000000;                                  // the all-pole stages' gain at DC, Q30
-    for (u32 k = 0; k < 3; ++k) {
-        a1[k] = multiply(radius[k], md::sine(md::transpose(at_20hz, octaves[k + 1]) + 0x40000000u));   // 2 r cos, Q30
-        a2[k] = -radius2[k];
-        dc = multiply(dc, 0x40000000 + radius2[k] - a1[k]) * 2;
+    if (!(voice.cached & 2u) || voice.formants[0] != m.o1 || voice.formants[1] != m.o2) {
+        const i32 octaves[4] = {m.o1, m.o2, m.o2 + f3_above_f2 > f3 ? m.o2 + f3_above_f2 : f3, f4};
+        voice.frequency = md::cutoff(octaves[0]);
+        voice.damp = damping(first_width, octaves[0]);
+        i32 dc = 0x40000000;                              // the all-pole stages' gain at DC, Q30
+        for (u32 k = 0; k < 3; ++k) {
+            voice.a1[k] = multiply(radius[k], md::sine(md::transpose(at_20hz, octaves[k + 1]) + 0x40000000u));   // 2 r cos, Q30
+            dc = multiply(dc, 0x40000000 + radius2[k] - voice.a1[k]) * 2;
+        }
+        voice.shape = normal(m.o1, m.o2) + log2_of(static_cast<u32>(dc)) - 30 * md::octave;
+        voice.formants[0] = m.o1;
+        voice.formants[1] = m.o2;
+        voice.cached |= 2u;
     }
+    const i32 frequency = voice.frequency, damp = voice.damp;
+    const i32* a1 = voice.a1;
+    const i32 a2[3] = {-radius2[0], -radius2[1], -radius2[2]};
     if (voice.peak > limit_peak) voice.limit = md::clamp(voice.limit + log2_of(limit_peak) - log2_of(voice.peak), limit_most, 0);
     else voice.limit = voice.limit + limit_release < 0 ? voice.limit + limit_release : 0;
     voice.peak = 0;
-    const i32 norm = normal(m.o1, m.o2) + m.boost + log2_of(static_cast<u32>(dc)) - 30 * md::octave + voice.limit;
+    const i32 norm = voice.shape + m.boost + voice.limit;
     // The impulse: K sqrt(period) high, so every pitch has the same power, less
     // its mean K / sqrt(period); the noise at K.
     // Below C1 (32.7 Hz) the impulses grow no taller, so each stays under the ceiling.
@@ -324,46 +475,17 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
     if (!hissing) for (u32 k = 0; k < 8; ++k) voice.hiss[k >> 2][k & 3] = 0;
     for (u32 k = 0; k < 3; ++k) voice.gains[k] = target[k];
 
-    for (unsigned i = 0; i < opxy::block_frames; ++i) {
-        i32 e = voice.carry - pulse_mean;
-        voice.carry = 0;
-        const u32 before = voice.phase;
-        voice.phase += increment;
-        if (voice.phase < before) {
-            // Crossed alpha = phase / increment samples ago: alpha here, the rest next sample.
-            const i32 alpha = md::clamp(multiply(static_cast<i32>((voice.phase << (30 - whole)) & 0x7fffffffu), inverse) * 2, 0, md::one);
-            const i32 here = multiply(pulse, alpha);
-            e += here;
-            voice.carry = pulse - here;
-        }
-        i32 n = 0;
-        if (breathing || hissing) n = md::noise(voice.seed);
-        if (breathing) { e += multiply(n, noise_gain); noise_gain += noise_slope; }
-        voice.first.run(e, frequency, damp);
-        e = voice.first.low;
-        for (u32 k = 0; k < 3; ++k) {
-            i32* y = voice.poles[k];
-            const i32 next = e + (multiply(a1[k], y[0]) + multiply(a2[k], y[1])) * 2;
-            y[1] = y[0];
-            y[0] = next;
-            e = next;
-        }
-        if (hissing) {
-            // The hiss: the band-pass, twice.
-            i32 h = multiply(n, hiss_gain);
-            for (u32 k = 0; k < 2; ++k) {
-                i32* z = voice.hiss[k];
-                const i32 y = (multiply(band.b0, h - z[1]) - multiply(band.a1, z[2]) - multiply(band.a2, z[3])) * 2;
-                z[1] = z[0]; z[0] = h; z[3] = z[2]; z[2] = y;
-                h = y;
-            }
-            e += md::gain(h, 2);
-            hiss_gain += hiss_slope;
-        }
-        const u32 size = static_cast<u32>(e < 0 ? -e : e);
-        if (size > voice.peak) voice.peak = size;
-        out[i] = md::finish(e);
-    }
+    // The samples, in passes over the output (block::), each a short loop with
+    // its state in locals: the same arithmetic in the same order.
+    i32 e[opxy::block_frames];
+    const u32 seed = voice.seed;
+    if (breathing) voice.seed = block::excite<true>(e, voice, increment, whole, inverse, pulse, pulse_mean, noise_gain, noise_slope);
+    else block::excite<false>(e, voice, increment, whole, inverse, pulse, pulse_mean, noise_gain, noise_slope);
+    block::first(e, voice.first, frequency, damp);
+    block::poles(e, voice.poles, a1, a2);
+    block::pole(e, voice.poles[2], a1[2], a2[2]);
+    if (hissing) voice.seed = block::hiss(e, voice.hiss, seed, hiss_gain, hiss_slope, band);
+    voice.peak = block::finish(out, e, voice.peak);
     voice.age += opxy::block_frames;
 }
 }

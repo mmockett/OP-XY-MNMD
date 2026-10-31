@@ -97,6 +97,7 @@ inline void unfold(Path& path) {
             if (near(far, next)) { far.x += mx; far.y += my; }   // past it, rather than onto it
         }
     }
+    md::view::blunt(p, m);   // a move here can sharpen a turn outline() already squared
     for (u32 i = m; i < 64; ++i) p[i] = p[m - 1];
 }
 }

@@ -172,7 +172,9 @@ inline void draw(F& frame, const i32* s, const Moment& moment) {
     if (cons) {
         // Ten grains, each up from the line and back, a tenth of the width apart.
         i32 xs[32], ys[32];
-        const i32 tall = 2 * unit + multiply(cvol, 28 * unit), pitch = multiply(width, 0x0ccccccd);   // 1 / 10
+        const i32 pitch = multiply(width, 0x0ccccccd);   // 1 / 10
+        // No taller than 18 pitches: a narrower grain is a turn nearly straight back.
+        const i32 tall = md::clamp(2 * unit + multiply(cvol, 28 * unit), 0, 18 * pitch);
         for (u32 g = 0; g < 10; ++g) {
             const i32 x = tx + static_cast<i32>(g) * pitch;
             xs[3 * g] = x; ys[3 * g] = ty;
