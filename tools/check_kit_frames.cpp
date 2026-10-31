@@ -13,6 +13,7 @@
 //
 //   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<kit> -DENGINE=<kit> tools/check_kit_frames.cpp -o local/check
 #include "display.cpp"
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -24,6 +25,11 @@ unsigned worst = 0, worst_switch = 0;
 char worst_when[96], worst_switch_when[96];
 bool switching = false;
 const unsigned churn_limit = 30;
+const double sharpest_floor = 2.5;   // degrees from straight back
+double sharpest[64];
+char sharpest_when[64][140];
+int too_sharp = 0;
+unsigned current = 0;
 
 // A point of a shown path where the device draws it, in Q10 screen pixels.
 void place_point(const Node& n, const Point& p, long long& x, long long& y) {
@@ -63,6 +69,12 @@ bool check(const EngineFrame& f, const EngineFrame& before, const char* when, bo
             const Point& c = xy[(i + 2) % m];
             const long long ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
             if (m > 2 && ux * vy - uy * vx == 0 && ux * vx + uy * vy < 0 && !fail(when, "turns straight back", p)) return false;
+            // A stroke's mitre runs far out at a turn nearly straight back.
+            if (m > 2 && ux * vx + uy * vy < 0) {
+                const double angle = std::atan2(std::fabs(static_cast<double>(ux * vy - uy * vx)), -static_cast<double>(ux * vx + uy * vy)) * 180 / M_PI;
+                if (angle < sharpest[current]) { sharpest[current] = angle; std::snprintf(sharpest_when[current], sizeof sharpest_when[0], "path %u, %s", p, when); }
+                if (angle < sharpest_floor) ++too_sharp;
+            }
         }
         const double area = (twice < 0 ? -twice : twice) / 2.0 / (unit * unit);
         if (m > 2 && area < 0.05 && !fail(when, "has no area", p)) return false;
@@ -103,6 +115,7 @@ bool run(opxy::u32 model, const opxy::i32* slots, const char* setting, int from)
     input.elapsed = 1024 / 60;
     if (from < 0) { ENGINE::display_reset(state); frame = EngineFrame(); }
     char when[96];
+    current = model;
     for (int t = 0; t < 60; ++t) {
         input.model = model;
         if (t == 2) { input.note_serial++; input.held_notes = 1; }
@@ -166,6 +179,7 @@ void walk(opxy::u32 model, int control) {
 }
 
 int main() {
+    for (int i = 0; i < 64; ++i) sharpest[i] = 180;
     const opxy::i32 middle = 64 << 24;
     for (opxy::u32 m = 0; m < ENGINE::kit::models; ++m) {
         opxy::i32 slots[8];
@@ -194,5 +208,9 @@ int main() {
                 "on a switch: %u (%s)\n", failures ? "FAIL" : "PASS", ENGINE::kit::models, worst, worst_when,
                 worst_switch, worst_switch_when);
     if (worst > churn_limit) std::printf("WARN: more than %u nodes changed in a frame while playing\n", churn_limit);
+    for (opxy::u32 m = 0; m < ENGINE::kit::models; ++m)
+        std::printf("sharpest %-3s (%2u): %6.2f  %s\n", ENGINE::kit::model[m].name, m, sharpest[m], sharpest_when[m]);
+    std::printf("%d turns under %.1f degrees from straight back\n", too_sharp, sharpest_floor);
+    if (too_sharp) ++failures;
     return failures ? 1 : 0;
 }
