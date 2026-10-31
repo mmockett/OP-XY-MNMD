@@ -159,6 +159,63 @@ int main() {
             }
         }
     }
+    // The silent tail: a voice stops running its machine only once the machine
+    // itself would stay under the floor. Each machine with all its controls at
+    // 0, at the middle and at 127, then each at either end, rendered by the
+    // engine and by the machine alone for 24 s: the same until the engine
+    // stops, the machine under the floor from then on.
+    for (opxy::u32 m = 0; m < mde12::kit::models; ++m)
+        for (int c = -3; c < 16; ++c) {
+            opxy::i32 values[8];
+            for (int i = 0; i < 8; ++i) values[i] = c == -3 ? 0 : c == -1 ? 0x7fffffff : 64 << 24;
+            if (c >= 0) values[c / 2] = c & 1 ? 0x7fffffff : 0;
+            static mde12::Voice engine_voice, alone;
+            mde12::Shared a = mde12::Shared(), b = mde12::Shared();
+            std::memset(&engine_voice, 0, sizeof engine_voice);
+            std::memset(&alone, 0, sizeof alone);
+            mde12::initialize(engine_voice, a, 1);
+            mde12::drum_select(engine_voice, a, 1, m);
+            mde12::start(engine_voice, a, 1);
+            alone.machine = m; alone.owner = 1;
+            mde12::begin_member(alone, b);
+            opxy::u32 pitch[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+            opxy::i32 own[8];
+            mde12::kit::controls(m, values, own);
+            opxy::u32 tuned[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
+            bool cut = false, ended = false;
+            unsigned blk = 0;
+            for (; blk < 24 * 689 && !cut; ++blk) {
+                opxy::i32 x[opxy::block_frames], y[opxy::block_frames];
+                mde12::drum_select(engine_voice, a, 1, m);
+                mde12::render(engine_voice, a, 1, x, values, pitch);
+                switch (m) {
+                case 0: md::e12_bd::render(alone.u.m0, b.common, y, own, tuned); break;
+                case 1: md::e12_sd::render(alone.u.m1, b.common, y, own, tuned); break;
+                case 2: md::e12_ht::render(alone.u.m2, b.common, y, own, tuned); break;
+                case 3: md::e12_lt::render(alone.u.m3, b.common, y, own, tuned); break;
+                case 4: md::e12_cp::render(alone.u.m4, b.common, y, own, tuned); break;
+                case 5: md::e12_rs::render(alone.u.m5, b.common, y, own, tuned); break;
+                case 6: md::e12_cb::render(alone.u.m6, b.common, y, own, tuned); break;
+                case 7: md::e12_ch::render(alone.u.m7, b.common, y, own, tuned); break;
+                case 8: md::e12_oh::render(alone.u.m8, b.common, y, own, tuned); break;
+                case 9: md::e12_rc::render(alone.u.m9, b.common, y, own, tuned); break;
+                case 10: md::e12_cc::render(alone.u.m10, b.common, y, own, tuned); break;
+                case 11: md::e12_br::render(alone.u.m11, b.common, y, own, tuned); break;
+                case 12: md::e12_ta::render(alone.u.m12, b.common, y, own, tuned); break;
+                case 13: md::e12_tr::render(alone.u.m13, b.common, y, own, tuned); break;
+                case 14: md::e12_sh::render(alone.u.m14, b.common, y, own, tuned); break;
+                case 15: md::e12_bc::render(alone.u.m15, b.common, y, own, tuned); break;
+                default: break;
+                }
+                for (unsigned i = 0; i < opxy::block_frames; ++i)
+                    cut = cut || (ended ? y[i] >= mde12::quiet_floor || y[i] <= -mde12::quiet_floor : x[i] != y[i]);
+                ended = ended || mde12::finished(engine_voice, a);
+            }
+            if (cut) { std::printf("FAIL %s (%u), case %d: the silent tail cuts its sound at %.2f s (%s)\n", mde12::model_name(m), m, c,
+                                 blk * 64.0 / 44100, ended ? "it sounds again" : "the engine differs"); ++failures; }
+        }
     if (!failures) std::puts("PASS mde12");
     return failures ? 1 : 0;
 }

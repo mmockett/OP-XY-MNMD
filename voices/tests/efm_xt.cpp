@@ -45,7 +45,22 @@ int main() {
     PLAY(fm);
     const double side = db(tone(430.5, ms(20), ms(80))) - db(tone(86.1, ms(20), ms(80)));
     std::printf("MOD 64 sideband %.1f dB\n", side);
-    expect("MOD 64 sideband near -6 dB", side > -9 && side < -3);
+    expect("MOD 64 sideband near -6 dB", side > -11 && side < -3);
+
+    // MOD 110: the fed-back modulator's grit, jagged where MOD 0 is smooth (third differences).
+    const int gritty[8] = {80, 64, 40, 40, 110, 48, 48, 0}, smooth[8] = {80, 64, 40, 40, 0, 48, 48, 0};
+    double rough[2];
+    for (int k = 0; k < 2; ++k) {
+        PLAY(k ? smooth : gritty);
+        double sum = 0;
+        for (unsigned i = ms(10); i < ms(50); ++i) {
+            const double d = (out[i] - 3.0 * out[i - 1] + 3.0 * out[i - 2] - out[i - 3]) / 2147483648.0;
+            sum += d * d;
+        }
+        rough[k] = db(std::sqrt(sum / ms(40)));
+    }
+    std::printf("third differences: MOD 110 %.1f dB, MOD 0 %.1f dB\n", rough[0], rough[1]);
+    expect("MOD 110 has grit", rough[0] > rough[1] + 30);
 
     // CLIC: 0 starts from a zero crossing, 127 from beyond the body's swing.
     const int soft[8] = {64, 96, 16, 64, 0, 64, 64, 0};

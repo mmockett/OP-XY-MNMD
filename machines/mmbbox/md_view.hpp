@@ -207,8 +207,9 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
     while (m > 1 && near(p[m - 1], p[0])) --m;
     if (!m) p[m++] = Point();
     blunt(p, m);
-    // An edge halves while it spans two eighths of a pixel on an axis, so its
-    // midpoint stays apart from both ends; edge m - 1 closes the outline.
+    // An edge halves while it spans four eighths of a pixel on an axis, so both
+    // halves keep the quarter pixel a closing edge needs; edge m - 1 closes the
+    // outline.
     while (m < 64) {
         u32 at = 0;
         i32 longest = 0;
@@ -218,7 +219,7 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
             const i32 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, span = ax > ay ? ax : ay;
             if (span > longest) { longest = span; at = i; }
         }
-        if (longest < 2 * apart) break;
+        if (longest < 4 * apart) break;
         const Point a = p[at], b = p[at + 1 < m ? at + 1 : 0];
         Point mid;
         mid.x = a.x + (b.x - a.x) / 2;
@@ -228,6 +229,7 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
         p[at + 1] = mid;
         ++m;
     }
+    blunt(p, m);   // again: a midpoint moved aside can sharpen a turn past the limit
     // The outline is a loop, so it may start anywhere: start it where both its
     // edges are longest. The device draws a closing edge only an eighth of a
     // pixel long (a ribbon's end, on a level or upright line) as a long sliver

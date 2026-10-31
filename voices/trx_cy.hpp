@@ -8,27 +8,33 @@
 // point and fitted to the Machinedrum's own (reference/fit_cy.py). Its page:
 //   RICH  DEC   TOP   TTUN
 //   SIZE  PEAK
-// As measured: a fixed set of lines, the odd harmonics of square waves near
-// 432, 513, 551, 760, 774 and 848 Hz with two more near 1160 and 1547 Hz,
-// running free (no two hits alike in detail; here they start at random
-// phases). The controls weigh them, never tune them: SIZE is the body's steep
-// high-pass, 380 Hz to 1.4 kHz (a bigger cymbal lower); TOP and PEAK raise the
-// band above 5 kHz by 15 and 17 dB, TTUN moves its steep upper edge from 4.5
-// to 10.5 kHz; RICH brings in the four lower squares and with them about 9 dB.
-// DEC: -60 dB in 1.3 to 6 s, the top 1.6 times as fast. The squares are
-// band-limited (to their 13th harmonic): naive ones fold their aliases into
-// the top octave, which the Machinedrum keeps 44 dB down. Its cymbal peaks near
-// -28 dB; here it is lifted 15 dB, as its hats are. The key moves all of it.
+// As measured on the emulator: a fixed set of lines, the odd harmonics of five
+// square waves at 432.35, 512.79, 551.25, 760.34 and 848.08 Hz, and every
+// harmonic of a pulse at 386.84 Hz, its duty about 3/8 (its 8th and 16th
+// missing), running free (no two hits alike in detail; here they start at
+// random phases). The controls weigh them, never tune them: SIZE is the body's steep
+// high-pass with a knee, 640 Hz to 1.7 kHz (a bigger cymbal lower), flat above it up
+// to the top; TOP and PEAK raise the band above 5 kHz by 15 and 17 dB, TTUN moves
+// its steep upper edge from 4.5 to 10.5 kHz; RICH brings in the five squares, 19 dB
+// down at 0, never the pulse. The top comes in from a resonant high-pass, opposed to
+// the body, so the two cancel where they meet: the Machinedrum's dip near 4.2 kHz,
+// deeper the higher SIZE. DEC: -60 dB in 1 to 5 s, the top 1.6 times as fast. The
+// squares are band-limited (to their 13th harmonic) and the pulse to its 40th
+// (15.5 kHz): naive ones fold their aliases into the top octave, which the Machinedrum
+// keeps 44 dB down. Its cymbal peaks near -28 dB; here its lines are lifted 15 dB, as
+// its hats are. The key moves all of it.
 namespace md {
 namespace trx_cy {
 struct State {
-    u32 phase[8];
+    u32 phase[6];             // the five squares, then the pulse
     i32 body, top;            // the two envelopes, Q31
-    i32 size[4];              // the body's four high-pass poles (SIZE)
-    i32 dull;                 // the body's low-pass pole
-    i32 under;                // the top's extra high-pass pole
+    i32 size[2];              // the body's two high-pass poles (SIZE)
+    md::Svf knee;             // and its resonant stage
+    i32 dull[2];              // its two low-pass poles
     i32 top_state[3][4];      // the top's three biquads: x1 x2 y1 y2
     u32 seed;
+    i32 body_out, top_out;   // the gains each block ended on, which the next starts from
+    u32 carrying;     // they are set: a note's first block starts from its envelope
     u32 fresh;
 };
 namespace {
@@ -36,12 +42,12 @@ using md::multiply;
 
 enum { RICH, DEC, TOP, TTUN, SIZE, PEAK };
 
-const unsigned partial_count = 8, lower = 4;   // the first four come in with RICH
-const i32 partials[partial_count] = {47417, 63665, 70422, 100827, 102553, 111186, 140807, 168028};
+const unsigned partial_count = 6, squares = 5;   // the squares come in with RICH; the pulse last
+const i32 partials[partial_count] = {47494, 63627, 70465, 100869, 111195, 36978};
 // A square band-limited to its 13th harmonic, 1024 steps, at 1/128 of full scale
 // (the harmonics' sum peaks at 1.18 x the square): the cymbal's squares, without
 // the aliases a naive square folds into the top octave. Eight of them sum to
-// at most 1/16 of full scale, where the filters want them.
+// at most 1/16 of full scale, where the filters want them, with the pulse.
 const i32 square_table[1024] = {
     0, 776869, 1551837, 2323015, 3088526, 3846520, 4595180, 5332729,
     6057439, 6767637, 7461714, 8138129, 8795418, 9432200, 10047181, 10639160,
@@ -172,12 +178,151 @@ const i32 square_table[1024] = {
     -11207035, -10639160, -10047181, -9432200, -8795418, -8138129, -7461714, -6767637,
     -6057439, -5332729, -4595180, -3846520, -3088526, -2323015, -1551837, -776869,
 };
-// SIZE: the body's four-pole high-pass, 380 Hz to 1.4 kHz; over it a low-pass pole at 1.5 kHz.
-const i32 size_highpass[9] = {113175195, 146947895, 180159915, 212820563, 244938994, 282427997, 319178293, 355204436, 388333961};
-const i32 body_lowpass = 413219893;
-// The top: a second-order high-pass at 6 kHz (Q 0.9), then TTUN's
+// The pulse at 386.84 Hz: duty 3/8, its harmonics to the 40th (15.5 kHz), no DC, at the
+// squares' scale (1/128 of full scale). Its fundamental is 13 dB under a
+// pulse's: the emulator's sits that far under ours at every SIZE, which moves
+// both alike. It peaks at 1.21 x the scale.
+const i32 pulse_table[1024] = {
+    -1722606, 805021, 3283964, 5663679, 7897112, 9942355, 11764097, 13334791,
+    14635503, 15656395, 16396836, 16865148, 17077979, 17059360, 16839486, 16453278,
+    15938790, 15335546, 14682873, 14018311, 13376161, 12786240, 12272888, 11854270,
+    11541982, 11340985, 11249844, 11261256, 11362831, 11538072, 11767505, 12029899,
+    12303501, 12567239, 12801821, 12990691, 13120783, 13183067, 13172838, 13089772,
+    12937735, 12724372, 12460515, 12159436, 11835993, 11505731, 11183974, 10884967,
+    10621111, 10402323, 10235570, 10124572, 10069707, 10068102, 10113911, 10198746,
+    10312240, 10442709, 10577866, 10705542, 10814394, 10894529, 10938039, 10939401,
+    10895734, 10806893, 10675407, 10506262, 10306549, 10084999, 9851436, 9616179,
+    9389425, 9180662, 8998131, 8848369, 8735872, 8662867, 8629239, 8632581,
+    8668384, 8730343, 8810763, 8901036, 8992163, 9075292, 9142231, 9185920,
+    9200824, 9183234, 9131449, 9045845, 8928819, 8784613, 8619036, 8439096,
+    8252569, 8067531, 7891876, 7732854, 7596654, 7488052, 7410153, 7364229,
+    7349670, 7364043, 7403265, 7461861, 7533307, 7610429, 7685834, 7752350,
+    7803450, 7833625, 7838704, 7816081, 7764854, 7685859, 7581603, 7456096,
+    7314599, 7163300, 7008940, 6858404, 6718315, 6594646, 6492367, 6415165,
+    6365232, 6343153, 6347885, 6376828, 6425999, 6490274, 6563705, 6639877,
+    6712294, 6774764, 6821765, 6848769, 6852500, 6831125, 6784349, 6713424,
+    6621065, 6511278, 6389117, 6260372, 6131227, 6007885, 5896203, 5801345,
+    5727476, 5677523, 5653007, 5653959, 5678924, 5725057, 5788297, 5863615,
+    5945317, 6027385, 6103837, 6169084, 6218257, 6247501, 6254193, 6237101,
+    6196449, 6133899, 6052449, 5956250, 5850358, 5740426, 5632369, 5532010,
+    5444736, 5375174, 5326919, 5302321, 5302350, 5326536, 5373002, 5438579,
+    5518992, 5609122, 5703307, 5795683, 5880532, 5952624, 6007528, 6041876,
+    6053564, 6041876, 6007528, 5952624, 5880532, 5795683, 5703307, 5609122,
+    5518992, 5438579, 5373002, 5326536, 5302350, 5302321, 5326919, 5375174,
+    5444736, 5532010, 5632369, 5740426, 5850358, 5956250, 6052449, 6133899,
+    6196449, 6237101, 6254193, 6247501, 6218257, 6169084, 6103837, 6027385,
+    5945317, 5863615, 5788297, 5725057, 5678924, 5653959, 5653007, 5677523,
+    5727476, 5801345, 5896203, 6007885, 6131227, 6260372, 6389117, 6511278,
+    6621065, 6713424, 6784349, 6831125, 6852500, 6848769, 6821765, 6774764,
+    6712294, 6639877, 6563705, 6490274, 6425999, 6376828, 6347885, 6343153,
+    6365232, 6415165, 6492367, 6594646, 6718315, 6858404, 7008940, 7163300,
+    7314599, 7456096, 7581603, 7685859, 7764854, 7816081, 7838704, 7833625,
+    7803450, 7752350, 7685834, 7610429, 7533307, 7461861, 7403265, 7364043,
+    7349670, 7364229, 7410153, 7488052, 7596654, 7732854, 7891876, 8067531,
+    8252569, 8439096, 8619036, 8784613, 8928819, 9045845, 9131449, 9183234,
+    9200824, 9185920, 9142231, 9075292, 8992163, 8901036, 8810763, 8730343,
+    8668384, 8632581, 8629239, 8662867, 8735872, 8848369, 8998131, 9180662,
+    9389425, 9616179, 9851436, 10084999, 10306549, 10506262, 10675407, 10806893,
+    10895734, 10939401, 10938039, 10894529, 10814394, 10705542, 10577866, 10442709,
+    10312240, 10198746, 10113911, 10068102, 10069707, 10124572, 10235570, 10402323,
+    10621111, 10884967, 11183974, 11505731, 11835993, 12159436, 12460515, 12724372,
+    12937735, 13089772, 13172838, 13183067, 13120783, 12990691, 12801821, 12567239,
+    12303501, 12029899, 11767505, 11538072, 11362831, 11261256, 11249844, 11340985,
+    11541982, 11854270, 12272888, 12786240, 13376161, 14018311, 14682873, 15335546,
+    15938790, 16453278, 16839486, 17059360, 17077979, 16865148, 16396836, 15656395,
+    14635503, 13334791, 11764097, 9942355, 7897112, 5663679, 3283964, 805021,
+    -1722606, -4246697, -6715232, -9078252, -11289633, -13308698, -15101584, -16642329,
+    -17913618, -18907181, -19623801, -20072978, -20272231, -20246104, -20024918, -19643317,
+    -19138702, -18549598, -17914055, -17268125, -16644507, -16071392, -15571572, -15161830,
+    -14852634, -14648134, -14546452, -14540240, -14617458, -14762337, -14956468, -15179954,
+    -15412568, -15634867, -15829188, -15980512, -16077125, -16111078, -16078418, -15979193,
+    -15817240, -15599776, -15336831, -15040545, -14724385, -14402329, -14088047, -13794149,
+    -13531509, -13308729, -13131737, -13003566, -12924294, -12891158, -12898820, -12939776,
+    -13004864, -13083853, -13166071, -13241033, -13299046, -13331731, -13332475, -13296745,
+    -13222288, -13109189, -12959788, -12778479, -12571390, -12345975, -12110541, -11873742,
+    -11644061, -11429328, -11236275, -11070177, -10934587, -10831169, -10759657, -10717918,
+    -10702125, -10707026, -10726287, -10752887, -10779549, -10799175, -10805251, -10792222,
+    -10755791, -10693145, -10603086, -10486066, -10344122, -10180722, -10000533, -9809121,
+    -9612599, -9417265, -9229222, -9054025, -8896364, -8759808, -8646614, -8557623,
+    -8492236, -8448477, -8423137, -8411984, -8410035, -8411861, -8411919, -8404877,
+    -8385926, -8351059, -8297290, -8222813, -8127089, -8010860, -7876080, -7725781,
+    -7563877, -7394918, -7223812, -7055528, -6894802, -6745861, -6612181, -6496292,
+    -6399644, -6322536, -6264118, -6222454, -6194657, -6177072, -6165502, -6155468,
+    -6142474, -6122278, -6091135, -6046019, -5984787, -5906298, -5810466, -5698251,
+    -5571591, -5433274, -5286761, -5135974, -4985055, -4838122, -4699023, -4571110,
+    -4457049, -4358667, -4276855, -4211528, -4161638, -4125250, -4099666, -4081593,
+    -4067347, -4053076, -4034990, -4009584, -3973848, -3925437, -3862803, -3785281,
+    -3693121, -3587459, -3470245, -3344119, -3212244, -3078117, -2945357, -2817487,
+    -2697727, -2588806, -2492804, -2411034, -2343974, -2291239, -2251622, -2223165,
+    -2203284, -2188933, -2176783, -2163426, -2145580, -2120277, -2085046, -2038050,
+    -1978191, -1905172, -1819506, -1722480, -1616075, -1502837, -1385727, -1267939,
+    -1152710, -1043124, -941932, -851390, -773131, -708067, -656343, -617336,
+    -589693, -571420, -560003, -552565, -546034, -537333, -523561, -502166,
+    -471092, -428903, -374860, -308967, -231960, -145263, -50897, 48642,
+    150535, 251810, 349522, 440922, 523629, 595761, 656050, 703910,
+    739475, 763579, 777707, 783905, 784649, 782702, 780942, 782194,
+    789057, 803756, 828005, 862911, 908909, 965739, 1032462, 1107526,
+    1188852, 1273968, 1360151, 1444598, 1524585, 1597639, 1661673, 1715120,
+    1757018, 1787066, 1805642, 1813774, 1813080, 1805667, 1794005, 1780778,
+    1768721, 1760459, 1758350, 1764342, 1779865, 1805738, 1842130, 1888545,
+    1943858, 2006381, 2073970, 2144146, 2214252, 2281606, 2343667, 2398181,
+    2443317, 2477776, 2500868, 2512547, 2513421, 2504706, 2488156, 2465956,
+    2440593, 2414702, 2390914, 2371694, 2359196, 2355136, 2360688, 2376415,
+    2402235, 2437433, 2480694, 2530193, 2583698, 2638704, 2692588, 2742761,
+    2786823, 2822710, 2848813, 2864076, 2868057, 2860957, 2843605, 2817406,
+    2784263, 2746457, 2706513, 2667047, 2630615, 2599553, 2575841, 2560986,
+    2555927, 2560986, 2575841, 2599553, 2630615, 2667047, 2706513, 2746457,
+    2784263, 2817406, 2843605, 2860957, 2868057, 2864076, 2848813, 2822710,
+    2786823, 2742761, 2692588, 2638704, 2583698, 2530193, 2480694, 2437433,
+    2402235, 2376415, 2360688, 2355136, 2359196, 2371694, 2390914, 2414702,
+    2440593, 2465956, 2488156, 2504706, 2513421, 2512547, 2500868, 2477776,
+    2443317, 2398181, 2343667, 2281606, 2214252, 2144146, 2073970, 2006381,
+    1943858, 1888545, 1842130, 1805738, 1779865, 1764342, 1758350, 1760459,
+    1768721, 1780778, 1794005, 1805667, 1813080, 1813774, 1805642, 1787066,
+    1757018, 1715120, 1661673, 1597639, 1524585, 1444598, 1360151, 1273968,
+    1188852, 1107526, 1032462, 965739, 908909, 862911, 828005, 803756,
+    789057, 782194, 780942, 782702, 784649, 783905, 777707, 763579,
+    739475, 703910, 656050, 595761, 523629, 440922, 349522, 251810,
+    150535, 48642, -50897, -145263, -231960, -308967, -374860, -428903,
+    -471092, -502166, -523561, -537333, -546034, -552565, -560003, -571420,
+    -589693, -617336, -656343, -708067, -773131, -851390, -941932, -1043124,
+    -1152710, -1267939, -1385727, -1502837, -1616075, -1722480, -1819506, -1905172,
+    -1978191, -2038050, -2085046, -2120277, -2145580, -2163426, -2176783, -2188933,
+    -2203284, -2223165, -2251622, -2291239, -2343974, -2411034, -2492804, -2588806,
+    -2697727, -2817487, -2945357, -3078117, -3212244, -3344119, -3470245, -3587459,
+    -3693121, -3785281, -3862803, -3925437, -3973848, -4009584, -4034990, -4053076,
+    -4067347, -4081593, -4099666, -4125250, -4161638, -4211528, -4276855, -4358667,
+    -4457049, -4571110, -4699023, -4838122, -4985055, -5135974, -5286761, -5433274,
+    -5571591, -5698251, -5810466, -5906298, -5984787, -6046019, -6091135, -6122278,
+    -6142474, -6155468, -6165502, -6177072, -6194657, -6222454, -6264118, -6322536,
+    -6399644, -6496292, -6612181, -6745861, -6894802, -7055528, -7223812, -7394918,
+    -7563877, -7725781, -7876080, -8010860, -8127089, -8222813, -8297290, -8351059,
+    -8385926, -8404877, -8411919, -8411861, -8410035, -8411984, -8423137, -8448477,
+    -8492236, -8557623, -8646614, -8759808, -8896364, -9054025, -9229222, -9417265,
+    -9612599, -9809121, -10000533, -10180722, -10344122, -10486066, -10603086, -10693145,
+    -10755791, -10792222, -10805251, -10799175, -10779549, -10752887, -10726287, -10707026,
+    -10702125, -10717918, -10759657, -10831169, -10934587, -11070177, -11236275, -11429328,
+    -11644061, -11873742, -12110541, -12345975, -12571390, -12778479, -12959788, -13109189,
+    -13222288, -13296745, -13332475, -13331731, -13299046, -13241033, -13166071, -13083853,
+    -13004864, -12939776, -12898820, -12891158, -12924294, -13003566, -13131737, -13308729,
+    -13531509, -13794149, -14088047, -14402329, -14724385, -15040545, -15336831, -15599776,
+    -15817240, -15979193, -16078418, -16111078, -16077125, -15980512, -15829188, -15634867,
+    -15412568, -15179954, -14956468, -14762337, -14617458, -14540240, -14546452, -14648134,
+    -14852634, -15161830, -15571572, -16071392, -16644507, -17268125, -17914055, -18549598,
+    -19138702, -19643317, -20024918, -20246104, -20272231, -20072978, -19623801, -18907181,
+    -17913618, -16642329, -15101584, -13308698, -11289633, -9078252, -6715232, -4246697
+};
+// SIZE 0, 16, ..., 127: the body's steep high-pass, two poles over a resonant state-variable
+// stage whose knee is the fitted 645 Hz .. 1.7 kHz, and the body's and top's levels.
+const i32 size_poles[9] = {187210086, 202669282, 229191968, 259377350, 287542031, 395496704, 455374214, 502821737, 569971742};
+const i32 size_knee[9] = {97904970, 106396697, 121120042, 138119214, 154219305, 167948391, 196566810, 219947042, 254166990};
+const i32 size_body[9] = {1250281612, 1126428056, 1105039925, 1221465160, 1304828615, 1794642182, 1832645536, 1878928816, 2147268900};
+const i32 size_top[9] = {1702256925, 2147268900, 1946927463, 1714322106, 1937849247, 1292232921, 1601677888, 1592098745, 1390290868};
+const i32 body_damping = 214748365;
+const i32 body_lowpass = 1371000000;   // two poles at 7 kHz: the body stays flat up to the top, and no further
+// The top: a resonant second-order high-pass that SIZE moves, then TTUN's
 // fourth-order Butterworth low-pass, 4.5 to 10.5 kHz, as two biquads:
-// coefficients Q30 (b0 b1 b2 a1 a2), TTUN's at its 0, 16, ..., 127.
+// coefficients Q30 (b0 b1 b2 a1 a2), each at its control's 0, 16, ..., 127.
 struct Biquad { i32 b0, b1, b2, a1, a2; };
 const Biquad ttun_lowpass0[9] = {
     {68669815, 137339629, 68669815, -1108493449, 309430884},
@@ -199,30 +344,30 @@ const Biquad ttun_lowpass1[9] = {
     {231941381, 463882761, 231941381, -665703568, 519727266},
     {295781892, 591563783, 295781892, -383184495, 492570238},
     {359546598, 719093196, 359546598, -116156165, 480600733}};
-const i32 top_under = 746927805;   // and a pole at 3 kHz under it, so the body's band stays out
-const Biquad top_highpass = {626594922, -1253189844, 626594922, -993164926, 439472938};
+// The high-pass's edge and resonance at SIZE's steps: below 64, near 4 kHz; above, 5.5 kHz and sharp.
+// It is taken away from the body, and where the two are level they cancel: the
+// Machinedrum's dip near 4.2 kHz, which deepens as SIZE rises.
+const Biquad top_highpass_at[9] = {
+    {858561134, -1717122269, 858561134, -1476703303, 883799411},
+    {854344360, -1708688721, 854344360, -1510492622, 833142996},
+    {865423751, -1730847502, 865423751, -1531235554, 856717625},
+    {861581186, -1723162373, 861581186, -1524473535, 848109386},
+    {807853076, -1615706152, 807853076, -1402144408, 755526073},
+    {842960296, -1685920592, 842960296, -1370258938, 927840421},
+    {837638930, -1675277860, 837638930, -1350579413, 926234484},
+    {841794331, -1683588662, 841794331, -1365950009, 927485492},
+    {853733531, -1707467063, 853733531, -1409989366, 931202935}};
 // TOP and PEAK: the top's level, each -10 dB at 0 to +5 and +7 dB at 127 about the middle.
 const i32 top_gain[9] = {381882595, 509248626, 679093957, 905586346, 1207618800, 1397725631, 1617759626, 1872432006, 2147483647};
 const i32 peak_gain[9] = {303340128, 404510562, 539423504, 719332803, 959245710, 1207618800, 1520301996, 1816976124, 2147483647};
-const i32 decay_times[9] = {1033998, 1043941, 1053920, 1063013, 1080535, 1101326, 1118852, 1144901, 1184388};
+const i32 after_gain = 64, ceiling = md::half_scale / 64;   // the output's gain, and where it stops at half scale
+const i32 decay_times[9] = {1017614, 1027557, 1037536, 1046629, 1064151, 1084942, 1102468, 1128517, 1168004};
 const i32 top_faster = 44564;                       // the top falls 60 dB in 0.62 of the time
-// RICH: the lower squares' weight, and the level with them.
+// RICH: the squares' weight, and their level with it (the pulse keeps its own).
 const i32 rich_weight[9] = {0x26666666, 0x40000000, 0x59999999, 0x6ccccccc, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
 const i32 rich_level[9] = {0x2e000000, 0x3a000000, 0x4c000000, 0x62000000, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7d000000, 0x7a000000};
-const i32 body_level = 0x12000000, top_level = 0x7f000000;
+const i32 body_level = 297222577, top_level = 289611891;   // the top at a quarter
 
-// One biquad step, x1 x2 y1 y2 in s. A Butterworth low-pass's numerator is
-// b0 (1, 2, 1) and a high-pass's b0 (1, -2, 1): three multiplies, not five.
-inline i32 lowpass(const Biquad& c, i32* s, i32 x) {
-    const i32 y = (multiply(c.b0, x + s[0] * 2 + s[1]) - multiply(c.a1, s[2]) - multiply(c.a2, s[3])) * 2;
-    s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y;
-    return y;
-}
-inline i32 highpass(const Biquad& c, i32* s, i32 x) {
-    const i32 y = (multiply(c.b0, x - s[0] * 2 + s[1]) - multiply(c.a1, s[2]) - multiply(c.a2, s[3])) * 2;
-    s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y;
-    return y;
-}
 // TTUN's coefficients between the measured steps.
 inline Biquad between(const Biquad* t, i32 parameter) {
     const u32 position = static_cast<u32>(md::positive(parameter)) >> 3;
@@ -237,16 +382,111 @@ inline Biquad between(const Biquad* t, i32 parameter) {
 }
 
 
+// The block's stages, one loop each: out of line, so each has a hardware loop and all the
+// registers to itself.
+__attribute__((noinline)) void add_lines(const i32* table, u32 phase, u32 increment, i32* out) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] += table[phase >> 22];
+        phase += increment;
+    }
+}
+// The squares' sum weighed, the pulse added: the metal, at most 1/16 of full scale.
+__attribute__((noinline)) void weigh_with_pulse(u32 phase, u32 increment, i32 weight, i32* metal) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        metal[i] = pulse_table[phase >> 22] + multiply(metal[i], weight);
+        phase += increment;
+    }
+}
+// The body: two high-pass poles at SIZE, its resonant stage, two low-pass poles and its gain.
+__attribute__((noinline)) void run_size(i32* poles, i32 coefficient, const i32* metal, i32* out) {
+    i32 a = poles[0], c = poles[1];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 x = metal[i];
+        a += multiply(x - a, coefficient);
+        x -= a;
+        c += multiply(x - c, coefficient);
+        out[i] = x - c;
+    }
+    poles[0] = a;
+    poles[1] = c;
+}
+__attribute__((noinline)) void run_knee(md::Svf& knee, i32 frequency, i32* body) {
+    i32 low = knee.low, band = knee.band, high = knee.high;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        low += multiply(frequency, band) * 2;
+        high = body[i] - low - multiply(body_damping, band) * 2;
+        band += multiply(frequency, high) * 2;
+        body[i] = high;
+    }
+    knee.low = low;
+    knee.band = band;
+    knee.high = high;
+}
+__attribute__((noinline)) void run_dull(i32* dull, i32 gain, i32 slope, i32* body) {
+    i32 a = dull[0], c = dull[1];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        a += multiply(body[i] - a, body_lowpass);
+        c += multiply(a - c, body_lowpass);
+        body[i] = multiply(c, gain);
+        gain += slope;
+    }
+    dull[0] = a;
+    dull[1] = c;
+}
+// The biquads, x1 x2 y1 y2 in s. A Butterworth low-pass's numerator is b0 (1, 2, 1) and a
+// high-pass's b0 (1, -2, 1): three multiplies, not five. Two samples a turn, the newest and
+// the older taking each other's places, so no state is ever moved.
+__attribute__((noinline)) void run_highpass(const Biquad& c, i32* s, i32* top) {
+    const i32 b0 = c.b0, a1 = c.a1, a2 = c.a2;
+    i32 x1 = s[0], x2 = s[1], y1 = s[2], y2 = s[3];
+    for (unsigned i = 0; i != opxy::block_frames / 2; ++i) {
+        const i32 x = top[2 * i];
+        y2 = (multiply(b0, x - x1 * 2 + x2) - multiply(a1, y1) - multiply(a2, y2)) * 2;
+        top[2 * i] = y2;
+        x2 = top[2 * i + 1];
+        y1 = (multiply(b0, x2 - x * 2 + x1) - multiply(a1, y2) - multiply(a2, y1)) * 2;
+        top[2 * i + 1] = y1;
+        x1 = x2;
+        x2 = x;
+    }
+    s[0] = x1; s[1] = x2; s[2] = y1; s[3] = y2;
+}
+__attribute__((noinline)) void run_lowpass(const Biquad& c, i32* s, i32* top) {
+    const i32 b0 = c.b0, a1 = c.a1, a2 = c.a2;
+    i32 x1 = s[0], x2 = s[1], y1 = s[2], y2 = s[3];
+    for (unsigned i = 0; i != opxy::block_frames / 2; ++i) {
+        const i32 x = top[2 * i];
+        y2 = (multiply(b0, x + x1 * 2 + x2) - multiply(a1, y1) - multiply(a2, y2)) * 2;
+        top[2 * i] = y2;
+        x2 = top[2 * i + 1];
+        y1 = (multiply(b0, x2 + x * 2 + x1) - multiply(a1, y2) - multiply(a2, y1)) * 2;
+        top[2 * i + 1] = y1;
+        x1 = x2;
+        x2 = x;
+    }
+    s[0] = x1; s[1] = x2; s[2] = y1; s[3] = y2;
+}
+// The top, opposed to the body.
+__attribute__((noinline)) void take_top(const i32* top, i32 gain, i32 slope, i32* body) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        body[i] -= multiply(top[i], gain) * 4;
+        gain += slope;
+    }
+}
+
+
 struct Block {
-    i32 weight, level, size, top, body_step, top_step;
-    Biquad low0, low1;
+    i32 weight, poles, knee, body, top, body_step, top_step;
+    Biquad high, low0, low1;
     explicit Block(const i32* p) {
-        weight = md::table9(rich_weight, p[RICH]);
-        level = md::table9(rich_level, p[RICH]);
-        size = md::table9(size_highpass, p[SIZE]);
+        weight = multiply(md::table9(rich_weight, p[RICH]), md::table9(rich_level, p[RICH]));
+        poles = md::table9(size_poles, p[SIZE]);
+        knee = md::table9(size_knee, p[SIZE]);
+        body = multiply(md::table9(size_body, p[SIZE]), body_level);
+        high = between(top_highpass_at, p[SIZE]);
         low0 = between(ttun_lowpass0, p[TTUN]);
         low1 = between(ttun_lowpass1, p[TTUN]);
-        top = multiply(multiply(multiply(md::table9(top_gain, p[TOP]), md::table9(peak_gain, p[PEAK])), top_level), level);
+        top = multiply(multiply(multiply(md::table9(top_gain, p[TOP]), md::table9(peak_gain, p[PEAK])), md::table9(size_top, p[SIZE])), top_level);
         const i32 time = md::table9(decay_times, p[DEC]);
         body_step = md::decay(time);
         top_step = md::decay(time - top_faster);
@@ -255,11 +495,11 @@ struct Block {
 }
 
 inline void clear(State& voice) {
-    voice.dull = voice.under = 0;
-    for (unsigned k = 0; k < 4; ++k) {
-        voice.size[k] = 0;
-        for (unsigned j = 0; j < 4; ++j) if (k < 3) voice.top_state[k][j] = 0;
-    }
+    voice.size[0] = voice.size[1] = 0;
+    voice.knee.reset();
+    voice.dull[0] = voice.dull[1] = 0;
+    for (unsigned k = 0; k < 3; ++k)
+        for (unsigned j = 0; j < 4; ++j) voice.top_state[k][j] = 0;
 }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
 inline void reset(State& voice, Common& shared, u32 owner) {
@@ -267,6 +507,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.body = voice.top = 0;
     clear(voice);
     voice.seed = 0x3c6ef372u * owner;
+    voice.carrying = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -277,6 +518,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] = static_cast<u32>(md::noise(voice.seed));
         voice.body = voice.top = md::one;
         clear(voice);
+        voice.carrying = 0;
         voice.fresh = 0;
     }
     u32 increment[partial_count];
@@ -284,37 +526,41 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     // The two gains, envelope and level together, in straight lines across the block.
     const i32 body_next = multiply(voice.body, md::per_block(b.body_step));
     const i32 top_next = multiply(voice.top, md::per_block(b.top_step));
-    const i32 body_scale = multiply(body_level, b.level);
-    i32 body_gain = multiply(voice.body, body_scale), top_gain = multiply(voice.top, b.top);
-    const i32 body_slope = (multiply(body_next, body_scale) - body_gain) / 64;
-    const i32 top_slope = (multiply(top_next, b.top) - top_gain) / 64;
+    const i32 body_scale = b.body;
+    // Each from where the last block's ended, so RICH, TOP or PEAK moved glides.
+    i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_scale);
+    i32 top_gain = voice.carrying ? voice.top_out : multiply(voice.top, b.top);
+    voice.body_out = multiply(body_next, body_scale);
+    voice.top_out = multiply(top_next, b.top);
+    const i32 body_slope = (voice.body_out - body_gain) / 64;
+    const i32 top_slope = (voice.top_out - top_gain) / 64;
+    voice.carrying = 1;
     voice.body = body_next;
     voice.top = top_next;
+    // The top falls faster than the body: its filters run only while it can be heard (-102 dB).
+    const bool topping = top_gain >= (1 << 14) || top_gain + top_slope * 64 >= (1 << 14);
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 low = 0, high = 0;
-        for (unsigned k = 0; k < lower; ++k) {
-            low += square_table[voice.phase[k] >> 22];
-            voice.phase[k] += increment[k];
-        }
-        for (unsigned k = lower; k < partial_count; ++k) {
-            high += square_table[voice.phase[k] >> 22];
-            voice.phase[k] += increment[k];
-        }
-        const i32 metal = high + multiply(low, b.weight);   // at most 1/16 of full scale
-        // The body: four high-pass poles at SIZE, one low-pass at 1.5 kHz.
-        i32 body = metal;
-        for (unsigned k = 0; k < 4; ++k) body -= md::smooth(voice.size[k], body, b.size);
-        body = md::smooth(voice.dull, body, body_lowpass);
-        // The top: the high-pass at 6 kHz with a pole at 3 kHz, then TTUN's low-pass.
-        i32 top = highpass(top_highpass, voice.top_state[0], metal - md::smooth(voice.under, metal, top_under));
-        top = lowpass(b.low0, voice.top_state[1], top);
-        top = lowpass(b.low1, voice.top_state[2], top);
-        const i32 mixed = multiply(body, body_gain) + multiply(top, top_gain) * 2;
-        output[i] = md::finish(md::gain(mixed, 6));
-        body_gain += body_slope;
-        top_gain += top_slope;
+    // One stage over the whole block at a time, each with its own hardware loop and registers:
+    // the same arithmetic as one long loop, sample for sample, at half its cycles on the Blackfin.
+    i32 metal[opxy::block_frames], body[opxy::block_frames];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) metal[i] = 0;
+    for (unsigned k = 0; k < squares; ++k) {
+        add_lines(square_table, voice.phase[k], increment[k], metal);
+        voice.phase[k] += increment[k] << 6;
     }
+    weigh_with_pulse(voice.phase[squares], increment[squares], b.weight, metal);
+    voice.phase[squares] += increment[squares] << 6;
+    run_size(voice.size, b.poles, metal, body);
+    run_knee(voice.knee, b.knee, body);
+    run_dull(voice.dull, body_gain, body_slope, body);
+    if (topping) {
+        // The top: SIZE's high-pass, then TTUN's low-pass; opposed to the body.
+        run_highpass(b.high, voice.top_state[0], metal);
+        run_lowpass(b.low0, voice.top_state[1], metal);
+        run_lowpass(b.low1, voice.top_state[2], metal);
+        take_top(metal, top_gain, top_slope, body);
+    }
+    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::clamp(body[i], -ceiling, ceiling) * after_gain;
 }
 }
 }

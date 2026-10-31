@@ -23,6 +23,25 @@ int main() {
     const double level = db(rms(0, ms(5)));
     std::printf("level %.1f dB RMS\n", level);
     expect("the level: the Machinedrum's -25.1 dB RMS, 2 dB up", std::fabs(level + 23.1) < 1.5);
+    // MOD 0 still modulates: two sidebands of each partial 11 dB down, at 3.5 and 5.5 times it.
+    const double sidebands[4] = {2031, 3192, 4500, 8618};
+    for (int k = 0; k < 4; ++k) {
+        const double side = db(tone(sidebands[k], ms(10), ms(90))) - db(first);
+        std::printf("sideband %.0f Hz: %.1f dB\n", sidebands[k], side);
+        expect("the sidebands stand 11 dB down", side > -14 && side < -9);
+    }
+    // All the lines in phase never wrap the sum: no sample leaps across the wave.
+    double leap = 0;
+    for (unsigned i = 1; i < ms(100); ++i) leap = std::fmax(leap, std::fabs(out[i] / 2147483648.0 - out[i - 1] / 2147483648.0));
+    expect("no leaps", leap < 0.8 * peak(0, ms(100)));
+    // HPF 127: two poles, 580 Hz down 30 dB against 8.6 kHz down under 1.
+    const double open580 = tone(580, ms(10), ms(90)), open8618 = tone(8618, ms(10), ms(90));
+    const int closed[8] = {64, 64, 0, 127, 0, 64, 64, 0};
+    PLAY(closed);
+    const double cut580 = db(tone(580, ms(10), ms(90))) - db(open580), cut8618 = db(tone(8618, ms(10), ms(90))) - db(open8618);
+    std::printf("HPF 127: 580 Hz %.1f dB, 8.6 kHz %.1f dB\n", cut580, cut8618);
+    expect("HPF 127 takes 30 dB off 580 Hz", cut580 < -27 && cut580 > -33);
+    expect("HPF 127 leaves 8.6 kHz", cut8618 > -2.5 && cut8618 < 1);
     const int low[8] = {0, 64, 0, 0, 0, 64, 64, 0};
     PLAY(low);
     expect("PTCH 0 puts the lowest at 244 Hz", tone(244, ms(10), ms(90)) > 4 * tone(300, ms(10), ms(90)));

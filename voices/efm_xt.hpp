@@ -9,8 +9,11 @@
 //   PTCH  DEC   RAMP  RDEC
 //   MOD   MFRQ  MDEC  CLIC
 // EFM-BD's voice (md_efm.hpp), two octaves from 43 Hz to 171 Hz, without the
-// kick's quiet tail, with half its modulation, and through a 125 Hz
+// kick's quiet tail, and through a 125 Hz
 // high-pass, so low settings are thinner and the sidebands carry more of it.
+// Its modulator is fed back on itself at full strength, as EFM-SD's: chaotic, so
+// MOD also spreads a grit up the band that falls with MDEC, 6 dB an octave from
+// about 25 dB under the peak at 3 kHz at MOD 110, as the Machinedrum's.
 // CLIC starts the carrier up to 0.19 cycle in, from a zero crossing at 0 to
 // near its trough at 127, which the high-pass turns into a click.
 namespace md {
@@ -32,8 +35,8 @@ enum { PTCH, DEC, RAMP, RDEC, MOD, MFRQ, MDEC, CLIC };
 const i32 base_low = -170508, base_span = 130246;
 // The high-pass: one pole at 125 Hz.
 const i32 highpass = 38245571;
-// MOD's deviation, 0.55 of EFM-BD's.
-const i32 depth = 0x46666666;
+// MOD's deviation, 0.85 of EFM-BD's (the fed-back modulator's fundamental is weaker than a plain one).
+const i32 depth = 0x6ccccccd;
 // CLIC's start, 0.19 cycle at 127.
 const i32 click_phase = 0x30a3d70a;
 // The level: the Machinedrum's, 2 dB up as the TRX machines are.
@@ -74,15 +77,18 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.low = 0;
         voice.fresh = 0;
     }
+    const i32 fb = efm::feedback(md::one);
     efm::Sweep sweep;
     sweep.plan(md::transpose(pitch[0], b.base), b.ramp_from, voice.ramp, b.ramp_step, b.ratio, b.deviation, voice.depth,
                b.depth_step);
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 s = multiply(voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()),
-                                            sweep.modulator.step(), 0),
+                                            sweep.modulator.step(), fb),
                                multiply(voice.level, body_level));
-        voice.low += multiply(s - voice.low, highpass);
+        // A step too small to take settles the filter, so it ends at zero.
+        const i32 step = multiply(s - voice.low, highpass);
+        voice.low = step ? voice.low + step : s;
         output[i] = md::finish(voice.low - s);
         voice.level = multiply(voice.level, b.decay_step);
     }

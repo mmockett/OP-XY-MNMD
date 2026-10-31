@@ -7,9 +7,11 @@ What the renders show, each control swept from a clean setting (ROOM 0, and
 ROOM 127 for the room's own controls):
   hands  broadband noise about 0.5 .. 8 kHz; HARD brightens it strongly, TONE a little
   RICH   how long each hand rings: short at 0, long at 127
-  RATE   the train's length, about 20 to 70 ms
-  room   a band about half an octave wide; RTUN moves it 550 Hz .. 3 kHz,
-         RSIZ sets its fall, none to -60 dB in about 0.5 s
+  RATE   the train's length, about 3 to 62 ms: three gaps, the second an eighth
+         longer and the third an eighth shorter
+  room   a band about half an octave wide, falling 30 dB an octave above and 6 below;
+         RTUN moves it 550 Hz .. 3 kHz, RSIZ sets its fall, none to -60 dB in about
+         0.5 s, and its level, 11 dB up from small to big
 For each setting: the level (dB under the peak) at 0..640 ms, then the band and
 centroid of the hands (0-40 ms) and the room (150-400 ms), Machinedrum over ours.
 """

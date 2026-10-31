@@ -116,6 +116,28 @@ int main() {
         play(CB, v, other);
         const double ratio = static_cast<double>(last_sound(other, kFrames)) / last_sound(out, kFrames);
         check("E12-CB at PTCH 96 plays twice as fast", ratio > 0.48 && ratio < 0.52);
+        // OH, RC, CC and TR take (v - 64) / 38.4 octaves, TA and SH (v - 64) / 64: at 96, 1.78 and 1.41 times as fast.
+        const struct { unsigned machine; double ratio; const char* what; } ranges[2] = {
+            {OH, 0.561, "E12-OH at PTCH 96 plays 1.78 times as fast"}, {TA, 0.707, "E12-TA at PTCH 96 plays 1.41 times as fast"}};
+        for (int r = 0; r < 2; ++r) {
+            raw(ranges[r].machine, v);
+            play(ranges[r].machine, v, out);
+            const double whole = last_sound(out, kFrames);
+            v[PTCH] = 96;
+            play(ranges[r].machine, v, out);
+            const double part = last_sound(out, kFrames) / whole;
+            std::printf("%s: %.3f of the length\n", ranges[r].what, part);
+            check(ranges[r].what, std::fabs(part / ranges[r].ratio - 1) < 0.04);
+        }
+        // DEC 0: -60 dB in 6 ms.
+        raw(OH, v);
+        v[DEC] = 0;
+        play(OH, v, out);
+        raw(OH, v);
+        play(OH, v, other);
+        const double dec0 = 20 * std::log10(rms(out, 176, 88) / rms(other, 176, 88));
+        std::printf("E12-OH DEC 0 at 4-6 ms: %.1f dB\n", dec0);
+        check("E12-OH at DEC 0 is about 40 dB down by 5 ms", dec0 < -32 && dec0 > -56);
         // DEC: none at 127 (E12-OH rings its 730 ms); at 64, -40 dB by 200 ms (reference/fit_e12.py).
         raw(OH, v);
         play(OH, v, out);
@@ -167,14 +189,14 @@ int main() {
         play(BD, v, other);
         check("E12-BD's SNAP clips at 0.36", peak(other, kFrames) < 0.362 && peak(other, kFrames) > 0.35);
         check("E12-BD's SNAP is louder", rms(other, 4410, 4410) > rms(out, 4410, 4410) * 2.5);
-        // BEND: at 127 the hit starts close to an octave up and drifts back very slowly,
+        // BEND: at 127 the hit starts close to an octave up and drifts back with a time constant of 2.25 s,
         // so the cowbell plays out in about half the time.
         raw(CB, v);
         play(CB, v, out);
         v[BEND] = 127;
         play(CB, v, other);
         const double bent = static_cast<double>(last_sound(other, kFrames)) / last_sound(out, kFrames);
-        check("E12-CB at BEND 127 plays an octave up", bent > 0.49 && bent < 0.53);
+        check("E12-CB at BEND 127 plays close to an octave up", bent > 0.49 && bent < 0.54);
     }
 
     if (!failures) std::puts(captured ? "PASS e12 (with the samples captured from the owner's ROM)"

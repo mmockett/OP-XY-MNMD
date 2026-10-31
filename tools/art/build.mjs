@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { rig, flatten } from './rig.mjs';
 import { strokes } from './font.mjs';
+import { FIGS, COMMON_SLOTS } from './fig.mjs';
 import { readFileSync } from 'node:fs';
 
 // The verified slots (tools/catalog.py); the design's spellings where they differ.
@@ -230,7 +231,11 @@ function liftStrikes(parts) {
   }
 }
 
-export function build(engine, members, pads = false) {
+// A kit drawn as the sounding part in section (tools/art/fig.mjs), full screen:
+// the design's instrument and panel give way to the parts the view places.
+const FIG_KITS = Object.keys(FIGS);
+
+export function build(engine, members, pads = false, withFig = false) {
   const nodes = [], machines = [], texts = [];
   for (const [instrument, name] of members) {
     const r = rig(instrument, DESIGN_NAME[name] ?? name);
@@ -242,6 +247,10 @@ export function build(engine, members, pads = false) {
       r.hit = r.hit.filter(h => h.struck && bounds(h.shape).cx < 236 && !PADS_FREE.includes(h.key) && !PADS_STILL.includes(h.key));
       r.free.push(...r.parts.filter(p => PADS_FREE.includes(p.key)).map(p => ({ key: p.key, controls: [] })));
       r.parts = r.parts.filter(p => !PADS_FREE.includes(p.key));
+      if (withFig) {
+        // The section is the whole screen: no instrument, no hit parts, nothing from the design's panel.
+        r.parts = []; r.hit = []; r.free = [];
+      }
       padStrikes(r.parts);
       if (!r.hit.length) liftStrikes(r.parts);
       flexHeads(r.parts);
@@ -310,7 +319,20 @@ export function build(engine, members, pads = false) {
     }
     machines.push({ name, instrument, nodes: mine, defaults: r.values, labels: r.labels, free: r.free });
   }
-  return { engine, nodes, machines, texts };
+  // The sections' fixed parts: the first take the common nodes' places, any more follow the instruments.
+  let fig = null;
+  if (withFig) {
+    fig = FIGS[engine].map((f, k) => {
+      const [px, py] = f.pivot;
+      const d = f.r !== undefined ? `circle 0 0 ${num(f.r)}`
+        : 'M' + f.pts.map(([x, y], i) => (i ? 'L' : '') + num(x - px) + ' ' + num(y - py)).join(' ') + (f.closed ? ' Z' : '');
+      const part = { name: f.name, style: f.style, cx: px, cy: py, d };
+      if (k < COMMON_SLOTS) part.node = 4 + k;
+      else { part.node = COMMON_NODES + nodes.length; nodes.push({ kind: 'rest', style: f.style, shape: [], effects: [], cx: px, cy: py, d, id: 'fig:' + f.name }); }
+      return part;
+    });
+  }
+  return { engine, nodes, machines, texts, fig };
 }
 
 function header(engine, art) {
@@ -342,7 +364,8 @@ function header(engine, art) {
   lines.push(`const opxy::u32 node_count = ${art.nodes.length};`);
   lines.push('// x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,');
   lines.push('// hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}');
-  lines.push(`const md::rig::Part parts[${art.nodes.length}] = {`, ...parts, '};');
+  // A kit drawn whole by its view has no parts: one unused entry keeps the arrays valid C++.
+  lines.push(`const md::rig::Part parts[${Math.max(1, art.nodes.length)}] = {`, ...(parts.length ? parts : ['    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},']), '};');
   lines.push('// control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end');
   lines.push(`const md::rig::Effect effects[${Math.max(1, effects.length)}] = {`, ...(effects.length ? effects : ['    {0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},']), '};');
   const list = [];
@@ -354,7 +377,7 @@ function header(engine, art) {
     list.push(...m.nodes);
   }
   lines.push('};');
-  lines.push(`const opxy::u16 members[${list.length}] = {${list.join(', ')}};`);
+  lines.push(`const opxy::u16 members[${Math.max(1, list.length)}] = {${list.length ? list.join(', ') : '0'}};`);
   lines.push('}', '}', '');
   return lines.join('\n');
 }
@@ -374,27 +397,40 @@ const width = (text, fs) => [...text].reduce((w, ch) => w + (ADVANCE[ch] ?? (/\d
 // A label in a circle is this fraction of its radius tall (em): 12 px in a 20 px operator.
 const LABEL_SCALE = 0.6;
 
-function panel(engine, art, paged) {
+// A drum kit's panel (compact) leaves its lines unindented, its seeds in whole pixels
+// and the join off single segments: a kit of several families draws many machines
+// and must stay within the SDK's 64 KB of artwork.
+function panel(engine, art, paged, compact = false) {
   const out = [`<g id="${engine}_panel">`];
   const stageY = paged ? PAGED_STAGE_Y : STAGE_Y;
   if (paged) out.push(...pageHeader(engine, COMMON_NODES + art.nodes.length));
   out.push(`  <path d="M0 ${paged ? 38 : 20} L480 ${paged ? 38 : 20} L480 220 L0 220 Z" fill="#000000" stroke="none"/>`);
   const park = 'transform="matrix(1 0 0 1 640 320)"';
-  // Nodes 0..3: the mutable paths, 64 distinct points each.
-  const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * 0.5)}`);
+  // Nodes 0..3: the mutable paths, 64 distinct points each (a seed the first frame
+  // replaces; a compact panel's in whole pixels).
+  const seed = Array.from({ length: 64 }, (_, i) => `${num(-32 + i)} ${num((i % 2) * (compact ? 1 : 0.5))}`);
   for (let p = 0; p < 4; p++)
     out.push(`  <path id="${engine}_node_${p}" ${park} d="M${seed.join(' L')} Z" fill="none" stroke="#f7f5f5" stroke-width="1.6" stroke-linejoin="round"/>`);
+  // A kit drawn as sections holds their parts in the common nodes' places.
+  const common = new Map((art.fig ?? []).filter(p => p.node < COMMON_NODES).map(p => [p.node, p]));
+  const figNode = (p, id) => {
+    const [fill, stroke, width] = PALETTE[SHADE[p.style]];
+    const round = p.d.match(/^circle (\S+) (\S+) (\S+)$/);
+    return round ? `  <circle id="${engine}_node_${id}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`
+                 : `  <path id="${engine}_node_${id}" d="${p.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
+  };
+  const push = (id, line) => out.push(common.has(id) ? figNode(common.get(id), id) : line);
   // Rings, handles and the cursor.
   for (let k = 0; k < 3; k++)
-    out.push(`  <circle id="${engine}_node_${4 + k}" ${park} cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
+    push(4 + k, `  <circle id="${engine}_node_${4 + k}" ${park} cx="0" cy="0" r="20" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
   for (let k = 0; k < 2; k++)
-    out.push(`  <path id="${engine}_node_${7 + k}" ${park} d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>`);
-  out.push(`  <path id="${engine}_node_9" ${park} d="M0 -40 L0 40" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
+    push(7 + k, `  <path id="${engine}_node_${7 + k}" ${park} d="M-2.5 -2.5 L2.5 -2.5 L2.5 2.5 L-2.5 2.5 Z" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>`);
+  push(9, `  <path id="${engine}_node_9" ${park} d="M0 -40 L0 40" fill="none" stroke="#a8a9ad" stroke-width="1.2"/>`);
   // The readout: three digits of seven segments a..g, horizontal or vertical strokes about their centres.
   for (let digit = 0; digit < 3; digit++)
     for (let seg = 0; seg < 7; seg++) {
       const d = [0, 3, 6].includes(seg) ? 'M-1.6 0 L1.6 0' : 'M0 -1.2 L0 1.2';
-      out.push(`  <path id="${engine}_node_${10 + digit * 7 + seg}" ${park} d="${d}" fill="none" stroke="#8c8d92" stroke-width="0.9"/>`);
+      push(10 + digit * 7 + seg, `  <path id="${engine}_node_${10 + digit * 7 + seg}" ${park} d="${d}" fill="none" stroke="#8c8d92" stroke-width="0.9"/>`);
     }
   art.nodes.forEach((n, i) => {
     const [fill, stroke, width] = PALETTE[SHADE[n.style]];
@@ -404,7 +440,9 @@ function panel(engine, art, paged) {
       out.push(`  <circle id="${engine}_node_${COMMON_NODES + i}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`);
       return;
     }
-    out.push(`  <path id="${engine}_node_${COMMON_NODES + i}" d="${n.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${fill === 'none' ? ' stroke-linejoin="round"' : ''}/>`);
+    // A join matters where segments meet: a compact panel leaves it off a single open segment.
+    const joined = !compact || /Z|[LCQ][^LCQ]*[LCQ]/.test(n.d);
+    out.push(`  <path id="${engine}_node_${COMMON_NODES + i}" d="${n.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${fill === 'none' && joined ? ' stroke-linejoin="round"' : ''}/>`);
   });
   // Static labels, in the device's font: screen coordinates, baseline in the transform.
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -421,20 +459,21 @@ function panel(engine, art, paged) {
   PALETTE.forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
-  return out.join('\n') + '\n';
+  return (compact ? out.map(line => line.replace(/^  /, '')) : out).join('\n') + '\n';
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // --one-row: a Monomachine engine with at most four controls, on the stock header.
   const args = process.argv.slice(2), pads = args[0] === '--pads', oneRow = args[0] === '--one-row';
   const [engine, ...specs] = pads || oneRow ? args.slice(1) : args;
-  const art = build(engine, specs.map(s => s.split(':')), pads);
+  const fig = pads && FIG_KITS.includes(engine);
+  const art = build(engine, specs.map(s => s.split(':')), pads, fig);
   const dir = path.join(root, 'machines', engine);
-  const paged = !pads && !oneRow, svg = panel(engine, art, paged);
+  const paged = !oneRow, svg = panel(engine, art, paged, pads);
   writeFileSync(path.join(dir, 'panel.svg.fragment'), svg);
   writeFileSync(path.join(dir, 'art.h'), header(engine, art));
   const nodes = COMMON_NODES + art.nodes.length + (paged ? HEADER_NODES : 0);
   console.log(`${engine}: ${art.machines.length} machines, ${nodes} nodes, ${svg.length} bytes of artwork` +
-              (nodes > 256 ? '  OVER 256 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
+              (nodes > 512 ? '  OVER 512 NODES' : '') + (svg.length > 65536 ? '  OVER 64 KB' : ''));
   for (const m of art.machines) if (m.free.length) console.log(`  ${m.name}: the view draws ${m.free.map(f => f.key + ' (' + f.controls.join(' ') + ')').join(', ')}`);
 }

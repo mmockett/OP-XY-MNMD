@@ -12,13 +12,17 @@
 // extra Hz (up to 457, whatever PTCH is) falling with a fixed 38 ms time
 // constant. The level swells about 4 dB over the first 20 ms, holds for HOLD's
 // time (none to 9.5 s), then falls 60 dB in DEC's (55 ms to 20 s; none at 127).
-// TICK opens it with a downward spike, twice the body's height from TICK 64 (1.7
-// x here, under the ceiling) and held longer above; NOIS adds a burst of noise above 1 kHz falling in 70 ms.
-// DIST is a hard clip into a 30 Hz high-pass, fully on from DIST 32;
-// DIRT rounds the sound to coarser and coarser steps, down to three levels at
-// 127 (the third harmonic gone, the fifth 14 dB down), so a fading kick
-// crumbles. Lifted 7 dB over the Machinedrum's, to stand with TRX-BD. The key
-// moves the pitch.
+// TICK opens it with a downward spike, twice the body's height from TICK 40 (1.7
+// x here, under the ceiling), held 4 to 15 samples as TICK rises, the body
+// starting downward with it, as the emulator's; NOIS adds a burst of noise above 1 kHz falling in 70 ms.
+// DIST is a hard clip into a 30 Hz high-pass, harder to DIST 127 (the 3rd
+// harmonic -31 dB at DIST 4, -12 at 16, -10 from 32); DIRT rounds the sine to
+// coarser and coarser steps, down to three levels at 127 (the third harmonic
+// gone, the fifth 14 dB down). As the Machinedrum's, both shape the sine before
+// the envelope, measured with the harmonics steady from 30 to 400 ms: a fading
+// kick keeps its shape, falls at DEC's rate whatever DIRT and DIST are, and is
+// not gated to silence. TICK and NOIS are added after them. Lifted 7 dB over the
+// Machinedrum's, to stand with TRX-BD. The key moves the pitch.
 namespace md {
 namespace trx_b2 {
 struct State {
@@ -49,7 +53,8 @@ const i32 swell_start = 0x4ccccccd;           // the opening, 4.4 dB under the s
 const i32 swell_time = 737234;                // rising with an 8 ms time constant
 const i32 tick_most = 0x6ccccccd;             // 1.7 x the body's height: twice would pass the ceiling
 const i32 tick_time = 351113;                 // gone in 1 ms
-const u32 tick_longest = 15;                  // held up to 15 samples above TICK 64
+const i32 tick_full = 676372803;              // TICK 40: the spike's full height
+const i32 tick_rise = 1704565146;             // 127 / 40, a quarter of it
 const i32 burst_most = 0x78000000;
 const i32 burst_time = 759693;                // -60 dB in 70 ms
 const i32 burst_highpass = 285167595;         // above 1 kHz
@@ -58,8 +63,8 @@ const i32 burst_highpass = 285167595;         // above 1 kHz
 const i32 clip_threshold = 0x16800000;
 const i32 clip_highpass = 9170000;
 // DIRT: the rounding step at DIRT 0, 16, ..., 127, Q16 log2 of the step in Q31
-// units: 2^19.5 up to the body's own height, 2^28.15.
-const i32 dirt_steps[9] = {1277952, 1323827, 1376256, 1507328, 1605632, 1677722, 1736704, 1802240, 1844838};
+// units: 2^19.5 up to the body's own height, 2^28.2: three levels, the third harmonic gone.
+const i32 dirt_steps[9] = {1277952, 1323827, 1376256, 1507328, 1605632, 1677722, 1736704, 1802240, 1848115};
 // The body peaks at -10.8 dB of full scale (the Machinedrum's -17.9, lifted 7 dB); half here.
 const i32 body_level = 0x125a0000;
 
@@ -92,12 +97,12 @@ struct Block {
         decay_step = p[DEC] > 0x7e000000 ? md::one : md::decay(md::table9(decay_times, p[DEC]));   // none at 127
         hold = static_cast<u32>(md::table9(holds, p[HOLD]));
         const i32 t = md::positive(p[TICK]);
-        tick = t < 0x40000000 ? multiply(t * 2, tick_most) : tick_most;
-        tick_hold = t > 0x40000000 ? static_cast<u32>(multiply(t - 0x40000000, static_cast<i32>(tick_longest) * 2)) : 0;
+        tick = t < tick_full ? multiply(multiply(t, tick_rise) * 4, tick_most) : tick_most;
+        tick_hold = 4 + static_cast<u32>(multiply(t, 12));   // 4 .. 15 samples
         burst = multiply(md::positive(p[NOIS]), burst_most);
-        // DIST: gain 1 .. 32 over its first quarter, a hard clip from there.
-        const u32 d = static_cast<u32>(md::positive(p[DIST]));
-        drive = d < 0x20000000u ? static_cast<i32>(d >> 13) * 5 : 5 * md::octave;   // Q16 octaves of gain, 0 .. 5
+        // DIST: a gain rising in a line from 1 to 4 over its first quarter, then on to 32. Q26.
+        const i32 d = md::positive(p[DIST]), over = d - 0x20000000;
+        drive = !d ? 0 : over < 0 ? 0x04000000 + (d >> 3) * 3 : 0x10000000 + over + (over >> 3) + (over >> 5);
         dirt = p[DIRT] > 0 ? 1 : 0;
         crush.prepare(md::table9(dirt_steps, p[DIRT]));
     }
@@ -136,15 +141,21 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 swell_step = md::decay(swell_time);
     const i32 tick_step = md::decay(tick_time);
     const i32 burst_step = md::decay(burst_time);
-    // DIST's gain, 2^(0..5) as a mantissa and whole doublings.
-    const u32 octaves = static_cast<u32>(b.drive);
-    const i32 mantissa = exp2_table[(octaves >> 8) & 255u];   // Q30
-    const u32 whole = octaves >> 16;
 
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 x = multiply(md::sine(voice.phase), multiply(multiply(voice.level, voice.swell), body_level));
+        // The sine at its full height: DIST and DIRT shape it there, before the
+        // envelope, so the shape holds however far the hit has fallen.
+        i32 x = -multiply(md::sine(voice.phase), body_level);
         voice.phase += increment;
         increment += static_cast<u32>(slope);
+        if (b.drive) {
+            const i32 hot = md::gain(multiply(x, b.drive), 5);
+            const i32 clipped = md::clamp(hot, -clip_threshold, clip_threshold);
+            voice.droop += multiply(clipped - voice.droop, clip_highpass);
+            x = clipped - voice.droop;
+        }
+        if (b.dirt) x = b.crush.run(x);
+        x = multiply(x, multiply(voice.level, voice.swell));
         // TICK: a downward spike.
         x -= multiply(voice.tick, multiply(b.tick, body_level)) * 2;
         // NOIS: a burst above 1 kHz.
@@ -153,13 +164,6 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
             md::smooth(voice.hiss, white, burst_highpass);
             x += multiply(multiply(white - voice.hiss, voice.burst), b.burst);
         }
-        if (b.drive) {
-            const i32 hot = md::gain(multiply(x, mantissa), whole + 1);
-            const i32 clipped = md::clamp(hot, -clip_threshold, clip_threshold);
-            voice.droop += multiply(clipped - voice.droop, clip_highpass);
-            x = clipped - voice.droop;
-        }
-        if (b.dirt) x = b.crush.run(x);
         output[i] = md::finish(md::gain(x, 1));
 
         voice.swell += multiply(md::one - voice.swell, md::one - swell_step);

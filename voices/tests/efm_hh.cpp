@@ -16,8 +16,10 @@ int main() {
     std::printf("plain: %.1f dB RMS, brightness %.0f Hz\n", level, bright);
     expect("the plain hat sits near -32 dB RMS", std::fabs(level + 32) < 1.5);
     expect("the plain hat is bright", bright > 6000);
-    // Its clicks come every 32 samples: one sample in each 32 holds far more
-    // than its share of the energy.
+    // Its carrier's phase jumps every 32 samples, a click through the high-pass:
+    // one sample in each 32 holds far more than its share of the energy. And so
+    // no line stands at its pitch (690 Hz), against the band around it.
+    expect("no line at the pitch", tone(690, ms(10), ms(190)) < 2 * tone(600, ms(10), ms(190)));
     double bins[32] = {0}, total = 0, most = 0;
     for (unsigned i = ms(5); i < ms(45); ++i) {
         const double x = out[i] / 2147483648.0;
@@ -33,13 +35,13 @@ int main() {
     std::printf("DEC 64 falls %.1f dB from 20 to 220 ms\n", fall);
     expect("DEC 64 falls about 26 dB in 200 ms", fall > 21 && fall < 31);
 
-    // MOD 127 raises the level 5 dB on the Machinedrum (the sidebands pass the
-    // high-pass) and darkens it.
+    // MOD 127 raises the level about 6.6 dB on the Machinedrum (the sidebands pass
+    // the high-pass) and darkens it.
     const int fm[8] = {64, 64, 0, 64, 127, 64, 127, 0};
     PLAY(fm);
     const double loud = db(rms(0, ms(50))) - level, dark = brightness(0, ms(50));
     std::printf("MOD 127: %+.1f dB, brightness %.0f Hz\n", loud, dark);
-    expect("MOD 127 is louder", loud > 1.5 && loud < 7);
+    expect("MOD 127 is louder", loud > 4 && loud < 9);
     expect("MOD 127 is darker", dark < bright);
 
     // TREM 127 at TFRQ 64: a 7.7 Hz tremolo, all the way down at its trough (65 ms).

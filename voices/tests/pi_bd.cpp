@@ -6,6 +6,13 @@
 
 namespace {
 using namespace check;
+// The strike's energy (rms of the tones every 50 Hz) between low and high Hz, in its first 4 ms.
+double band(const opxy::i32* out, double low, double high) {
+    double sum = 0;
+    int n = 0;
+    for (double hz = low; hz <= high; hz += 50, ++n) sum += tone(out, hz, 0.0, 0.004) * tone(out, hz, 0.0, 0.004);
+    return std::sqrt(sum / n);
+}
 void play(const int* values, opxy::i32* out) {
     check::play<md::pi_bd::State>(md::pi_bd::reset, md::pi_bd::trigger, md::pi_bd::render, values, out);
 }
@@ -53,15 +60,17 @@ int main() {
     expect("TENS 127 starts far above the settled pitch", stretched > 115);
     expect("TENS 0 barely bends", slack_hz < 75);
 
-    // The strike's burst near 2.2 kHz, lower with a heavy beater (HAMR).
+    // The strike's burst: noise spread evenly from about 1 to 6 kHz, as the
+    // Machinedrum's, not one ringing tone; a heavy beater (HAMR) darkens it.
     play(design, out);
-    const double burst = strongest(out, 800, 5000, 0.0, 0.004);
+    const double near1k = band(out, 1000, 1800), near3k = band(out, 2200, 3800), near5k = band(out, 4000, 6000);
     const int heavy[8] = {64, 50, 64, 127, 40, 0, 0, 0};
     play(heavy, out);
-    const double dull = strongest(out, 800, 5000, 0.0, 0.004);
-    std::printf("strike burst at HAMR 64 and 127: %.0f, %.0f Hz\n", burst, dull);
-    expect("the strike rings near 2.2 kHz", burst > 1900 && burst < 2500);
-    expect("HAMR lowers the strike", dull < burst * 0.8);
+    const double dull5k = band(out, 4000, 6000);
+    std::printf("strike burst at 1, 3, 5 kHz: %.1f %.1f %.1f dB; 5 kHz at HAMR 127: %.1f dB\n",
+                db(near1k), db(near3k), db(near5k), db(dull5k));
+    expect("the strike is a band of noise, not a tone", std::fabs(db(near1k / near3k)) < 6 && std::fabs(db(near3k / near5k)) < 6);
+    expect("HAMR darkens the strike", dull5k < near5k * 0.8);
 
     // Every control at both ends stays inside the SDK's ceiling.
     for (int c = 0; c < 6; ++c)

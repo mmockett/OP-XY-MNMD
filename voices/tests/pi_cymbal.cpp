@@ -82,7 +82,7 @@ int main() {
     const double dark_share = bright(out);
     hat(light, out);
     std::printf("the hat above 5 kHz, BR 0 and 127: %.2f, %.2f\n", dark_share, bright(out));
-    expect("BR brightens the hat", bright(out) > dark_share * 1.5);
+    expect("BR brightens the hat", bright(out) > dark_share * 1.3);   // the dense layer, which BR leaves, narrows the gap
 
     // CLOS: below 127 the hat rings until the pedal closes it: 0.2 s at CLOS 64.
     const int open[8] = {64, 127, 0, 0, 64, 0, 64, 64};

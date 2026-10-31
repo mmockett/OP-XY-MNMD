@@ -7,7 +7,9 @@ The cowbell's page is PTCH DEC ENH DAMP / TONE BUMP. Each control is swept
 from PTCH 64, DEC 100, ENH 40, DAMP 0, TONE 64, BUMP 0 and measured: the level
 of each line in the spectrum (the bell's square near 1117 Hz and its odd
 harmonics, a second voice near 1051 Hz, and the lines at 1752, 3856 and 4556
-Hz), the pitch in the first milliseconds, and the decay.
+Hz), the pitch in the first milliseconds, and the decay. Ours has no lines between
+100 and 1000 Hz; the Machinedrum's stand 50 to 60 dB down there, and our pulse's
+aliases, which stood 30 dB down, are gone.
 """
 import pathlib
 import sys

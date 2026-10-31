@@ -64,7 +64,7 @@ const unsigned char key_values[keys][8] = {
     {69, 110, 40, 0, 0, 0, 64, 64},   // 22 CC2: E12-CC
     {53, 110, 0, 127, 0, 0, 64, 64},   // 23 BR2: E12-BR
 };
-// The key each machine is first on.
+// The key each machine is first on (0 when no key starts on it).
 const unsigned char shown[models] = {0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 20, 14, 15};
 
 // A machine's eight slots (Q31) from the drum kind's eight controls (Q31,

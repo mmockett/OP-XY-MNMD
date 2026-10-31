@@ -33,6 +33,8 @@ int main() {
     // CLPS 64, CDEC 64: eight claps 6.6 ms apart, then the tail: eight onsets after the first.
     const int base[8] = {64, 64, 64, 64, 0, 64, 64, 0};
     PLAY(base);
+    // It starts from a zero crossing: the first sound is 0.09 of the peak.
+    expect("the onset starts small", std::fabs(out[1] / 2147483648.0) < 0.2 * peak(0, ms(100)));
     const int eight = onsets(100);
     std::printf("CLPS 64: %d onsets after the first\n", eight);
     expect("CLPS 64 claps eight times", eight == 8);

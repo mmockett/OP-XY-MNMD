@@ -2,10 +2,10 @@
 """Builds OP-XY firmware with every engine in machines/, ready to install.
 
     python3 tools/build_firmware.py                 # every engine
-    python3 tools/build_firmware.py mdtrx mmsaw     # some
-    python3 tools/build_firmware.py mdtrx ../mine/machine  # a machine folder outside machines/
+    python3 tools/build_firmware.py mdkit mmsaw     # some
+    python3 tools/build_firmware.py mdkit ../mine/machine  # a machine folder outside machines/
 
-It runs the SDK's `build` against your own stock OS 1.2.0, copied off your
+It runs the SDK's `build` against your own stock OS (the one the SDK patches), copied off your
 OP-XY (docs/DEVICE.md), into a new numbered folder outside this checkout,
 
     ~/Library/Application Support/OPXY-MD/builds/NNN/
@@ -27,28 +27,47 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
-from make_engine import kit_keys  # noqa: E402
+from make_engine import KIT_FAMILY, control_count, kit_keys  # noqa: E402
+from sdk_path import SDK, stock_version  # noqa: E402
 
-SDK = ROOT.parent / "open-xy"
 SUPPORT = pathlib.Path.home() / "Library" / "Application Support"
-STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / "stock-1.2.0" / "os.ldr"
+# The stock OS the SDK's newest platform patches.
+STOCK_OS = SUPPORT / "OPXY-SDK" / "private" / f"stock-{stock_version()}" / "os.ldr"
 BUILDS = SUPPORT / "OPXY-MD" / "builds"
 
 
-def kit_region(key, model, controls, choked):
-    """A kit key as a preset region, as the SDK stores it (../open-xy/docs/abi-1.2.0.md,
-    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the eight
-    controls (7 bits each) then the model (4) fill 15 bits of each param; the
-    play mode mute1 chokes, and oneshot, the default, does not."""
-    bits = [(c >> b) & 1 for c in controls for b in range(7)] + [(model >> b) & 1 for b in range(4)]
-    params = [sum(bit << b for b, bit in enumerate(bits[w * 15:w * 15 + 15])) for w in range(4)]
+def kit_value(model, controls, counts):
+    """The 60 bits a key stores (the SDK's drum_storage.hpp). A kit of up to 16 models:
+    the eight controls (7 bits each), then the model (4). A larger one, by its models'
+    control counts: a model with eight stores its rank among those in the top four
+    bits over its eight controls; any other 15 there, its model in bits 49..54 and
+    its first seven controls."""
+    value = sum(c << (7 * i) for i, c in enumerate(controls))
+    if len(counts) <= 16:
+        return value | model << 56
+    full = [m for m, n in enumerate(counts) if n == 8]
+    assert len(full) <= 15, f"{len(full)} machines with eight controls; a kit of more than 16 holds 15"
+    if model in full:
+        return value | full.index(model) << 56
+    return (value & ((1 << 49) - 1)) | model << 49 | 15 << 56
+
+
+def kit_region(key, model, controls, choked, counts=(8,) * 16):
+    """A kit key as a preset region, as the SDK stores it (the SDK's docs/abi-<OS version>.md,
+    the drum kind): "fm slap" is Drumline type 7, the SDK's mark; the 60 bits
+    (kit_value) fill 15 bits of each param; the play mode mute1 chokes, and
+    oneshot, the default, does not."""
+    value = kit_value(model, controls, counts)
+    params = [(value >> (15 * w)) & 0x7fff for w in range(4)]
     region = {"hikey": key, "model": "fm slap", "params": params}
     return {**region, "playmode": "mute1"} if choked else region
 
 
-def kit_regions(engine):
-    return [kit_region(53 + k, model, controls, role in catalog.CHOKED)
-            for k, (role, _name, model, controls) in enumerate(kit_keys(engine))]
+def kit_regions(engine, kit=None):
+    """A drum engine's 24 keys from one of its kits (its first, unless named)."""
+    counts = [control_count(name) for name in catalog.ENGINES[engine]]
+    return [kit_region(53 + k, model, controls, role in catalog.CHOKED, counts)
+            for k, (role, _name, model, controls) in enumerate(kit_keys(engine, kit))]
 
 
 def preset(entry, amp, params, regions):
@@ -98,10 +117,17 @@ def write_presets(out, engines):
         for name, values in definition.get("presets", {}).items():
             params = [round(values.get(i, p["default"]) * 32767) for i, p in zip(ids, definition["parameters"])]
             files[name.lower().replace(" ", "_")] = params + [0] * (8 - len(params))
-        regions = kit_regions(engine) if engine in catalog.KITS else []
+        kits = catalog.ENGINE_KITS.get(engine, [])
+        regions = kit_regions(engine) if kits else []
         for name, params in files.items():
             path = target / f"{name}.json"
             path.write_text(json.dumps(preset(entries[engine], amp, params, regions), indent=2) + "\n")
+            written.append(path)
+        # An engine of several kits names each in a preset, its first too (trx, efm,
+        # pi), so every family is in the list; default is the first.
+        for kit in kits if len(kits) > 1 else []:
+            path = target / f"{KIT_FAMILY[kit].lower()}.json"
+            path.write_text(json.dumps(preset(entries[engine], amp, files["default"], kit_regions(engine, kit)), indent=2) + "\n")
             written.append(path)
     return written
 
@@ -109,7 +135,7 @@ def write_presets(out, engines):
 def main():
     parser = argparse.ArgumentParser(description="Build OP-XY firmware with this repository's engines")
     parser.add_argument("engines", nargs="*", help="engine folders in machines/ (default: all)")
-    parser.add_argument("--stock-os", default=str(STOCK_OS), help="your OP-XY's own OS 1.2.0 os.ldr")
+    parser.add_argument("--stock-os", default=str(STOCK_OS), help="your OP-XY's own stock os.ldr")
     parser.add_argument("--profiling", choices=("on", "off"), default="on",
                         help="the stock per-voice CPU profiling (on, the SDK's default, for development)")
     parser.add_argument("--layout", help="the engine and page numbers to keep (default: the last build's layout.json)")

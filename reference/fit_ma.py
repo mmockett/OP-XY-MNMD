@@ -8,7 +8,9 @@ bright noise. Each control is swept from the design's defaults (ATT 0, SUS 40,
 REV 0, DAMP 0, RATL 40, RTYP 0, TONE 64, HARD 64) and measured: the level over
 time (2 ms windows, dB under the peak), when the peak comes, the spectrum's
 centroid and its band edges early and late, and how much the level flickers
-from millisecond to millisecond (the rattle).
+from millisecond to millisecond (the rattle). Under the band it falls 24 to 30 dB
+an octave, and RATL lets the grains' full width through in proportion: nothing
+under 2 kHz at RATL 0, 6 dB under the band at 127, rising over the first 50 ms.
 """
 import pathlib
 import sys

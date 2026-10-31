@@ -98,19 +98,20 @@
   ],
   "presets": {},
   "resources": {
-    "voiceBytes": 64,
+    "voiceBytes": 72,
     "voiceAlignment": 4,
     "voiceCapacity": 16,
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "modelCount": 16,
+    "chokeSameKey": 1,
     "display": {
-      "stateBytes": 20,
+      "stateBytes": 44,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 212,
-      "texts": 0,
+      "nodes": 39,
+      "texts": 16,
       "palette": 16
     }
   }

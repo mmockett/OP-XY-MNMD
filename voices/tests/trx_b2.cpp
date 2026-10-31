@@ -90,15 +90,27 @@ int main() {
     check("DIST squares it louder", db(rms(out, 882, 4410)) > plain + 2);
     const int crumbled[8] = {64, 100, 0, 0, 0, 0, 127, 0};
     play(crumbled, out);
+    // Three levels under the envelope: within a few milliseconds, only a few values.
     unsigned levels = 0;
     opxy::i32 seen[16];
-    for (unsigned i = 2205; i < 4410 && levels < 16; ++i) {
+    for (unsigned i = 2205; i < 2265 && levels < 16; ++i) {
         bool found = false;
-        for (unsigned k = 0; k < levels; ++k) found = found || std::abs(seen[k] - out[i]) < 1000;
+        for (unsigned k = 0; k < levels; ++k) found = found || std::abs(seen[k] - out[i]) < 400000;
         if (!found) seen[levels++] = out[i];
     }
-    std::printf("DIRT 127: %u levels\n", levels);
+    std::printf("DIRT 127: %u levels in a short stretch\n", levels);
     check("DIRT 127 crumbles it to a few levels", levels <= 5);
+    // DIRT and DIST shape the sine before the envelope: however far a hit has
+    // fallen it keeps sounding, at DEC's rate, as the Machinedrum's does.
+    const int fading[8] = {64, 60, 0, 0, 0, 0, 0, 0}, fading_dirt[8] = {64, 60, 0, 0, 0, 0, 127, 0}, fading_dist[8] = {64, 60, 0, 0, 0, 0, 0, 127};
+    play(fading, out);
+    const double plain_late = db(rms(out, 8820, 4410));
+    play(fading_dirt, out);
+    std::printf("DIRT 127 at 200-300 ms: %+.1f dB over clean\n", db(rms(out, 8820, 4410)) - plain_late);
+    check("DIRT 127 keeps falling with the clean kick", std::fabs(db(rms(out, 8820, 4410)) - plain_late) < 3);
+    play(fading_dist, out);
+    std::printf("DIST 127 at 200-300 ms: %+.1f dB over clean\n", db(rms(out, 8820, 4410)) - plain_late);
+    check("DIST 127 keeps falling with the clean kick", std::fabs(db(rms(out, 8820, 4410)) - plain_late) < 5);
     for (int extreme = 0; extreme < 2; ++extreme) {
         int v[8];
         for (int i = 0; i < 8; ++i) v[i] = extreme * 127;

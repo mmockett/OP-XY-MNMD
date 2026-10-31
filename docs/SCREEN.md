@@ -45,7 +45,7 @@ a nonzero key; a node's scale is at most 2. The first 31 nodes are common
 
 ## Machinedrum kits
 
-The kits (`mdtrx`, `mdefm`, `mdpi`, `mde12`: the SDK's drum kind) have a
+The kits (`mdkit`, `mde12`: the SDK's drum kind) have a
 machine per key and the encoders on that key, so each shows **the selected
 key's machine** as the design draws one machine: the instrument large on the
 left, the family's panel on the right, at the key's values, with a held
@@ -61,6 +61,117 @@ draws GND-NS's noise on the paths: a static label would show for every
 machine, and the rest would not fit. TRX takes 176 nodes, EFM 203,
 P-I 181 and E12 212. The header names the machine while Shift is
 held.
+
+### The kits' sections (MD KIT, MD E12)
+
+MD KIT and MD E12 draw one thing, the whole screen: the sounding part of the
+instrument in section, as on an engraved patent plate, centred and widened
+under the header. They draw no instrument from the design, no plot or panel,
+and nothing of the rig: their art.h holds no parts, and `md_rig`'s hit motion
+and the clap's lit hands have nothing to move. Each control moves one physical part, the same way
+across the families:
+
+| Kind of control | What it moves |
+| --- | --- |
+| Pitch | a head's standing waves; a cymbal's, bell's or bar's size; a fork's tines |
+| Decay | how far the waves carry from the strike; how many rings leave an edge |
+| Ramp, bump, tension | the dent the striker presses into the head |
+| Striker (STRT, SNAP, HAMR, HARD) | how high the beater, stick or mallet is lifted, or its head's size |
+| Tone, filters | snare wires pressed on or hanging clear, a cymbal's thickness, the teeth of its rim, a bell's wall |
+| Metal, harmonics, FM | hammer marks, the overtone riding the head, an exciter's spring |
+| Room | an echo chamber's depth, ceiling and reflections |
+| Distortion | clamps closing on the head, shown only while it is up |
+
+Every machine is its own drawing, so it can be told apart without a caption,
+and each family shares a trait so the kit reads too:
+
+| | TRX | EFM | P-I |
+| --- | --- | --- | --- |
+| Shell hardware | tube lugs | exciter coil and magnet (an animated spring on BD, XT) | rope tensioning |
+| Striker | round felt ball, round stick tip | square head, flat nylon tip | big felt head, mallet stick |
+| Cymbals | wing nut | exciter coil on the rod (HH's spring) | felt washers |
+
+Machines differ by their shell's depth (kick 148, floor tom 136, rack tom 122,
+snare 112, rimshot 104), a rack tom's mount, a floor tom's legs and slack head
+(TRX-XC), a kick's pillow (TRX-B2), a ride's flat bow and big bell, a crash's
+steep bow and small bell, a china's upturned edge (EFM-CY), an egg shaker
+(PI-MA) beside a maraca (TRX-MA). Each E12 tape carries its own recording
+(`fig_e12::takes`: a kick's wide bands, a hat's fine stripes, a clap's bursts,
+a triangle's even ones) and the machine's number, plus one, as notches filed in
+the block's end.
+
+How far a control moves its part follows how much it changes the sound:
+`tools/art/travel.py` plays each member with each control swept (at its
+defaults and with every control at 64), measures the band-energy change and
+writes the tables (MD KIT's and MD E12's) in `voices/mdkit_view.hpp` (the square root of its share of 24 dB,
+at least half of full travel). Run it again after a voice changes.
+
+The sections are drawn on the four paths (`voices/mdkit_view.hpp`, namespaces
+`fig` and `fig_e12`), laid out about x 362 and drawn shifted to the centre
+(`fig::shift`); every path keeps within 128 px of its origin, the most a path
+at scale 2 may reach. Their fixed parts (rings, a rod, a hand, clamps, a
+loudspeaker, wavefronts, beads; E12's block, slots, blade and patches:
+`tools/art/fig.mjs`) take the common nodes' places, which these kits never use
+otherwise; `build.mjs` drops every design part for the kits in `FIG_KITS`
+(MD KIT and MD E12, each with its parts in `FIGS`). MD KIT is 71 nodes and about 16 KB of artwork (its hardware parts
+follow the common nodes, and each view hides them first); MD E12 is 39 nodes
+and about 11 KB. 
+MD E12 draws its sample as a strip of tape on a splicing block, seen from
+above (namespace `fig_e12`), its recording developed into stripes across it,
+each machine its own recording:
+
+| Control | What it moves |
+| --- | --- |
+| PTCH | the stripes closer together (the tape played faster) |
+| DEC | the stripes fading along the tape |
+| HP | the stripes' lower halves thinned |
+| STRT | the cut-off start lying above the block; the stripes begin part way into the sound |
+| RTRG, RTIM | splicing-tape patches where the start is spliced in again, RTIM apart |
+| BEND | the first stripes crowded or spread, drifting back |
+| RING, RATL, BELL, REAL, SLEW, BC | a second sample's tape spliced in on the diagonal, nearer the start as it rises |
+| STOP | the end cut shorter the sooner it stops |
+| SNAP, SPLN | the start saturated, its stripes clipped flat, for SPLN's length |
+| HPQ | the tape's edge creased |
+
+A hit runs the tape left through the block. Its travel table needs the E12
+capture on this Mac (`tools/art/travel.py` refuses to write it from the silent
+stand-in); only the measured travel goes in the table, never sample data.
+
+### Keeping the kits' lines whole, and their controls alive
+
+Lessons from the device (build 039), for any view on a reshaping path:
+
+- **A line is a real thin closed shape.** `fig::draw(..., ribbon)` offsets both
+  edges a quarter of a local pixel apart. A line traced out and back over itself
+  (`polyline`), most of all one that turns sharply, broke up on the device even
+  when every host check passed.
+- **Never draw several separate strokes on one path.** TRX-BD's NOIS spray broke
+  up that way: the strokes and the joins between them doubled back at every tip.
+  Use fixed nodes (`spark0`..), which cannot change shape.
+- **An outline must not cross itself.** A beater's ball started from the far side
+  of the ball: the crossing cancelled its area at some settings ("has no area",
+  TRX-B2 at RAMP 80..82), and drew a stray line through the ball at all of them.
+- **Count the points a shape can need at its extreme.** A zigzag that runs out of
+  points ends in a straight line. Fit the spacing to the points, not the reverse.
+- **Keep every point within 128 px of its path's origin** (64 local px at scale 2),
+  and everything below the header: art draws over it, so a hanging rod crossed the
+  controls. `check_kit_frames` checks every frame with the SDK's
+  `opxy::draw::valid`.
+- **Sweep all 128 values** of every control, struck, not a few: `check_kit_frames`.
+
+So that a control is never timid or dead:
+
+- **Travel is proportional but never small:** the square root of the sound's change,
+  at least half of the full travel (`travel.py`).
+- **An amount that starts from nothing** (a spray, teeth, clamps, a second bell) grows
+  from 0 (`Ctl::a`); it must not jump in at the middle of its range.
+- **A count needs a continuous part too:** hammer marks deepen, the newest ray grows
+  out, splices draw closer, or the control is a two-state switch between its counts.
+- **A shade fades** through the palette's greys (`fig::grey`), never dark to white.
+- **Motion eases.** A hit's `pose` swings up over 33 ms and eases back; `arc` runs out
+  and comes home. Nothing jumps at the hit's start or end.
+- **Measure it:** `tools/check_kit_frames.cpp` walks each control in steps of 8 and
+  fails one with more than a fifth of its steps changing nothing in the frame.
 
 ## Monomachine engines
 

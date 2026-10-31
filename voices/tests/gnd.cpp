@@ -37,6 +37,20 @@ int main() {
     std::printf("SN RAMP 32: %.0f Hz settling to %.0f Hz\n", early, late);
     expect("SN RAMP 32 starts near 3.4 kHz", std::fabs(early / 3445 - 1) < 0.1);
     expect("SN RDEC 32 settles back", std::fabs(late / 689.1 - 1) < 0.05);
+    // RAMP adds Hz whatever PTCH is: 690 Hz x (RAMP / 16)^2 at PTCH 0 as at 64.
+    const int sn_low[8] = {0, 96, 32, 64, 0, 0, 0, 0};
+    SN(sn_low);
+    const double low_start = frequency(0, ms(5));
+    std::printf("SN PTCH 0, RAMP 32: starts at %.0f Hz\n", low_start);
+    expect("SN RAMP adds its Hz at PTCH 0", std::fabs(low_start / 2803 - 1) < 0.1);
+    // Past half the sample rate the phase wraps: never silent, whatever the settings.
+    const int sn_loud[4][8] = {{64, 64, 127, 64, 0, 0, 0, 0}, {127, 64, 127, 64, 0, 0, 0, 0},
+                               {64, 64, 96, 64, 0, 0, 0, 0}, {127, 64, 64, 64, 0, 0, 0, 0}};
+    for (int k = 0; k < 4; ++k) {
+        SN(sn_loud[k]);
+        std::printf("SN PTCH %d RAMP %d: peak %.3f\n", sn_loud[k][0], sn_loud[k][2], peak(0, ms(20)));
+        expect("SN sounds with RAMP past half the sample rate", peak(0, ms(20)) > 0.03);
+    }
 
     // GND-NS: white noise, the Machinedrum's -19 dB RMS 2 dB up; silent at DEC 0.
     const int hiss[8] = {96, 0, 0, 0, 0, 0, 0, 0};
@@ -52,12 +66,19 @@ int main() {
     // GND-IM: UVAL 127 steps to -0.252 (2 dB up) for UP samples, then DVAL's for DOWN.
     const int im[8] = {64, 127, 64, 64, 0, 0, 0, 0};
     IM(im);
-    const double first = out[0] / 2147483648.0, second = out[70] / 2147483648.0, after = out[140] / 2147483648.0;
+    const double first = out[3] / 2147483648.0, second = out[70] / 2147483648.0, after = out[140] / 2147483648.0;
     std::printf("IM: %.3f, %.3f at 70, %.3f at 140\n", first, second, after);
     expect("IM steps to UVAL's depth", std::fabs(first + 0.317) < 0.02);
     expect("IM steps up to DVAL's for DOWN", second > -0.05 && second < 0.05);
     expect("IM returns past zero, high-passed", after > 0.05);
     expect("IM is gone by 200 ms", peak(ms(200), ms(10)) < 0.001);
+    expect("IM keeps its low tail at 30 ms", peak(ms(30), ms(5)) > 0.003);
+    // A length above 64 is 64 + (v - 64)^2 samples: at UP 127 the step ends 4033 in.
+    const int im_long[8] = {127, 127, 0, 0, 0, 0, 0, 0};
+    IM(im_long);
+    const double before = out[4030] / 2147483648.0, end = out[4037] / 2147483648.0;
+    std::printf("IM UP 127: %.3f before the step's end, %.3f after\n", before, end);
+    expect("IM UP 127 ends its step at 4033 samples, a second hit", end - before > 0.25);
 
     const int ends[2] = {0, 127};
     for (int s = 0; s < 4; ++s)

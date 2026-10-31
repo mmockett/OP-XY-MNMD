@@ -26,9 +26,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import catalog  # noqa: E402
 from presets import PRESETS  # noqa: E402
+from sdk_path import SDK_INCLUDE  # noqa: E402
 
 VOICES = ROOT / "voices"
-SDK_INCLUDE = ROOT.parent / "open-xy" / "sdk" / "include"
 # Samples and waves captured from the owner's ROMs (docs/FAMILIES.md): never in git.
 PRIVATE = pathlib.Path.home() / "Library" / "Application Support" / "OPXY-MD" / "private"
 
@@ -444,15 +444,21 @@ int main() {{
     return [name], []
 
 
-KIT_FAMILY = {"mdtrx": "TRX", "mdefm": "EFM", "mdpi": "PI", "mde12": "E12"}
+KIT_FAMILY = {"mdtrx": "TRX", "mdefm": "EFM", "mdpi": "PI", "mde12": "E12", "mdkit": "KIT"}
 SHAKERS = ("TRX-MA", "PI-MA", "E12-SH", "E12-TA")   # the design's 1100 ms hit
 
 
-def kit_keys(engine):
-    """Each key of a kit: (role, machine, its model in the kit, its eight controls 0..127)."""
+def control_count(name):
+    """A machine's controls on the drum kind (its parameter_count): up to its last named slot."""
+    return max(i for i, s in enumerate(catalog.MACHINES[name][2]) if s) + 1
+
+
+def kit_keys(engine, kit=None):
+    """Each key of a kit an engine plays (its first, unless named): (role, machine,
+    its model in the engine, its eight controls 0..127)."""
     machines = catalog.ENGINES[engine]
     keys = []
-    for role, name, over in catalog.KITS[engine]:
+    for role, name, over in catalog.KITS[kit or catalog.ENGINE_KITS[engine][0]]:
         values = defaults(name)
         for label, v in over.items():
             values[catalog.MACHINES[name][2].index(label)] = v
@@ -473,6 +479,10 @@ def generate_drum_kit(engine, index):
     # The kit's family names it; its GND machines keep their family in their names.
     fam = KIT_FAMILY[engine]
     title = f"MD {fam.replace('PI', 'P-I')}"
+    # A kit of several families names each in its group (KIT on the Shift page).
+    groups = catalog.GROUPS.get(engine)
+    choosing = ("Shift and the first two encoders (the family, then the machine)" if groups
+                else "Shift and the first encoder")
     headers = sorted({sound_header(m) for m in machines})
     member = {m: k for k, m in enumerate(machines)}
     q31 = lambda v: 0x7fffffff if v >= 127 else round(v * 16909320)
@@ -481,9 +491,9 @@ def generate_drum_kit(engine, index):
     models, rows, key_models, shown = [], [], [], {}
     for name in machines:
         slots = catalog.MACHINES[name][2]
-        count = max(i for i, s in enumerate(slots) if s) + 1   # an empty slot inside stays unlabelled
+        count = control_count(name)   # an empty slot inside stays unlabelled
         labels = [f'"{s}"' if s else '""' for s in slots]
-        short = name.split("-", 1)[1] if family(name) == fam else name
+        short = name.split("-", 1)[1] if groups or family(name) == fam else name
         models.append(f'    {{"{short}", {count}, {{{", ".join(labels)}}}}},')
     for k, (role, name, model, raw) in enumerate(kit_keys(engine)):
         rows.append(f"    {{{', '.join(map(str, raw))}}},   // {k:2d} {role}: {name}")
@@ -502,7 +512,7 @@ const u32 keys = 24;
 const u32 models = {len(machines)};
 // A machine on the drum kind's eight controls, in its own slot order: slots
 // 0..count-1 are its controls, the rest empty; an unnamed slot inside the
-// count is a gap in the machine's layout, blank and inert. Shift and the first encoder
+// count is a gap in the machine's layout, blank and inert. {choosing}
 // choose it (the drum kind's model).
 struct Model {{
     const char* name;   // as the header shows it: without the family, which the kit names
@@ -511,14 +521,17 @@ struct Model {{
 }};
 const Model model[models] = {{
 {chr(10).join(models)}
-}};
+}};{f"""
+// The families, each a run of the models above (the drum kind's model groups).
+const u32 family_count = {len(groups)};
+const char* const families[family_count] = {{{", ".join(f'"{label}"' for label, _members in groups)}}};""" if groups else ""}
 // Each key's machine, and its eight controls, 0..127, as the drum kind stores them.
 const unsigned char key_model[keys] = {{{", ".join(map(str, key_models))}}};
 const unsigned char key_values[keys][8] = {{
 {chr(10).join(rows)}
 }};
-// The key each machine is first on.
-const unsigned char shown[models] = {{{", ".join(str(shown[m]) for m in machines)}}};
+// The key each machine is first on (0 when no key starts on it).
+const unsigned char shown[models] = {{{", ".join(str(shown.get(m, 0)) for m in machines)}}};
 
 // A machine's eight slots (Q31) from the drum kind's eight controls (Q31,
 // 0..127 << 24), on the scale the voice modules are voiced on.
@@ -556,6 +569,8 @@ struct Voice {{
     u32 next;      // the played key's machine, from drum_select
     u32 owner;
     u32 pending;   // a note started
+    u32 quiet;     // blocks in a row under the floor
+    u32 done;      // the sound has ended: render writes silence
     union {{
 {state}
     }} u;
@@ -573,12 +588,22 @@ u32 parameter_count(u32 model);
 """)
 
     # --- engine.cpp
+    # The members whose module can sound again after a quiet spell (its waiting()).
+    waits = "\n".join(f"    case {member[m]}: return md::{sound_header(m)}::waiting(voice.u.m{member[m]});" for m in machines
+                      if "inline bool waiting(" in (VOICES / f"{sound_header(m)}.hpp").read_text())
     cases = lambda verb, args, indent="    ": "\n".join(
         f"{indent}case {member[m]}: md::{slug(m)}::{verb}(voice.u.m{member[m]}, {args}); break;" for m in machines)
+    # Each member's render out of line, so that one kit render's stack holds only the
+    # playing member's buffers, not every inlined member's at once.
+    middle = ", ".join(["::md::kit::middle_c"] * 64)
+    sound_members = f"const u32 tuned[opxy::block_frames] = {{{middle}}};\n" + "\n".join(
+        f"__attribute__((noinline)) void sound{member[m]}(Voice& voice, Shared& shared, opxy::Output output, const i32* own) "
+        f"{{ md::{slug(m)}::render(voice.u.m{member[m]}, shared.common, output, own, tuned); }}" for m in machines)
+    sound_calls = "\n".join(f"    case {member[m]}: sound{member[m]}(voice, shared, output, own); break;" for m in machines)
     (folder / "engine.cpp").write_text(f"""#include "core.h"
 
 // {title}: generated by tools/make_engine.py. Each key holds its own machine,
-// chosen with Shift and the first encoder, and that machine's eight controls
+// chosen with {choosing}, and that machine's eight controls
 // (kit.h), which the SDK saves with the project. The sound is in the voice
 // modules: {", ".join(f"{m} (voices/{sound_header(m)}.hpp)" for m in machines)}.
 namespace {engine} {{
@@ -609,14 +634,37 @@ inline void initialize(Voice& voice, Shared&, u32 owner) {{
     voice.next = 0;
     voice.owner = owner;
     voice.pending = 0;
+    voice.quiet = voice.done = 0;
 }}
 inline void start(Voice& voice, Shared&, u32) {{ voice.pending = 1; }}
+
+// A sound has ended once it has stayed 12 dB under the floor (-90 dB) for 90 ms
+// with nothing still to come: a DUAL strike, a clap, a shake, a grab or a
+// retrig. A long tail hovering at the floor would come back over it; 12 dB
+// under, none does (tests/sound.cpp). Its voice then writes silence without
+// running the machine, and finished tells the SDK it may free the voice.
+const i32 quiet_floor = 1 << 16, quiet_under = quiet_floor >> 2;
+const u32 quiet_blocks = 62;
+inline bool waiting(const Voice& voice) {{
+    switch (voice.machine) {{
+{waits}
+    default: return false;
+    }}
+}}
+inline bool finished(const Voice& voice, const Shared&) {{ return voice.done != 0; }}
 inline void destroy(Voice&, Shared&, u32) {{}}
 inline void drum_select(Voice& voice, Shared&, u32, u32 model) {{ voice.next = model < kit::models ? model : 0; }}
+
+{sound_members}
 
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {{
+    if (voice.pending) voice.quiet = voice.done = 0;
+    if (voice.done) {{
+        for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0;
+        return;
+    }}
     if (voice.pending || voice.next != voice.machine) {{
         voice.pending = 0;
         voice.machine = voice.next;
@@ -624,12 +672,14 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     }}
     i32 own[8];
     kit::controls(voice.machine, parameters, own);
-    u32 tuned[opxy::block_frames];
-    for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
     switch (voice.machine) {{
-{cases("render", "shared.common, output, own, tuned")}
+{sound_calls}
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }}
+    bool loud = false;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) loud = loud || output[i] >= quiet_under || output[i] <= -quiet_under;
+    voice.quiet = loud ? 0 : voice.quiet + 1;
+    if (voice.quiet >= quiet_blocks && !waiting(voice)) voice.done = 1;
 }}
 }}
 """)
@@ -642,9 +692,17 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     shaker = " || ".join(f"selected == {k}" for k, name in enumerate(machines) if name in SHAKERS) or "false"
 
     # --- display.h / display.cpp
+    # Shift's controls, as the drum kind orders them (input.choices): a kit with
+    # groups the family, its machine and the choke group; one without the
+    # machine and the choke group.
+    shift_titles = ["KIT", "MACHINE", "CHOKE", ""] if groups else ["MACHINE", "CHOKE", "", ""]
+    shift_values = ('kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0]',
+                    'kit::model[selected].name', 'chokes[input.choices[2] & 3u]', '""') if groups else \
+                   ('kit::model[selected].name', 'chokes[input.choices[1] & 3u]', '""', '""')
     (folder / "display.h").write_text(f"""#pragma once
 // Generated by tools/make_engine.py.
 #include <opxy/draw.hpp>
+#include <opxy/page_header.hpp>
 #include "md_view.hpp"
 #include "kit.h"
 #include "art.h"
@@ -653,9 +711,13 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
 namespace {engine} {{
 using opxy::i32;
 using opxy::u32;
-using Frame = opxy::draw::Frame<4, 64, md::view::art_first + art::node_count, 0, 16>;
+// The art's nodes, then the two-page header's eight bar steps; its 16 text slots.
+const u32 header_node = md::view::art_first + art::node_count;
+using Frame = opxy::draw::Frame<4, 64, header_node + opxy::draw::page_header_nodes, opxy::draw::page_header_texts, 16>;
 struct DisplayState {{
     md::view::Hit hit;
+    opxy::draw::PageHeader header;
+    u32 shown;   // the machine last drawn, plus one; 0 after a reset
 }};
 }}
 """)
@@ -669,13 +731,22 @@ namespace {engine} {{
 inline void display_reset(DisplayState& state) {{
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
+    state.shown = 0;
 }}
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {{
+    const u32 selected = input.model < kit::models ? input.model : 0;
+    // A view keeps a path whose key is unchanged, and the key comes from its
+    // values: another machine's outline can carry the same key. A new machine
+    // starts its paths afresh (begin shapes each again).
+    if (state.shown != selected + 1) {{
+        state.shown = selected + 1;
+        for (u32 p = 0; p < Frame::path_count; ++p) frame.paths[p].key = 0;
+    }}
     md::view::begin(frame, input);
     state.hit.update(input);
     const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet}};
-    const u32 selected = input.model < kit::models ? input.model : 0;
     i32 own[8];
     kit::controls(selected, input.slots, own);
     for (u32 m = 0; m < kit::models; ++m)
@@ -686,17 +757,35 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 {views}
     default: break;
     }}
-    // A slot the machine lacks shows nothing (an empty header keeps the stock value).
-    for (u32 i = 0; i < 4; ++i)
-        if (!kit::model[selected].labels[input.shown[i] & 7u][0])
-            opxy::draw::copy(frame.header[i], opxy::draw::header_capacity, " ");
+    // The header last: both rows, the one the encoders edit on its bar, as the
+    // Monomachine engines show their two pages. A slot the machine lacks is
+    // blank on either row. While Shift is held the edited row names Shift's
+    // controls and their choices instead, as the stock header does.
+    static const char* const chokes[4] = {{"none", "1", "2", "3"}};
+    const char* titles[8];
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) {{
+        titles[i] = kit::model[selected].labels[i];
+        if (titles[i][0]) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
+        else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
+    }}
+    if (input.shift) {{
+        static const char* const shift_titles[4] = {{{", ".join(f'"{t}"' for t in shift_titles)}}};
+        const char* const shift_values[4] = {{{", ".join(shift_values)}}};
+        const u32 row = input.shown[0] >= 4 ? 4 : 0;
+        for (u32 c = 0; c < 4; ++c) {{
+            titles[row + c] = shift_titles[c];
+            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
+        }}
+    }}
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }}
 }}
 """)
 
     # --- headers
     for source in sorted((ROOT / "lib").glob("*.hpp")) + [VOICES / f"{h}.hpp" for h in [*headers, *view_headers]]:
-        copy_scoped(source, folder, engine)
+        copy_scoped(source, folder, engine, paged=True)   # every kit pages its row, under the two-row header
     captured = copy_private(headers, folder, engine)
 
     # --- definition.json: the eight controls; their defaults are the first key's
@@ -705,24 +794,37 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     definition = {"schema": 1, "id": engine, "name": title, "parameters": params, "presets": {},
                   "resources": {"voiceBytes": 4, "voiceAlignment": 4, "voiceCapacity": 16, "sharedBytes": 16,
                                 "outputPeakQ31": 1073741824, "modelCount": len(machines),
+                                # One voice a pad, as the Machinedrum's one a track: a new note cuts the last.
+                                "chokeSameKey": 1,
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
                                             "nodes": 0, "texts": 0, "palette": 16}}}
+    if groups:
+        # The families as the drum kind's model groups (KIT on the Shift page).
+        definition["resources"]["modelGroups"] = [{"label": label, "count": len(members)} for label, members in groups]
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
     voice_bytes, shared_bytes, display_bytes = sizes(engine)
-    nodes = int(re.search(r"node_count = (\d+);", (folder / "art.h").read_text()).group(1)) + 31
+    nodes = int(re.search(r"node_count = (\d+);", (folder / "art.h").read_text()).group(1)) + 31 + 8
     definition["resources"].update({"voiceBytes": voice_bytes, "sharedBytes": shared_bytes})
-    definition["resources"]["display"].update({"stateBytes": display_bytes, "nodes": nodes})
+    definition["resources"]["display"].update({"stateBytes": display_bytes, "nodes": nodes, "texts": 16})
     (folder / "definition.json").write_text(json.dumps(definition, indent=2) + "\n")
 
     # --- machine.json
     (folder / "machine.json").write_text(json.dumps({
-        "schema": 1, "sdk": "1.3", "kind": "drum",
+        # SDK 1.9: drum kits, numberless; each build's layout gives the engine and page.
+        "schema": 1, "sdk": "1.9", "kind": "drum",
         "description": f"The Machinedrum's {fam.replace('PI', 'P-I')} machines as a drum kit: each key picks its own machine and keeps its own controls."[:160],
-        "identity": {"engine": 36 + index, "page": 84 + index},
+        # The longest release: a step's note ends long before most tails do (125 ms
+        # at 120 BPM; TRX-BD and the EFM machines ring 14-18 s at DEC 127, and
+        # GND-SN, GND-NS, TRX-B2 and E12's RTRG hold), so any shorter one cuts some
+        # machine's own decay. It costs nothing once a sound has ended: finished()
+        # frees the voice then, whatever the release.
         "presetDefaults": {"amp": {"attack": 0, "decay": 32767, "sustain": 32767, "release": 32767}},
+        **({"presets": "presets"} if (folder / "presets").is_dir() else {}),
     }, indent=2) + "\n")
 
     # --- tests: every key's own sound, every machine at its controls' ends
+    alone_cases = "\n".join(f"                case {member[m]}: md::{slug(m)}::render(alone.u.m{member[m]}, b.common, y, own, tuned); break;"
+                            for m in machines)
     (folder / "tests" / "sound.cpp").write_text(f"""// Checks for {title}, written by tools/make_engine.py: each key's stored
 // machine and controls sound as that machine, within the declared peak; every
 // machine stays bounded with its controls at both ends; the names fit, and
@@ -884,6 +986,48 @@ int main() {{
             }}
         }}
     }}
+    // The silent tail: a voice stops running its machine only once the machine
+    // itself would stay under the floor. Each machine with all its controls at
+    // 0, at the middle and at 127, then each at either end, rendered by the
+    // engine and by the machine alone for 24 s: the same until the engine
+    // stops, the machine under the floor from then on.
+    for (opxy::u32 m = 0; m < {engine}::kit::models; ++m)
+        for (int c = -3; c < 16; ++c) {{
+            opxy::i32 values[8];
+            for (int i = 0; i < 8; ++i) values[i] = c == -3 ? 0 : c == -1 ? 0x7fffffff : 64 << 24;
+            if (c >= 0) values[c / 2] = c & 1 ? 0x7fffffff : 0;
+            static {engine}::Voice engine_voice, alone;
+            {engine}::Shared a = {engine}::Shared(), b = {engine}::Shared();
+            std::memset(&engine_voice, 0, sizeof engine_voice);
+            std::memset(&alone, 0, sizeof alone);
+            {engine}::initialize(engine_voice, a, 1);
+            {engine}::drum_select(engine_voice, a, 1, m);
+            {engine}::start(engine_voice, a, 1);
+            alone.machine = m; alone.owner = 1;
+            {engine}::begin_member(alone, b);
+            opxy::u32 pitch[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+            opxy::i32 own[8];
+            {engine}::kit::controls(m, values, own);
+            opxy::u32 tuned[opxy::block_frames];
+            for (unsigned i = 0; i < opxy::block_frames; ++i) tuned[i] = ::md::kit::middle_c;
+            bool cut = false, ended = false;
+            unsigned blk = 0;
+            for (; blk < 24 * 689 && !cut; ++blk) {{
+                opxy::i32 x[opxy::block_frames], y[opxy::block_frames];
+                {engine}::drum_select(engine_voice, a, 1, m);
+                {engine}::render(engine_voice, a, 1, x, values, pitch);
+                switch (m) {{
+{alone_cases}
+                default: break;
+                }}
+                for (unsigned i = 0; i < opxy::block_frames; ++i)
+                    cut = cut || (ended ? y[i] >= {engine}::quiet_floor || y[i] <= -{engine}::quiet_floor : x[i] != y[i]);
+                ended = ended || {engine}::finished(engine_voice, a);
+            }}
+            if (cut) {{ std::printf("FAIL %s (%u), case %d: the silent tail cuts its sound at %.2f s (%s)\\n", {engine}::model_name(m), m, c,
+                                 blk * 64.0 / 44100, ended ? "it sounds again" : "the engine differs"); ++failures; }}
+        }}
     if (!failures) std::puts("PASS {engine}");
     return failures ? 1 : 0;
 }}
@@ -893,10 +1037,11 @@ int main() {{
 
 def main():
     wanted = sys.argv[1:] or list(catalog.ENGINES)
-    for index, engine in enumerate(catalog.ENGINES):
+    for engine in catalog.ENGINES:
         if engine not in wanted:
             continue
-        make = generate_drum_kit if engine in catalog.KITS else generate
+        index = catalog.NUMBERED.index(engine) if engine in catalog.NUMBERED else len(catalog.NUMBERED)
+        make = generate_drum_kit if engine in catalog.ENGINE_KITS else generate
         members, missing = make(engine, index)
         if members is None:
             print(f"{engine}: skipped" + (f" ({', '.join(missing)})" if missing else ""))

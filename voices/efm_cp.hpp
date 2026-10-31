@@ -13,7 +13,8 @@
 // 0: the first is silent); CDEC their spacing, 1 ms at 0 to 41 ms at 127, each one
 // struck at full level and falling 18 dB before the next. The tail then starts
 // at full level and falls at DEC's rate, as EFM-BD's body does. HPF is
-// EFM-SD's high-pass.
+// EFM-SD's high-pass. The tone starts at a zero crossing, falling: the first
+// sample is 0.09 of the peak, as the Machinedrum's.
 namespace md {
 namespace efm_cp {
 struct State {
@@ -63,6 +64,8 @@ struct Block {
 };
 }
 
+// Whether a sound is still to come however quiet it is now: a clap.
+inline bool waiting(const State& voice) { return voice.claps != 0; }
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -78,7 +81,8 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const Block b(parameters);
     if (voice.fresh) {
         const u32 claps = (static_cast<u32>(md::positive(parameters[CLPS])) + 0x4000000u) >> 27;   // CLPS / 8, rounded
-        voice.fm.reset();
+        voice.fm.reset(efm::from_zero);
+        voice.fm.modulator = efm::fed_start;
         voice.claps = claps ? claps : 1;
         voice.clap = claps ? md::one : 0;
         voice.level = md::one;
@@ -100,6 +104,8 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
             voice.clap = multiply(voice.clap, b.clap_step);
             if (++voice.count >= b.spacing) {
                 voice.count = 0;
+                // CLPS 0's silent first clap over, the tone starts from its zero crossing here.
+                if (!voice.clap) voice.fm.carrier = efm::from_zero;
                 voice.clap = md::one;
                 --voice.claps;
             }

@@ -3,6 +3,14 @@
 
     python3 tools/test_voices.py            # every module with checks
     python3 tools/test_voices.py trx_bd     # some
+    python3 tools/test_voices.py --record   # take the kits' cases as they sound now
+    python3 tools/test_voices.py --accept TRX-SD   # take one machine's again, the others kept
+
+Every run also plays the drum kits' members through their fixed cases
+(voices/tests/cases.hpp) and compares them with voices/tests/cases.json: by
+level, and by the energy in eight bands across 16 windows, so an optimisation
+can't drift a sound. Each case must also fall silent within LIFETIME seconds and
+stay silent for two more.
 
 A kit engine's SDK test (machines/<kit>/tests/sound.cpp) checks that every key
 sounds and stays bounded; these check each voice against its fitted measures.
@@ -13,7 +21,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SDK_INCLUDE = ROOT.parent / "open-xy" / "sdk" / "include"
+sys.path.insert(0, str(ROOT / "tools"))
+from sdk_path import SDK_INCLUDE, platform  # noqa: E402
 # Data captured from the owner's ROMs (docs/FAMILIES.md), where this Mac has it;
 # otherwise the silent stand-ins in voices/silent.
 PRIVATE = pathlib.Path.home() / "Library" / "Application Support" / "OPXY-MD" / "private"
@@ -27,16 +36,16 @@ def detent_problems():
     """Where an encoder detent would not move a control to its next shown step.
 
     Stock steps a custom engine's control about 1% a detent, which moves its
-    0..127 readout every detent; the SDK steps an enum a choice a detent to the
-    choice's midpoint (its synth_controls.cpp). So every control whose header
-    names its steps (make_engine.ENUMS) must be an enum with those labels, the
-    SDK must step enums, and each midpoint must read as its own step."""
-    sys.path.insert(0, str(ROOT / "tools"))
+    0..127 readout every detent; the SDK answers an enum's choice count, so stock
+    steps it a choice a detent and stores the choice's bucket centre (its
+    synth_controls.cpp). So every control whose header names its steps
+    (make_engine.ENUMS) must be an enum with those labels, the SDK must step
+    enums, and each centre must read as its own step."""
     import catalog
     import make_engine
     problems = []
-    if "choices[parameter_slots]" not in (ROOT.parent / "open-xy" / "sdk" / "platform" / "opxy-1.2.0" / "synth_controls.hpp").read_text():
-        problems.append("the SDK steps enums 1% a detent (needs its branch drum-synthesis-enum-detents)")
+    if "steps[parameter_slots]" not in (platform() / "synth_controls.hpp").read_text():
+        problems.append("the SDK steps enums 1% a detent (needs SDK 1.3's stepped enums)")
     for engine, names in catalog.ENGINES.items():
         folder = ROOT / "machines" / engine
         if len(names) != 1 or not (folder / "definition.json").exists():
@@ -53,10 +62,12 @@ def detent_problems():
             if mapping["kind"] != "enum" or mapping["labels"] != steps:
                 problems.append(f"{engine} {label}: {len(steps)} steps, declared {mapping['kind']}")
                 continue
-            # The SDK's midpoint of each choice, (2^30 / n)(2c + 1), read back as the header reads it.
+            # Stock's centre of each choice's bucket, c q + q / 2 with q = (2^31 - 1) / n, read back
+            # as the header reads it.
             n = len(steps)
-            if any((((0x40000000 // n) * (2 * c + 1)) >> 16) * n >> 15 != c for c in range(n)):
-                problems.append(f"{engine} {label}: a choice's midpoint reads as another step")
+            q = 0x7fffffff // n
+            if any(((c * q + q // 2) >> 16) * n >> 15 != c for c in range(n)):
+                problems.append(f"{engine} {label}: a choice's centre reads as another step")
     return problems
 
 
@@ -102,21 +113,31 @@ def preset_problems():
     sys.path.insert(0, str(ROOT / "tools"))
     import catalog
     import build_firmware
-    from make_engine import kit_keys
-    problems, rows = [], []
-    for engine in catalog.KITS:
-        for region, (role, _name, model, controls) in zip(build_firmware.kit_regions(engine), kit_keys(engine)):
-            if (region.get("playmode") == "mute1") != (role in catalog.CHOKED) or region["model"] != "fm slap":
-                problems.append(f"{engine} {role}: region {region}")
-            rows.append(f'{{"{engine} {role}", {{{", ".join(map(str, region["params"]))}}}, {model}, '
-                        f'{{{", ".join(map(str, controls))}}}}}')
+    from make_engine import control_count, kit_keys
+    problems, rows, engines = [], [], []
+    for number, (engine, kits) in enumerate(catalog.ENGINE_KITS.items()):
+        counts = [control_count(name) for name in catalog.ENGINES[engine]]
+        engines.append(f'{{{len(counts)}, {{{", ".join(map(str, counts))}}}}}')
+        for kit in kits:
+            for region, (role, _name, model, controls) in zip(build_firmware.kit_regions(engine, kit), kit_keys(engine, kit)):
+                if (region.get("playmode") == "mute1") != (role in catalog.CHOKED) or region["model"] != "fm slap":
+                    problems.append(f"{engine} {kit} {role}: region {region}")
+                rows.append(f'{{"{engine} {kit} {role}", {{{", ".join(map(str, region["params"]))}}}, {model}, '
+                            f'{{{", ".join(map(str, controls))}}}, {number}}}')
     out = ROOT / "local" / "voice-tests"
     out.mkdir(parents=True, exist_ok=True)
     (out / "kit_presets.cpp").write_text("""#include "drum_storage.hpp"
 #include <cstdio>
 using namespace opxy;
 using namespace opxy::platform;
-struct Row { const char* key; u32 params[4]; u32 model; u8 controls[8]; };
+// Each engine's machines' control counts (its parameter_count).
+struct Engine { u32 models; u8 counts[64]; };
+const Engine engines[] = {
+%s
+};
+static const Engine* current;
+static u32 count(u32 model) { return current->counts[model]; }
+struct Row { const char* key; u32 params[4]; u32 model; u8 controls[8]; u32 engine; };
 const Row rows[] = {
 %s
 };
@@ -125,19 +146,103 @@ int main() {
     for (const Row& r : rows) {
         i32 words[4];
         for (int i = 0; i < 4; ++i) words[i] = static_cast<i32>(r.params[i] << 16);
+        current = &engines[r.engine];
+        const DrumCodec codec = drum_codec(current->models, count);
         u8 model = 99, controls[8] = {};
-        bool ok = drum_unpack(words, &model, controls) && model == r.model;
+        bool ok = codec.fits() && drum_unpack(words, &model, controls, codec) && model == r.model;
         for (int i = 0; i < 8; ++i) ok = ok && controls[i] == r.controls[i];
         if (!ok) { std::printf("%%s: does not unpack as its key\\n", r.key); ++failed; }
     }
     return failed;
 }
-""" % ",\n".join(rows))
-    subprocess.run(["c++", "-std=c++11", f"-I{SDK_INCLUDE}", f"-I{ROOT.parent / 'open-xy' / 'sdk' / 'platform' / 'opxy-1.2.0'}",
+""" % (",\n".join(engines), ",\n".join(rows)))
+    subprocess.run(["c++", "-std=c++11", f"-I{SDK_INCLUDE}", f"-I{platform()}",
                     str(out / "kit_presets.cpp"), "-o", str(out / "kit_presets")], check=True)
     result = subprocess.run([str(out / "kit_presets")], capture_output=True, text=True)
     lines = result.stdout.splitlines()
     return problems + (lines or ([f"kit_presets exited {result.returncode}"] if result.returncode else []))
+
+
+# The kits whose members the fixed cases cover.
+CASE_KITS = ("mdkit", "mde12")
+CASES = ROOT / "voices" / "tests" / "cases.json"
+LIFETIME = 20.0          # seconds a case may sound, at most: TRX-BD at DEC 127 falls 60 dB in 14 s
+# Cases that hold, as on the original: they may sound without end, and no other may.
+HELD = {("TRX-B2", "DEC 127"), ("GND-SN", "DEC 127"), ("GND-NS", "DEC 127")} | {
+    (f"E12-{m}", "RTRG 127") for m in "BD SD HT LT CP RS CB CH OH RC CC BR TA TR SH BC".split()}
+PEAK_DB, LEVEL_DB = 1.0, 0.5
+BAND_DB = 2.0            # a band's energy in a window, where it is within RANGE_DB of the window's loudest
+RANGE_DB = 50.0
+QUIET_DB = -90.0         # bands below this are silence, as the lifetime counts it
+
+
+def run_cases():
+    """Plays every kit member's cases; returns {(machine, case): measures}."""
+    import catalog
+    from make_engine import defaults, slug, sound_header
+    headers, calls = [], []
+    for kit in CASE_KITS:
+        for name in catalog.ENGINES[kit]:
+            header = f'#include "{sound_header(name)}.hpp"'
+            if header not in headers:
+                headers.append(header)
+            values = defaults(name)
+            ns = f"md::{slug(name)}"
+            cases = [("default", values)]
+            for i, label in enumerate(catalog.MACHINES[name][2]):
+                if label:
+                    for end in (0, 127):
+                        moved = list(values)
+                        moved[i] = end
+                        cases.append((f"{label} {end}", moved))
+            for label, v in cases:
+                calls.append(f'    {{ const int v[8] = {{{", ".join(map(str, v))}}}; '
+                             f'cases::measure<{ns}::State>("{name}", "{label}", v, {ns}::reset, {ns}::trigger, '
+                             f'{ns}::render); }}')
+    out = ROOT / "local" / "voice-tests"
+    out.mkdir(parents=True, exist_ok=True)
+    source = "\n".join(headers) + '\n#include "tests/cases.hpp"\nint main() {\n' + "\n".join(calls) + "\n}\n"
+    (out / "cases.cpp").write_text(source)
+    subprocess.run(["c++", "-std=c++11", "-O2", f"-I{SDK_INCLUDE}", f"-I{ROOT / 'lib'}", f"-I{ROOT / 'voices'}",
+                    *private_includes(), str(out / "cases.cpp"), "-o", str(out / "cases")], check=True)
+    lines = subprocess.run([str(out / "cases")], capture_output=True, text=True, check=True).stdout.splitlines()
+    return {(m["machine"], m["case"]): m for m in map(json.loads, lines)}
+
+
+def case_problems(played, recorded):
+    """Where a case no longer sounds as recorded, or never falls silent."""
+    problems = []
+    # E12's cases were recorded with the owner's capture; without it (CI) it plays silence.
+    captured = any(PRIVATE.glob("*/private_e12.hpp"))
+    for key, now in played.items():
+        where = f"{key[0]} {key[1]}"
+        if key[0].startswith("E12-") and not captured:
+            continue
+        if key in HELD:
+            pass
+        elif not now["silent"] or now["lasts"] > LIFETIME:
+            problems.append(f"{where}: still sounding after {now['lasts']:.1f} s" if now["silent"] else
+                            f"{where}: never falls silent (above -90 dB after {now['lasts']:.1f} s)")
+        then = recorded.get(key)
+        if then is None:
+            problems.append(f"{where}: not recorded (run with --record)")
+            continue
+        if abs(now["peak"] - then["peak"]) > PEAK_DB or abs(now["level"] - then["level"]) > LEVEL_DB:
+            problems.append(f"{where}: peak {then['peak']:.1f} -> {now['peak']:.1f} dB, "
+                            f"level {then['level']:.1f} -> {now['level']:.1f} dB")
+            continue
+        worst = (0.0, 0, 0)
+        for w, (a, b) in enumerate(zip(then["bands"], now["bands"])):
+            top = max(a)
+            for band, (x, y) in enumerate(zip(a, b)):
+                if x > max(QUIET_DB, top - RANGE_DB) and abs(x - y) > worst[0]:
+                    worst = (abs(x - y), w, band)
+        if worst[0] > BAND_DB:
+            problems.append(f"{where}: band {worst[2]} in window {worst[1]} moved {worst[0]:.1f} dB")
+    for key in recorded:
+        if key not in played:
+            problems.append(f"{key[0]} {key[1]}: recorded but no longer played")
+    return problems
 
 
 def main():
@@ -151,8 +256,24 @@ def main():
         if not found:
             print(f"PASS {check}: {passed}")
         problems += found
+    record = "--record" in sys.argv
+    accepted = [a for i, a in enumerate(sys.argv[1:], 1) if sys.argv[i - 1] == "--accept"]
+    played = run_cases()
+    recorded = {(m["machine"], m["case"]): m for m in json.loads(CASES.read_text())} if CASES.exists() else {}
+    if record or accepted:
+        kept = {k: m for k, m in recorded.items() if not record and k[0] not in accepted}
+        taken = {k: m for k, m in played.items() if record or k[0] in accepted}
+        recorded = {**kept, **taken}
+        CASES.write_text("[\n" + ",\n".join(json.dumps(m, separators=(",", ":")) for m in recorded.values()) + "\n]\n")
+        print(f"recorded {len(taken)} cases in {CASES.relative_to(ROOT)}")
+    found = case_problems(played, recorded)
+    for p in found:
+        print(f"FAIL cases: {p}")
+    if not found:
+        print(f"PASS cases: {len(played)} cases sound as recorded and fall silent within {LIFETIME:.0f} s, but for {len(HELD)} that hold")
+    problems += found
     tests = sorted((ROOT / "voices" / "tests").glob("*.cpp"))
-    wanted = sys.argv[1:]
+    wanted = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and sys.argv[i - 1] != "--accept"]
     out = ROOT / "local" / "voice-tests"
     out.mkdir(parents=True, exist_ok=True)
     failed = []
@@ -167,7 +288,7 @@ def main():
         if result.returncode:
             failed.append(test.stem)
     if problems:
-        failed.append("detents, slots and presets")
+        failed.append("detents, slots, presets and cases")
     if failed:
         sys.exit(f"failed: {', '.join(failed)}")
 

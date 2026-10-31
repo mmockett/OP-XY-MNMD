@@ -13,6 +13,8 @@ int main() {
     const double hz[3] = {121.9, 290.3, 679.8};
     for (int k = 0; k < 3; ++k) {
         PLAY(tones[k]);
+        // It starts just past a zero crossing: the first sample 0.07 of the peak.
+        expect("the onset starts small", std::fabs(out[0] / 2147483648.0) < 0.12 * peak(0, ms(20)));
         const double f = frequency(ms(50), ms(200));
         std::printf("PTCH %d: %.1f Hz\n", tones[k][0], f);
         expect("PTCH sets the Machinedrum's pitch", std::fabs(f / hz[k] - 1) < 0.03);

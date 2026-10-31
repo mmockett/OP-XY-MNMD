@@ -7,7 +7,7 @@ permissions:
   contents: read
 env:
   OPEN_XY_REPO: mmockett/open-xy
-  OPEN_XY_REF: two-page-synths
+  OPEN_XY_REF: mnmd/drum-sdk
 jobs:
   machines:
     runs-on: ubuntu-latest
@@ -39,8 +39,6 @@ jobs:
       - name: Machine source, preview and sound checks
         run: |
           for machine in md/machines/*/; do
-            # This SDK predates the presets field; the upstream job tests those machines on staging.
-            [ -d "$machine/presets" ] && continue
             python open-xy/sdk.py test --machine "$machine" --cxx clang++ --host-cxx g++ || exit 1
           done
 
