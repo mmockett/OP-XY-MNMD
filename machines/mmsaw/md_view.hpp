@@ -229,6 +229,7 @@ inline void outline(Path& path, const Point* points, u32 n, u32 key) {
         p[at + 1] = mid;
         ++m;
     }
+    blunt(p, m);   // again: a midpoint moved aside can sharpen a turn past the limit
     // The outline is a loop, so it may start anywhere: start it where both its
     // edges are longest. The device draws a closing edge only an eighth of a
     // pixel long (a ribbon's end, on a level or upright line) as a long sliver
