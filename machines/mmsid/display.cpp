@@ -30,7 +30,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     static const char* const steps4[4] = {"OFF", "RING", "SYNC", "R+S"};
     opxy::draw::copy(values[4], opxy::draw::header_capacity,
                      steps4[(static_cast<u32>(md::positive(input.slots[4])) >> 16) * 4u >> 15]);
-    static const char* const steps5[2] = {"MFRQ", "PRCH"};
+    static const char* const steps5[2] = {"FREQ", "PREV"};
     opxy::draw::copy(values[5], opxy::draw::header_capacity,
                      steps5[(static_cast<u32>(md::positive(input.slots[5])) >> 16) * 2u >> 15]);
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);

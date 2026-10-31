@@ -8,11 +8,15 @@
 // steps, and the device takes only fixed text or one node a stroke; the header
 // names the steps. The wave is the sound's own (voices/sid_6581.hpp): its pulse width
 // with PWAD's sweep moving since the note, its mixed wave, its sync at MFRQ's
-// ratio to middle C; the ring is drawn as the design draws it, the wave times
-// the modulator's sine.
+// ratio to middle C, or MSRC's previous note, which the screen can't know, taken
+// as the same pitch; the ring is drawn as the design draws it, the wave times
+// the modulator's sine. TUNE stretches the oscillator's cycles under a
+// modulator that stays put, as it does in the sound. PWRS on draws a reset bar at
+// the wave's left, as SWAVE-PULSE's does, bright when it acts: on a swept pulse.
 #include "md_view.hpp"
 #include "md_rig.hpp"
 #include "sid_6581.hpp"
+#include "live_view.hpp"
 
 namespace md_mmsid {} namespace md = md_mmsid; namespace md_mmsid {
 namespace sid_6581 {
@@ -38,22 +42,26 @@ template <class F>
 inline void view(F& frame, const i32* slots, const view::Moment& moment) {
     const u32 wave = choice(slots[WAVE], 5), mod = choice(slots[MOD], 4);
     const bool synced = mod == sync || mod == ring_sync, ringing = mod == ring || mod == ring_sync;
-    // While a note plays (its first two seconds) the one wave moves: PWAD's sweep
-    // since the note and a phase scroll. Idle, it is the controls' wave, unswept.
-    const i32 ph = moment.phase(2048, 512);   // Q10 over 2 s
+    // While a note is held the one wave moves: PWAD's sweep since the note and a
+    // phase scroll, a cycle a second. Idle, it is the controls' wave, unswept.
+    const md::live::Motion held = md::live::of(moment);
     const u32 rate = static_cast<u32>(md::table9(sweep_rate, slots[PWAD]));
-    const u32 age = ph >= 0 ? static_cast<u32>(moment.age) : 0u;
-    const u32 spin = ph >= 0 ? static_cast<u32>(ph) << 23 : 0u;   // two cycles over the two seconds
-    const u32 width = (static_cast<u32>(multiply(md::positive(slots[PW]), 0x7f000000)) << 1) + rate * 43u * age;   // 44100 / 1024
+    const u32 age = static_cast<u32>(held.time);
+    const u32 spin = md::live::turning(held, md::live::one_hz, 0, md::live::one_hz);
+    const u32 sweep = static_cast<u32>(multiply(static_cast<i32>(rate * 43u * age), held.amount));   // 44100 / 1024
+    const u32 width = (static_cast<u32>(multiply(md::positive(slots[PW]), 0x7f000000)) << 1) + sweep;
     const u32 apart = width >= 0x80000000u ? width - 0x80000000u : 0x80000000u - width;
     const u32 duty = apart < 0x100u ? 0xffffff00u : 0u - apart;
-    // The modulator's ratio to the oscillator at middle C, Q28: 2^((MFRQ - 32) / 32).
-    const i32 ratio = static_cast<i32>(md::transpose(1u << 26, multiply(md::positive(slots[MFRQ]), ratio_span) - ratio_low) << 2);
-    const u32 noise_key = wave == noise_wave && ph >= 0 ? (age >> 5) * 0x9e3779b9u : 0x2545f491u;
+    // The modulator's ratio to the oscillator at middle C, Q28: 2^((MFRQ - 32) / 32),
+    // or 1 for the previous note.
+    const i32 ratio = choice(slots[MSRC], 2) ? 1 << 28
+        : static_cast<i32>(md::transpose(1u << 26, multiply(md::positive(slots[MFRQ]), ratio_span) - ratio_low) << 2);
+    const u32 noise_key = wave == noise_wave && held.amount ? (age >> 5) * 0x9e3779b9u : 0x2545f491u;
+    const u32 step_phase = (draw::step_phase >> 7) * md::live::stretch(slots[TUNE]);
 
     i32 ys[draw::steps];
     for (u32 k = 0; k < draw::steps; ++k) {
-        const u32 p = k * draw::step_phase + spin;
+        const u32 p = k * step_phase + spin;
         u32 q = p;
         if (synced) q = (ringing ? 0u : 0x80000000u) + (static_cast<u32>(multiply(static_cast<i32>(p >> 1), ratio)) << 4);
         i32 s = draw::value(ringing ? tri : wave, q, k, duty, noise_key);
@@ -67,7 +75,8 @@ inline void view(F& frame, const i32* slots, const view::Moment& moment) {
         const i32 n = static_cast<i32>(((t >> 8) * 6u + (1u << 20)) >> 21) - 6;
         ys[k] = draw::cy * opxy::draw::unit - n * draw::level_px;
     }
-    const u32 key = md::view::key_of(slots[WAVE], slots[MOD], slots[MFRQ], static_cast<i32>(duty >> 1)) ^ noise_key ^ spin;
+    u32 key = md::live::mix(md::live::mix(md::live::mix(wave, slots[MOD]), slots[MFRQ]), slots[MSRC]);
+    key = md::live::mix(md::live::mix(md::live::mix(key, slots[TUNE]), static_cast<i32>(duty)), static_cast<i32>(noise_key ^ spin));
     // Each step's two corners, left to right; path j draws corners 31 j .. 31 j + 31,
     // so neighbouring paths share a corner and the risers between them are drawn.
     opxy::draw::Point corners[2 * draw::steps];
@@ -89,8 +98,17 @@ inline void view(F& frame, const i32* slots, const view::Moment& moment) {
                 points[i].y = opxy::q31::half(mine[i].y - draw::cy * opxy::draw::unit);
             }
             md::view::polyline(path, points, 32, path_key);
+            md::live::unfold(path);
         }
         md::view::show_path(frame, paths[j], ox, draw::cy, md::view::line, 2 * opxy::draw::unit);
+    }
+    if (step127(slots[PWRS]) >= 64) {
+        typename F::path_type& bar = frame.paths[md::view::extra];
+        if (bar.key != 0x50525331u) {
+            const opxy::draw::Point ends[2] = {{0, -29 * opxy::draw::unit}, {0, 29 * opxy::draw::unit}};
+            md::view::polyline(bar, ends, 2, 0x50525331u);
+        }
+        md::view::show_path(frame, md::view::extra, draw::left - 4, draw::cy, wave == pulse && rate ? md::view::line : md::view::dim, 2 * opxy::draw::unit);
     }
 }
 }
