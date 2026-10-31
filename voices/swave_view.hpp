@@ -15,6 +15,7 @@
 #include "md_rig.hpp"
 #include "swave.hpp"   // ENS's intervals
 #include "chord_view.hpp"
+#include "live_view.hpp"
 
 namespace md {
 namespace swave_view {
@@ -66,6 +67,7 @@ inline void commit(F& frame, u32 path, const Pen& pen, i32 ox, i32 oy, u32 key, 
             points[i].y = (pen.p[i].y - oy * unit) / 2;
         }
         outline(out, points, pen.n, key);
+        md::live::unfold(out);
     }
     place(frame, path, sx(ox), sy(oy), 2 * unit, tone, paint);
 }
@@ -190,14 +192,15 @@ inline void detune(Row& r, u32 per_px, i32 period, i32 d) {
     r.per_px = static_cast<u32>(static_cast<i32>(per_px) + multiply(static_cast<i32>(per_px), d));
     r.period = period - multiply(period, d) + multiply(multiply(period, d), d);
 }
-inline u32 frame_key(const i32* s, i32 ph, u32 salt) {
-    return key_of(s[0], s[1], s[2], s[3]) * 31u + key_of(s[4], s[5], s[6], s[7]) * 7u + static_cast<u32>(ph + 1) * 131u + salt;
+inline u32 frame_key(const i32* s, i32 sliding, u32 salt) {
+    u32 key = salt;
+    for (u32 i = 0; i < 8; ++i) key = md::live::mix(key, s[i]);
+    return md::live::mix(key, sliding) & ~0xfffu;   // the low bits tell the paths apart
 }
-// The hit's scroll: the design's rows slide half a cycle either way, Q28.
-inline u32 slide(i32 ph, bool forwards) {
-    const u32 s = ph > 0 ? static_cast<u32>(ph) << 17 : 0u;   // ph (Q10, 0..1) as half a cycle
-    return forwards ? s : 0u - s;
-}
+// A note's scroll: the design's rows slide half a cycle either way, at 1/2 Hz
+// (so as far as the design's in its first 0.5 s) until the release, Q28.
+inline i32 sliding(const Moment& m) { return multiply(md::live::sway(md::live::of(m), md::live::half_hz), 1 << 27); }
+inline u32 slide(i32 s, bool forwards) { return static_cast<u32>(forwards ? s : -s); }
 }
 
 // SWAVE-SAW: UNIL UNIW UNIX - / SUBX SUB1 SUB2 TUNE. Eight rows: the inner and
@@ -206,7 +209,7 @@ namespace swave_saw {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
+    const i32 ph = sliding(m);
     const u32 tune = v127(s[7]);
     const u32 per_px = per_px_of(tune);
     const i32 period = period_of[tune];
@@ -238,7 +241,7 @@ namespace swave_pulse {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
+    const i32 ph = sliding(m);
     const u32 tune = v127(s[7]);
     const u32 per_px = per_px_of(tune);
     const i32 period = period_of[tune];
@@ -270,15 +273,20 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
 }
 
 namespace swave_view {
-// ENS's wave over x 258..472 at centre cy: 3 (1 + d) cycles of the saw
+// ENS's wave over x 258..472 at centre cy, `tall` Q10 px high: about 3 (1 + d)
+// cycles at TUNE's middle, 1.5 to 4.5 across it as the rows' are, of the saw
 // crossfaded by wv into the octave-down pulse of `duty` (Q24 of its two
 // cycles); exact at every edge, straight between.
-inline void ens_wave(Pen& pen, i32 cy, i32 d, u32 duty, i32 wv) {
+inline void ens_wave(Pen& pen, i32 cy, i32 tall, i32 d, u32 duty, i32 wv, u32 tune) {
     const u32 one = 1u << 24;                                   // a cycle, Q24
-    const u32 end = static_cast<u32>(3 * static_cast<i32>(one) + multiply(3 * static_cast<i32>(one), d));
     const i32 xs = 258 * unit, px = 214 * unit;
-    // Q10 px per Q24 cycle: (214 / 3) / (1 + d), as (1 - d + d^2).
-    const i32 per = multiply(px, 0x2aaaaaab) - multiply(multiply(px, 0x2aaaaaab), d) + multiply(multiply(multiply(px, 0x2aaaaaab), d), d);
+    // The rows' cycles over 214 px, Q24, brought from TUNE's 3.04 to 3 at its middle
+    // (0.9868, 1.0134 for the period).
+    const i32 cycles = multiply(static_cast<i32>((static_cast<u32>(px) * per_px_of(tune)) >> 4), 0x7e50fe50);
+    const u32 end = static_cast<u32>(cycles + multiply(cycles, d));
+    const i32 base = multiply(period_of[tune], 0x40dbba2c) * 2;
+    // Q10 px per Q24 cycle: the period / (1 + d), as (1 - d + d^2).
+    const i32 per = base - multiply(base, d) + multiply(multiply(base, d), d);
     u32 edges[6];
     u32 e = 0;
     for (u32 c = 1; c * one < end && e < 6; ++c) edges[e++] = c * one;                  // the saw's resets (and the pulse's rise at 2)
@@ -295,7 +303,7 @@ inline void ens_wave(Pen& pen, i32 cy, i32 d, u32 duty, i32 wv) {
             const i32 pv = (u & (2 * one - 1)) < 2 * duty ? static_cast<i32>(one) : -static_cast<i32>(one);
             const i32 v = multiply(sawv, md::one - wv) + multiply(pv, wv);
             const i32 x = xs + static_cast<i32>((u >> 12) * static_cast<u32>(per)) / 4096;
-            pen.to(md::clamp(x, xs, xs + px), cy - multiply(v, 34 * unit) * 128);
+            pen.to(md::clamp(x, xs, xs + px), cy - multiply(v, tall) * 128);
         }
         from = to;
     }
@@ -310,7 +318,6 @@ namespace swave_ens {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
     // The voices' semitones, rounded; the chord sits an octave up when a voice is below the main one.
     static const signed char semis[33] = {-12, -11, -10, -9, -8, -7, -7, -6, -5, -5, -4, -4, -3, -3, -2, -1,
                                           0, 1, 2, 3, 3, 4, 4, 5, 5, 6, 7, 7, 8, 9, 10, 11, 12};
@@ -329,30 +336,41 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
         const i32 semi = lit[k] + (below ? 12 : 0);
         if (semi <= 23) lit[shown++] = semi;   // a voice an octave over the keyboard is left off it
     }
+    const u32 keys_before = frame.paths[view::contour].key;
     chord_view::keyboard(frame, view::contour, lit, shown);
+    if (frame.paths[view::contour].key != keys_before) md::live::unfold(frame.paths[view::contour]);
     // The wave: 3 cycles over x 258..472, the saw crossfading into the octave-down
     // pulse of duty PW / 128 (folded about 64), at the design's height of 34 px;
-    // the chorus's copies above and below, a little wider and narrower.
+    // the chorus's copies above and below, a little wider and narrower. CHRL
+    // fades the sound into the copies, so they part from the wave and brighten
+    // with it, from nothing at 0; CHRW spreads them further.
     u32 pw = v127(s[4]);
     if (pw > 64) pw = 128 - pw;
     const u32 duty = (2684355u + pw * 2055209u) >> 4;   // of the octave-down cycle, Q24
     const i32 wv = get(s, 3), cl = get(s, 5), cw = get(s, 6);
     const i32 d = multiply(cw, 0x051eb852);             // the design's 0.04 cw
     // Each wave on its own path, drawn out and back over itself, so no stroke joins two of them.
-    // While a note plays the copies sway in to the wave and back out.
-    const i32 apart = multiply(cw, 14 * unit) - (ph > 0 ? multiply(multiply(cw, 14 * unit), (ph < 512 ? ph : 1023 - ph) << 21) : 0);
+    // While a note plays the wave breathes and the copies sway in to it and back
+    // out, at the chorus's own drift of 1/2 Hz.
+    const md::live::Motion held = md::live::of(m);
+    const i32 tall = 34 * unit - multiply(md::live::swell(held, md::live::one_hz), 7 * unit);
+    const i32 reach = multiply(cl, 8 * unit + multiply(cw, 14 * unit));
+    const i32 apart = reach - multiply(reach, multiply(md::live::swell(held, md::live::half_hz), 0x60000000));
     const i32 ys[3] = {78 * unit, 78 * unit - apart, 78 * unit + apart};
     const i32 ds[3] = {0, d, -d};
     const u32 paths[3] = {view::comb, view::extra, view::wave};
-    const bool chorus = cl >= 0x028f5c29;   // the design shows the chorus above 0.02
+    const bool chorus = apart >= unit;   // nearer than a pixel they only thicken the wave
+    const u32 copies = cl < 0x20000000 ? view::faint : cl < 0x50000000 ? view::dim : view::dash;
+    u32 key = md::live::mix(md::live::mix(0x51a7e002u, wv), s[4]);
+    key = md::live::mix(md::live::mix(md::live::mix(key, s[7]), tall), cw);
     for (u32 k = 0; k < 3; ++k) {
         if (k && !chorus) break;
         Pen pen;
         pen.n = 0;
-        ens_wave(pen, ys[k], ds[k], duty, wv);
+        ens_wave(pen, ys[k], tall, ds[k], duty, wv, v127(s[7]));
         const Pen out = pen;
         pen.back(out);
-        commit(frame, paths[k], pen, 365, 78, key_of(wv, s[4], k ? apart : 1, 2 + k), k ? view::dim : view::line);
+        commit(frame, paths[k], pen, 365, 78, md::live::sealed(md::live::mix(key, static_cast<i32>(k) + (k ? apart : 0))), k ? copies : view::line);
     }
 }
 }

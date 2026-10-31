@@ -186,6 +186,10 @@ labels such as "gap 40".
 
 ## Checking a screen
 
+- `python3 tools/check_synth_frames.py --sdk <open-xy checkout> <engine>...`
+  sweeps a Monomachine synth through every value of every control, at rest and
+  under a held note: the device's outline rules, stale path keys, churn, a
+  held note's motion, stillness, and what each control moves.
 - `python3 tools/serve_bench.py`, then http://127.0.0.1:8930/?track=N. With
   `&flash=1` the screen shows a hit without audio, for screenshots.
 - Headless: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

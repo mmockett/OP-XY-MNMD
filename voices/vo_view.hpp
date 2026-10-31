@@ -9,6 +9,7 @@
 // name what is heard.
 #include "md_view.hpp"
 #include "md_rig.hpp"
+#include "live_view.hpp"
 
 namespace md {
 namespace vo_panel {
@@ -88,6 +89,7 @@ inline void lines(F& frame, u32 path, const i32* xs, const i32* ys, u32 n, i32 o
             if (scale == 2) { points[i].x = opxy::q31::half(points[i].x); points[i].y = opxy::q31::half(points[i].y); }
         }
         polyline(p, points, n, key);
+        md::live::unfold(p);
     }
     show_path(frame, path, ox, oy, tone, static_cast<i32>(scale) * unit);
 }
@@ -105,9 +107,18 @@ inline void draw(F& frame, const i32* s, const Moment& moment) {
     // The chart: the crosshair and handle at the vowel's formants.
     const i32 px = md::table9(handle_x, s[VOC1]), py = md::table9(handle_y, s[VOC2]);
     {
-        const i32 xs[5] = {16 * unit, 196 * unit, px, px, px};
-        const i32 ys[5] = {py, py, py, 14 * unit, 146 * unit};
-        lines(frame, contour, xs, ys, 5, 106, 80, 2, key_of(s[VOC1], s[VOC2], 0, 1), dim);
+        // A closed plus, its arms as thin as a ribbon: walking one line out and
+        // back along another turns straight back, which the device draws as streaks.
+        typename F::path_type& cross = frame.paths[contour];
+        const u32 key = md::live::sealed(md::live::mix(md::live::mix(1u, px), py));
+        if (cross.key != key) {
+            const i32 w = apart / 2, cx = (px - 106 * unit) / 2, cy = (py - 80 * unit) / 2;
+            const i32 l = -45 * unit, r = 45 * unit, t = -33 * unit, b = 33 * unit;
+            const Point plus[12] = {{l, cy - w}, {cx - w, cy - w}, {cx - w, t}, {cx + w, t}, {cx + w, cy - w}, {r, cy - w},
+                                    {r, cy + w}, {cx + w, cy + w}, {cx + w, b}, {cx - w, b}, {cx - w, cy + w}, {l, cy + w}};
+            outline(cross, plus, 12, key);
+        }
+        show_path(frame, contour, 106, 80, dim, 2 * unit);
         place(frame, handle_a, sx(0) + px, sy(0) + py, unit, fill5, fill_and_stroke);
     }
 
@@ -170,28 +181,30 @@ inline void draw(F& frame, const i32* s, const Moment& moment) {
             xs[3 * g + 2] = x + multiply(pitch, half); ys[3 * g + 2] = ty;
         }
         xs[30] = tx + width; ys[30] = ty;
-        lines(frame, extra, xs, ys, 31, 270, 104, 2, key_of(clen, cvol, static_cast<i32>(cons << 24), 5), mid);
+        lines(frame, extra, xs, ys, 31, 270, 104, 2, md::live::sealed(md::live::mix(md::live::mix(cons, clen), cvol)), mid);
     } else {
         hide(frame, extra);
     }
-    const i32 ph = moment.phase(rig::drum.length, rig::drum.speed);
-    const u32 roll = ph >= 0 ? static_cast<u32>(ph) << 22 : 0;
+    // A cycle over the hit, then one a second for as long as the note is held;
+    // the wave is a function of its phase, so it rolls without a seam.
+    const u32 roll = md::live::turning(md::live::of(moment), 8073200u, rig::drum.length, md::live::one_hz);
     if (sing) {
         i32 xs[32], ys[32];
         const i32 x0 = tx + width + (cons ? 4 * unit : 0), x1 = 470 * unit;
         const i32 f1 = md::table9(f1_hz, s[VOC1]), f2 = md::table9(f2_hz, s[VOC2]);
+        const u32 step = (554189328u >> 7) * md::live::stretch(s[TUNE]);        // four cycles over 31 steps, at TUNE's middle
         i32 ratio = 1;   // F2 / F1 in quarters, without dividing
         while (ratio < 16 && (ratio + 1) * f1 <= f2 * 4) ++ratio;
         for (u32 i = 0; i < 32; ++i) {
             xs[i] = x0 + multiply(x1 - x0, static_cast<i32>(i) * 0x04210842);       // 1 / 31 of the width
-            const u32 u = i * 554189328u + roll;                                    // four cycles over 31 steps
+            const u32 u = i * step + roll;
             i32 v = multiply(md::sine(u), 0x4ccccccd);                              // 0.6
             v += multiply(multiply(md::one - voic, 0x33333333), md::sine((u >> 2) * static_cast<u32>(ratio)));
             v += multiply(multiply(voic, 0x4ccccccd), noise[i & 31]);
             ys[i] = 100 * unit - multiply(v, 14 * unit);
         }
         lines(frame, wave, xs, ys, 32, static_cast<i32>(static_cast<u32>(x0 + x1) >> 11), 100, 2,
-              key_of(s[VOC1] ^ static_cast<i32>(cons << 20), voic, s[VOC2] ^ clen, static_cast<i32>((roll >> 1) | 1)), line);
+              md::live::sealed(md::live::mix(md::live::mix(md::live::mix(md::live::mix(md::live::mix(cons, s[VOC1]), s[VOC2]), voic), clen), s[TUNE]) + roll), line);
     } else {
         hide(frame, wave);
     }
