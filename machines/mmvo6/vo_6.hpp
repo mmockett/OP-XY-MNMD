@@ -258,6 +258,12 @@ inline void reset(State& voice, Common&, u32 owner) {
 
 namespace {
 namespace block {
+// A resonant pole can swing past full scale for a moment. The sums are done in
+// unsigned words, which wrap by definition; a signed overflow would be undefined.
+inline i32 wrapped(i32 x) { return static_cast<i32>(static_cast<u32>(x) * 2u); }   // x * 2
+inline i32 fed(i32 in, i32 a, i32 b) {                                              // in + (a + b) * 2
+    return static_cast<i32>(static_cast<u32>(in) + (static_cast<u32>(a) + static_cast<u32>(b)) * 2u);
+}
 // md::noise without its zero check: xorshift never returns to 0, so a seed
 // checked once before a run of draws (first_seed) stays nonzero through it.
 inline u32 first_seed(u32 seed) { return seed ? seed : 0x9e3779b9u; }
@@ -293,7 +299,7 @@ __attribute__((noinline)) u32 excite(i32* out, State& voice, u32 increment, u32 
         phase += increment;
         if (__builtin_expect(phase < before, 0)) {
             // Crossed alpha = phase / increment samples ago: alpha here, the rest next sample.
-            const i32 alpha = md::clamp(multiply(static_cast<i32>((phase << (30 - whole)) & 0x7fffffffu), inverse) * 2, 0, md::one);
+            const i32 alpha = md::clamp(wrapped(multiply(static_cast<i32>((phase << (30 - whole)) & 0x7fffffffu), inverse)), 0, md::one);
             const i32 here = multiply(pulse, alpha);
             e += here;
             carry = pulse - here;
@@ -321,9 +327,9 @@ __attribute__((noinline)) void pole(i32* out, i32* y, i32 a1, i32 a2) {
     // Two samples a turn, so the last two outputs swap roles instead of moving.
     i32 y0 = y[0], y1 = y[1];
     for (unsigned i = 0; i < opxy::block_frames; i += 2) {
-        y1 = out[i] + (multiply(a1, y0) + multiply(a2, y1)) * 2;
+        y1 = fed(out[i], multiply(a1, y0), multiply(a2, y1));
         out[i] = y1;
-        y0 = out[i + 1] + (multiply(a1, y1) + multiply(a2, y0)) * 2;
+        y0 = fed(out[i + 1], multiply(a1, y1), multiply(a2, y0));
         out[i + 1] = y0;
     }
     y[0] = y0; y[1] = y1;
@@ -333,11 +339,11 @@ __attribute__((noinline)) void poles(i32* out, i32 (*y)[2], const i32* a1, const
     i32 p0 = y[0][0], p1 = y[0][1], q0 = y[1][0], q1 = y[1][1];
     const i32 a = a1[0], b = a2[0], c = a1[1], d = a2[1];
     for (unsigned i = 0; i < opxy::block_frames; i += 2) {
-        p1 = out[i] + (multiply(a, p0) + multiply(b, p1)) * 2;
-        q1 = p1 + (multiply(c, q0) + multiply(d, q1)) * 2;
+        p1 = fed(out[i], multiply(a, p0), multiply(b, p1));
+        q1 = fed(p1, multiply(c, q0), multiply(d, q1));
         out[i] = q1;
-        p0 = out[i + 1] + (multiply(a, p1) + multiply(b, p0)) * 2;
-        q0 = p0 + (multiply(c, q1) + multiply(d, q0)) * 2;
+        p0 = fed(out[i + 1], multiply(a, p1), multiply(b, p0));
+        q0 = fed(p0, multiply(c, q1), multiply(d, q0));
         out[i + 1] = q0;
     }
     y[0][0] = p0; y[0][1] = p1; y[1][0] = q0; y[1][1] = q1;
