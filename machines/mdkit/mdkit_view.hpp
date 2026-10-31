@@ -132,6 +132,12 @@ inline void spin(i32& x, i32& y, Turn t) {
     x = rx >> 5; y = ry >> 5;
 }
 
+// A vector's length, near enough, and never 0.
+inline i32 reach(i32 x, i32 y) {
+    const i32 ax = x < 0 ? -x : x, ay = y < 0 ? -y : y;
+    return (ax > ay ? ax + ay * 3 / 8 : ay + ax * 3 / 8) | 1;
+}
+
 // Draws points as a closed outline (or, `ribbon`, a line out and back) on a
 // path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it.
 // The key is the points' own hash, so an unchanged shape costs nothing.
@@ -155,12 +161,19 @@ inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ri
             Point both[64];
             const i32 h = unit / 8;
             for (u32 i = 0; i < n; ++i) {
-                const Point& a = local[i ? i - 1 : i];
-                const Point& b = local[i + 1 < n ? i + 1 : i];
-                i32 dx = b.x - a.x, dy = b.y - a.y;
-                if (dx > -unit / 8 && dx < unit / 8 && dy > -unit / 8 && dy < unit / 8) { dx = local[i].x - a.x; dy = local[i].y - a.y; }
-                const i32 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-                const i32 len = (ax > ay ? ax + ay * 3 / 8 : ay + ax * 3 / 8) | 1;
+                // Its two edges, past any points on top of it, count alike whatever
+                // their lengths: going by a long one alone, a short stripe beside it
+                // would get no width at all.
+                u32 before = i, after = i;
+                while (before && near(local[before], local[i])) --before;
+                while (after + 1 < n && near(local[after], local[i])) ++after;
+                const Point& a = local[before];
+                const Point& b = local[after];
+                const i32 ux = local[i].x - a.x, uy = local[i].y - a.y, vx = b.x - local[i].x, vy = b.y - local[i].y;
+                const i32 ul = reach(ux, uy), vl = reach(vx, vy);
+                i32 dx = ux * 256 / ul + vx * 256 / vl, dy = uy * 256 / ul + vy * 256 / vl;
+                if (dx > -32 && dx < 32 && dy > -32 && dy < 32) { dx = ux; dy = uy; }   // straight back
+                const i32 len = reach(dx, dy);
                 const i32 nx = -dy * h / len, ny = dx * h / len;
                 both[i].x = local[i].x + nx; both[i].y = local[i].y + ny;
                 both[2 * n - 1 - i].x = local[i].x - nx; both[2 * n - 1 - i].y = local[i].y - ny;
@@ -1197,9 +1210,15 @@ inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view:
         x += next;
         if (tk.burst && step % tk.burst == 0) {
             // To the lower edge, along it past the gap, and up into the next burst.
-            all[part].add(x - next, yc + half);
-            x += tk.gap * next;
-            if (x < end - 10 * px) all[part].add(x, yc + half);
+            // A stripe that ended at its top comes down 3 px aslant: down its own
+            // length it would double back on itself, which the device draws as a
+            // streak. With no burst to come the line just ends.
+            const i32 on = x + tk.gap * next;
+            if (on < end - 10 * px) {
+                all[part].add(x - next + (side ? 0 : 3 * px), yc + half);
+                all[part].add(on, yc + half);
+            }
+            x = on;
             side = 0;
         }
     }

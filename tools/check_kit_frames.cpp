@@ -198,12 +198,12 @@ int main() {
         // Every pair of controls together, at rest: one control can matter only once another is up.
         for (int c = 0; c < 8; ++c)
             for (int d = c + 1; d < 8; ++d)
-                for (int base = 0; base < 2; ++base) {
+                for (int base = 0; base < 3; ++base) {
                     ENGINE::display_reset(state);
                     frame = EngineFrame();
                     for (opxy::u32 v = 0; v < 128; v += 4)
                         for (opxy::u32 w = 0; w < 128; w += 16) {
-                            for (int i = 0; i < 8; ++i) slots[i] = base ? 0x7fffffff : middle;
+                            for (int i = 0; i < 8; ++i) slots[i] = base == 2 ? 0 : base ? 0x7fffffff : middle;
                             slots[c] = v >= 127 ? 0x7fffffff : static_cast<opxy::i32>(v << 24);
                             slots[d] = w >= 127 ? 0x7fffffff : static_cast<opxy::i32>(w << 24);
                             Input input = Input();
@@ -216,7 +216,7 @@ int main() {
                             previous = frame;
                             ENGINE::display(state, input, frame);
                             char when[96];
-                            std::snprintf(when, sizeof when, "%s (%u), controls %d=%u %d=%u over %s", ENGINE::kit::model[m].name, m, c + 1, v, d + 1, w, base ? "127" : "64");
+                            std::snprintf(when, sizeof when, "%s (%u), controls %d=%u %d=%u over %s", ENGINE::kit::model[m].name, m, c + 1, v, d + 1, w, base == 2 ? "0" : base ? "127" : "64");
                             switching = false;
                             check(frame, previous, when, false);
                         }
