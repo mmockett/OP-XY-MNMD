@@ -18,6 +18,14 @@ const i32 tune_centre = 1082196480;   // 64/127 in Q31
 // The Monomachine's sine peaks at 0.183 of its output; this engine's level is
 // twice that, 0.366 of full scale (reference/fit_mgnd.py).
 const i32 level = 0x2ed916f2;
+// The block's samples, out of line: render's own loop gets no hardware loop.
+__attribute__((noinline)) inline u32 sines(opxy::Output output, u32 phase, u32 increment) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        output[i] = md::multiply(md::sine(phase), level);
+        phase += increment;
+    }
+    return phase;
+}
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -33,10 +41,7 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
         voice.fresh = 0;
     }
     const u32 increment = md::transpose(pitch[0], md::multiply(p[TUNE] - tune_centre, 21675));
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        output[i] = md::multiply(md::sine(voice.phase), level);
-        voice.phase += increment;
-    }
+    voice.phase = sines(output, voice.phase, increment);
 }
 }
 }
