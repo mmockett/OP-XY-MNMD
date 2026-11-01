@@ -20,16 +20,6 @@
 namespace md {
 namespace pi_rs {
 const unsigned rim_count = 9, mode_count = rim_count + 3;   // the rim, two head modes, the ring
-struct State {
-    modal::Mode modes[mode_count];
-    i32 crack;       // the stick's burst envelope, Q31
-    i32 wires;       // the wires' envelope, Q31
-    u32 hold;        // blocks of the crack still held
-    u32 seed;
-    i32 low, high, top;   // the wires: 200 Hz high-pass, 1.5 kHz low-pass, 5 kHz over their upper part
-    md::Svf band;    // the crack's band
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -81,13 +71,18 @@ const i32 noise_low = 0x03a5e354, wire_body = 0x18a13c35, wire_top = 0x41380000;
 const i32 body_level = 0x03600000;
 
 struct Block {
-    i32 levels[mode_count];
-    i32 head, fall, head_fall, crack_tune, crack_amount, wire_amount, wire_step;
-    explicit Block(const i32* p) {
-        for (unsigned k = 0; k < rim_count; ++k) levels[k] = md::table9(rim_levels[k], p[PTCH]);
-        levels[rim_count] = levels[rim_count + 1] = head_level;
-        levels[rim_count + 2] = md::table9(ring_levels, p[RING]);
-        head = md::table9(pi_rs::head, p[PTCH]);
+    i32 amounts[mode_count];
+    u32 increments[mode_count];
+    i32 fall, head_fall, crack_tune, crack_amount, crack_step, wire_amount, wire_step;
+    void plan(const i32* p, u32 middle) {
+        for (unsigned k = 0; k < rim_count; ++k) amounts[k] = multiply(md::table9(rim_levels[k], p[PTCH]), body_level);
+        amounts[rim_count] = amounts[rim_count + 1] = multiply(head_level, body_level);
+        amounts[rim_count + 2] = multiply(md::table9(ring_levels, p[RING]), body_level);
+        const i32 tuned = md::table9(pi_rs::head, p[PTCH]);
+        for (unsigned k = 0; k < rim_count; ++k) increments[k] = md::transpose(middle, rim[k]);
+        increments[rim_count] = md::transpose(middle, tuned);
+        increments[rim_count + 1] = md::transpose(middle, tuned + head_second);
+        increments[rim_count + 2] = md::transpose(middle, tuned + ring_ratio);
         const i32 time = md::table9(decay_times, p[DEC]);
         fall = md::per_block(md::decay(time));
         head_fall = md::per_block(md::decay(time + head_shorter));
@@ -96,26 +91,67 @@ struct Block {
         crack_amount = hard < 0x40000000 ? md::span(hard * 2, crack_quiet, 0x40000000)
                                          : md::span((hard - 0x40000000) * 2, 0x40000000, crack_loud);
         crack_amount = md::gain(multiply(multiply(crack_amount, crack_level), md::table9(crack_ptch_level, p[PTCH])), 3);
+        crack_step = md::decay(crack_time);
         wire_amount = multiply(md::squared(p[RVOL]), wire_level);
         wire_step = md::decay(md::table9(wire_times, p[RDEC]));
     }
 };
 }
+struct State {
+    modal::Mode modes[mode_count];
+    i32 crack;       // the stick's burst envelope, Q31
+    i32 wires;       // the wires' envelope, Q31
+    u32 hold;        // blocks of the crack still held
+    u32 seed;
+    i32 low, high, top;   // the wires: 200 Hz high-pass, 1.5 kHz low-pass, 5 kHz over their upper part
+    md::Svf band;    // the crack's band
+    u32 fresh;
+    u32 stale;       // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];     // the controls they were worked out from
+    Block block;
+};
 
 // The stick's burst and the wires, one sample of noise between them: out of line, so the
-// loop has a hardware loop and all the registers to itself.
+// loop has a hardware loop and all the registers to itself, and on locals, as `mixed` might
+// otherwise be the voice and every field would be read and written back each sample.
 __attribute__((noinline)) inline void crack_and_wires(State& voice, const Block& b, i32 crack_step, i32* mixed) {
+    u32 seed = voice.seed;
+    i32 low = voice.low, high_pole = voice.high, top_pole = voice.top, crack = voice.crack, wires = voice.wires;
+    md::Svf band = voice.band;
+    const i32 tune = b.crack_tune, amount = b.crack_amount, wire_amount = b.wire_amount, wire_step = b.wire_step;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 n = md::noise_eighth(voice.seed);
-        voice.band.run(n, b.crack_tune, 0x18000000);
-        const i32 high = n - md::smooth(voice.low, n, noise_low);
-        const i32 body = md::smooth(voice.high, high, wire_body);
-        const i32 top = md::smooth(voice.top, high, wire_top);
-        mixed[i] += md::gain(multiply(voice.band.band, multiply(voice.crack, b.crack_amount)), 3)
-                    + multiply(body + (top >> 3) + (top >> 4), multiply(voice.wires, b.wire_amount)) * 4;
-        voice.crack = multiply(voice.crack, crack_step);
-        voice.wires = multiply(voice.wires, b.wire_step);
+        const i32 n = md::noise_eighth(seed);
+        band.run(n, tune, 0x18000000);
+        const i32 high = n - md::smooth(low, n, noise_low);
+        const i32 body = md::smooth(high_pole, high, wire_body);
+        const i32 top = md::smooth(top_pole, high, wire_top);
+        mixed[i] += md::gain(multiply(band.band, multiply(crack, amount)), 3)
+                    + multiply(body + (top >> 3) + (top >> 4), multiply(wires, wire_amount)) * 4;
+        crack = multiply(crack, crack_step);
+        wires = multiply(wires, wire_step);
     }
+    voice.seed = seed;
+    voice.low = low; voice.high = high_pole; voice.top = top_pole;
+    voice.crack = crack; voice.wires = wires;
+    voice.band = band;
+}
+// Once the crack has reached zero its band adds nothing, and nothing reads it before the next strike.
+__attribute__((noinline)) inline void wires_alone(State& voice, const Block& b, i32* mixed) {
+    u32 seed = voice.seed;
+    i32 low = voice.low, high_pole = voice.high, top_pole = voice.top, wires = voice.wires;
+    const i32 wire_amount = b.wire_amount, wire_step = b.wire_step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 n = md::noise_eighth(seed);
+        const i32 high = n - md::smooth(low, n, noise_low);
+        const i32 body = md::smooth(high_pole, high, wire_body);
+        const i32 top = md::smooth(top_pole, high, wire_top);
+        mixed[i] += multiply(body + (top >> 3) + (top >> 4), multiply(wires, wire_amount)) * 4;
+        wires = multiply(wires, wire_step);
+    }
+    voice.seed = seed;
+    voice.low = low; voice.high = high_pole; voice.top = top_pole;
+    voice.wires = wires;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -129,12 +165,22 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.low = voice.high = voice.top = 0;
     voice.band.reset();
     voice.seed = 0x7f4a7c15u * owner;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fresh = 0;
         for (unsigned k = 0; k < mode_count; ++k) {
@@ -149,18 +195,18 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
     for (unsigned k = 0; k < mode_count; ++k) {
         modal::Mode& mode = voice.modes[k];
-        if (mode.level < 0x00010000 || !b.levels[k]) continue;
-        const i32 offset = k < rim_count ? rim[k] : k == rim_count ? b.head
-                         : k == rim_count + 1 ? b.head + head_second : b.head + ring_ratio;
-        mode.increment = md::transpose(pitch[0], offset);
-        const i32 fall = k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall;
-        const i32 amount = multiply(b.levels[k], body_level);
-        modal::ring_fall(mode, fall, amount, amount, mixed);
+        if (mode.level < 0x00010000 || !b.amounts[k]) continue;
+        mode.increment = b.increments[k];
+        modal::ring_fall(mode, k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall, b.amounts[k], b.amounts[k], mixed);
     }
     if (voice.crack > 0x00100000 || voice.wires > 0x00100000) {
-        const i32 crack_step = voice.hold ? md::one : md::decay(crack_time);
-        if (voice.hold) --voice.hold;
-        crack_and_wires(voice, b, crack_step, mixed);
+        if (voice.crack) {
+            const i32 crack_step = voice.hold ? md::one : b.crack_step;
+            if (voice.hold) --voice.hold;
+            crack_and_wires(voice, b, crack_step, mixed);
+        } else {
+            wires_alone(voice, b, mixed);
+        }
     }
     modal::finish_doubled(mixed, output);
 }
