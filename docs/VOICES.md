@@ -29,6 +29,11 @@ void render(State&, Common&, opxy::Output out,          // one 64-sample block
             const i32* slots, opxy::Pitch pitch);
 ```
 
+A machine whose structure has two sides (`STEREO` in `tools/make_engine.py`)
+also has `render_stereo`, with the same arguments, writing 64 interleaved frames
+(SDK 1.8). Each side keeps the mono level, and `render` stays as the mono sound
+the fitted checks measure.
+
 - `slots` are the machine's eight controls in **its own slot order**
   (catalog.py), Q31, 0 to 0x7fffffff for 0 to 127; empty slots read 0.
 - `pitch` is a phase increment per sample. A module is voiced at middle C

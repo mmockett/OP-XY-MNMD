@@ -8,7 +8,7 @@
 int main() {
     static mmnois::Voice voice;
     static mmnois::Shared shared;
-    opxy::i32 out[opxy::block_frames];
+    opxy::i32 out[2 * opxy::block_frames];
     int failures = 0;
     for (int octave = -2; octave <= 2; ++octave) {
         opxy::u32 pitch[opxy::block_frames];
@@ -21,7 +21,7 @@ int main() {
             bool sounding = false, bounded = true;
             for (unsigned b = 0; b < 690; ++b) {
                 mmnois::render(voice, shared, 1, out, p, pitch);
-                for (unsigned i = 0; i < opxy::block_frames; ++i) {
+                for (unsigned i = 0; i < 2 * opxy::block_frames; ++i) {
                     sounding = sounding || out[i] != 0;
                     bounded = bounded && out[i] >= -1073741824 && out[i] <= 1073741824;
                 }

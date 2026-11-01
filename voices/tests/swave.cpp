@@ -91,7 +91,57 @@ void extremes(const char* name, State& voice, Reset reset, Trigger trigger, Rend
 }
 }
 
+
+// Stereo (render_stereo): each side keeps the mono level, the two sum to it without
+// losing body, nothing passes the declared peak, and with nothing to spread the sides match.
+template <class State, class Reset, class Trigger, class Mono, class Stereo>
+void stereo_checks(const char* name, Reset reset, Trigger trigger, Mono mono, Stereo stereo, const int (*presets)[8], int count, double most_off) {
+    static State voice;
+    static opxy::i32 buffer[2 * opxy::block_frames];
+    md::Common shared = {};
+    opxy::u32 pitch[opxy::block_frames];
+    for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+    for (int n = 0; n < count; ++n) {
+        opxy::i32 parameters[8];
+        for (int i = 0; i < 8; ++i) parameters[i] = presets[n][i] >= 127 ? 0x7fffffff : presets[n][i] * 16909320;
+        double m = 0, side = 0, sum = 0;
+        reset(voice, shared, 1); trigger(voice, shared);
+        for (unsigned b = 0; b < 690; ++b) {
+            mono(voice, shared, buffer, parameters, pitch);
+            for (unsigned i = 0; b > 80 && i < opxy::block_frames; ++i) m += static_cast<double>(buffer[i]) * buffer[i];
+        }
+        reset(voice, shared, 1); trigger(voice, shared);
+        bool bounded = true;
+        for (unsigned b = 0; b < 690; ++b) {
+            stereo(voice, shared, buffer, parameters, pitch);
+            for (unsigned i = 0; i < opxy::block_frames; ++i) {
+                const double l = buffer[2 * i], r = buffer[2 * i + 1];
+                bounded = bounded && l >= -1073741824.0 && l <= 1073741824.0 && r >= -1073741824.0 && r <= 1073741824.0;
+                if (b > 80) { side += (l * l + r * r) / 2; sum += (l + r) * (l + r) / 4; }
+            }
+        }
+        char what[96];
+        const double to_side = 10 * std::log10(side / m), to_sum = 10 * std::log10(sum / m);
+        std::snprintf(what, sizeof what, "%s preset %d: a side %+.1f dB and the sum %+.1f dB against mono", name, n, to_side, to_sum);
+        check(what, std::fabs(to_side) <= most_off && std::fabs(to_sum) <= most_off);
+        std::snprintf(what, sizeof what, "%s preset %d: above the declared peak", name, n);
+        check(what, bounded);
+    }
+}
+
 int main() {
+    {
+        using namespace md;
+        static const int saws[5][8] = {{40, 30, 0, 0, 0, 30, 0, 64}, {100, 60, 80, 0, 0, 40, 0, 64}, {127, 127, 127, 0, 0, 0, 0, 64},
+                                       {0, 0, 0, 0, 0, 0, 0, 64}, {30, 20, 0, 0, 90, 60, 40, 64}};
+        static const int pulses[5][8] = {{30, 20, 30, 0, 64, 20, 0, 64}, {0, 0, 0, 0, 64, 0, 127, 64}, {0, 0, 0, 0, 16, 0, 127, 64},
+                                         {90, 70, 0, 0, 40, 12, 127, 64}, {20, 10, 100, 60, 48, 6, 127, 64}};
+        static const int chords[5][8] = {{84, 99, 62, 0, 64, 40, 40, 64}, {72, 99, 62, 0, 64, 40, 40, 64}, {103, 123, 0, 0, 64, 64, 64, 64},
+                                         {123, 0, 103, 127, 32, 20, 30, 64}, {84, 99, 116, 40, 48, 50, 40, 64}};
+        stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws, 5, 1.6);
+        stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses, 5, 1.6);
+        stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords, 5, 1.6);
+    }
     static opxy::i32 out[kFrames];
     static opxy::i32 other[kFrames];
     using namespace md;

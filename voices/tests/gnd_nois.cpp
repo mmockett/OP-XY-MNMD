@@ -256,6 +256,45 @@ int main() {
     const int loud[8] = {127, 64, 0, 0, 0, 0, 0, 64};
     play(NOIS, loud, out);
     check("stays within the declared peak", ok && bounded(out));
+    // Stereo: STON off, both sides are the mono noise; on, ST opens the width. Against
+    // the mono noise a side and the sum each stay within 1.6 dB, and ST 0 is mono.
+    {
+        using namespace md;
+        static gnd_nois::State a, b;
+        static opxy::i32 mono[opxy::block_frames], both[2 * opxy::block_frames];
+        md::Common shared = {};
+        opxy::u32 pitch[opxy::block_frames] = {};
+        const int reds[3] = {0, 48, 127};
+        for (int n = 0; n < 3; ++n) {
+            opxy::i32 off[8] = {}, on[8] = {};
+            off[1] = on[1] = reds[n] >= 127 ? 0x7fffffff : reds[n] * 16909320;
+            on[0] = 0x7fffffff; on[2] = 0x7fffffff;
+            gnd_nois::reset(a, shared, 1); gnd_nois::reset(b, shared, 1);
+            bool same = true;
+            for (unsigned k = 0; k < 40; ++k) {
+                gnd_nois::render(a, shared, mono, off, pitch);
+                gnd_nois::render_stereo(b, shared, both, off, pitch);
+                for (unsigned i = 0; i < opxy::block_frames; ++i) same = same && both[2 * i] == mono[i] && both[2 * i + 1] == mono[i];
+            }
+            check("stereo: STON off is the mono noise on both sides", same);
+            double m = 0, side = 0, sum = 0, cross = 0;
+            bool bounded = true;
+            gnd_nois::reset(a, shared, 1); gnd_nois::reset(b, shared, 1);
+            for (unsigned k = 0; k < 2760; ++k) {
+                gnd_nois::render(a, shared, mono, off, pitch);
+                gnd_nois::render_stereo(b, shared, both, on, pitch);
+                for (unsigned i = 0; i < opxy::block_frames; ++i) {
+                    const double x = mono[i], l = both[2 * i], r = both[2 * i + 1];
+                    bounded = bounded && l >= -1073741824.0 && l <= 1073741824.0 && r >= -1073741824.0 && r <= 1073741824.0;
+                    if (k > 80) { m += x * x; side += (l * l + r * r) / 2; sum += (l + r) * (l + r) / 4; cross += l * r; }
+                }
+            }
+            check("stereo: above the declared peak", bounded);
+            check("stereo: a side within 1.6 dB of mono", std::fabs(10 * std::log10(side / m)) <= 1.6);
+            check("stereo: the sum within 1.6 dB of mono", std::fabs(10 * std::log10(sum / m)) <= 1.6);
+            check("stereo: full width is two noises", std::fabs(cross / side) < 0.1);
+        }
+    }
     if (!failures) std::puts("PASS gnd_nois");
     return failures ? 1 : 0;
 }

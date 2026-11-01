@@ -214,6 +214,7 @@ PRESETS = {
             "Wind": [0, 40, 0, 0, 0, 56, 0, 64],
             "Whistle": [0, 16, 0, 0, 0, 112, 0, 64],
             "Bass": [0, 80, 0, 0, 0, 112, 0, 64],
+            "Wide": [127, 0, 127, 0, 0, 0, 0, 64],
         },
     },
     # The Monomachine's FM+ machines (voices/fmp.hpp, reference/README.md). FRQ

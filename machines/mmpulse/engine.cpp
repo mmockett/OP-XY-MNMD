@@ -6,6 +6,6 @@ inline void initialize(Voice& voice, Shared& shared, u32 owner) { md::swave_puls
 inline void start(Voice& voice, Shared& shared, u32) { md::swave_pulse::trigger(voice.state, shared.common); }
 inline void destroy(Voice&, Shared&, u32) {}
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch pitch) {
-    md::swave_pulse::render(voice.state, shared.common, output, parameters, pitch);
+    md::swave_pulse::render_stereo(voice.state, shared.common, output, parameters, pitch);
 }
 }
