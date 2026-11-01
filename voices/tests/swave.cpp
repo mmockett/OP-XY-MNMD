@@ -129,6 +129,29 @@ void stereo_checks(const char* name, Reset reset, Trigger trigger, Mono mono, St
     }
 }
 
+template <class State, class Reset, class Trigger, class Mono, class Stereo>
+void mono_at_zero(const char* name, Reset reset, Trigger trigger, Mono mono, Stereo stereo, const int* preset, int width) {
+    static State a, b;
+    static opxy::i32 one[opxy::block_frames], two[2 * opxy::block_frames];
+    md::Common shared = {};
+    opxy::u32 pitch[opxy::block_frames];
+    for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
+    opxy::i32 parameters[8];
+    for (int i = 0; i < 8; ++i) parameters[i] = preset[i] >= 127 ? 0x7fffffff : preset[i] * 16909320;
+    parameters[width] = 0;
+    reset(a, shared, 1); trigger(a, shared);
+    reset(b, shared, 1); trigger(b, shared);
+    bool same = true;
+    for (unsigned k = 0; k < 200; ++k) {
+        mono(a, shared, one, parameters, pitch);
+        stereo(b, shared, two, parameters, pitch);
+        for (unsigned i = 0; i < opxy::block_frames; ++i) same = same && two[2 * i] == one[i] && two[2 * i + 1] == one[i];
+    }
+    char what[96];
+    std::snprintf(what, sizeof what, "%s: width 0 is the mono voice", name);
+    check(what, same);
+}
+
 int main() {
     {
         using namespace md;
@@ -138,6 +161,10 @@ int main() {
                                          {90, 70, 0, 0, 40, 12, 127, 64}, {20, 10, 100, 60, 48, 6, 127, 64}};
         static const int chords[5][8] = {{84, 99, 62, 0, 64, 40, 40, 64}, {72, 99, 62, 0, 64, 40, 40, 64}, {103, 123, 0, 0, 64, 64, 64, 64},
                                          {123, 0, 103, 127, 32, 20, 30, 64}, {84, 99, 116, 40, 48, 50, 40, 64}};
+        // Width 0 is the mono voice, bit for bit: nothing forces the sides apart.
+        mono_at_zero<swave_saw::State>("SAW UNIW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws[1], 1);
+        mono_at_zero<swave_pulse::State>("PULSE UNIW", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses[3], 1);
+        mono_at_zero<swave_ens::State>("ENS CHRW", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords[0], 6);
         stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws, 5, 1.6);
         stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses, 5, 1.6);
         stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords, 5, 1.6);

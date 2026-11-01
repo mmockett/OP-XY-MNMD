@@ -37,11 +37,14 @@ inline i32 tune(i32 slot) { return multiply(slot - tune_centre, 21675); }   // Q
 // UNIW: the outer pair's detune, 0 .. +-53.7 cents, linear (Q16 octaves at full control).
 const i32 width_most = 2933;
 
-// In stereo a detuned pair splits into what both sides share and what they don't:
-// 0.8 of its level in the middle, 0.55 of its difference on the sides, so a side
-// holds the mono level and the middle stays close to it (measured across the
-// presets; the difference has no high-pass, so it counts for more than its share).
-const i32 middle_share = 0x66666666;
+// In stereo a detuned pair splits into what both sides share and what they don't,
+// by how wide the detune is: the square of UNIW, so a small detune stays near mono
+// and UNIW 0 is exactly the mono voice. At full width 0.8 of the pair's level is in
+// the middle and 0.55 of its difference on the sides, so a side holds the mono level
+// and the middle stays close to it (the difference has no high-pass, so it counts
+// for more than its share).
+inline i32 spread(i32 width) { return multiply(width, width); }
+inline i32 middle_share(i32 spread_q31) { return md::one - multiply(spread_q31, 0x19999999); }
 const i32 side_share = 0x46666666;
 const i32 side_pole = 0x2c8b0000;
 
@@ -194,9 +197,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     tone(output, sum, voice.tone, cut);
 }
 
-// In stereo the unison spreads: the main saw and the subs stay in the middle,
-// and each side leans to one of the outer pair and the opposite one of the inner
-// pair. So the middle is the mono chain, with its pairs a little down, and only
+// In stereo the unison spreads as UNIW opens: the main saw and the subs stay in the
+// middle, and each side leans to one of the outer pair and the opposite one of the
+// inner pair. So the middle is the mono chain, with its pairs a little down, and only
 // their difference is added: that has little left near the fundamental, so it
 // skips the high-pass, and one pole of low-pass keeps it cheap.
 namespace {
@@ -243,11 +246,12 @@ __attribute__((noinline)) void tone_stereo(opxy::Output output, const i32* middl
 }
 }
 
-// 64 interleaved frames. With no unison there is nothing to spread: both sides
-// are the mono render, for what it costs.
+// 64 interleaved frames. With no unison, or no width to it, there is nothing to
+// spread: both sides are the mono render, for what it costs.
 inline void render_stereo(State& voice, Common& shared, opxy::Output output, const i32* p, opxy::Pitch pitch) {
     const i32 unil = md::positive(p[UNIL]);
-    if (!unil) {
+    const i32 opened = swave::spread(md::positive(p[UNIW]));
+    if (!unil || !opened) {
         i32 mono[opxy::block_frames];
         render(voice, shared, mono, p, pitch);
         voice.side_low = 0;
@@ -263,7 +267,7 @@ inline void render_stereo(State& voice, Common& shared, opxy::Output output, con
     const i32 outer = multiply(md::positive(p[UNIW]), swave::width_most);
     const u32 inc[5] = {main, md::transpose(main, outer), md::transpose(main, -outer),
                         md::transpose(main, outer / 2), md::transpose(main, -(outer / 2))};
-    const i32 level = multiply(unil, swave::middle_share), wide = multiply(unil, swave::side_share);
+    const i32 level = multiply(unil, swave::middle_share(opened)), wide = multiply(multiply(unil, opened), swave::side_share);
     const i32 inner = md::positive(p[UNIX]);
     const i32 x = md::positive(p[SUBX]);
     const i32 subx = multiply(multiply(x, 0x57ae147b) - multiply(multiply(x, x), 0x178d4fdf), subx_most) * 2;
@@ -353,11 +357,12 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     }
 }
 
-// In stereo the detuned pair spreads, one a side, as SWAVE-SAW's; the main
+// In stereo the detuned pair spreads as UNIW opens, as SWAVE-SAW's; the main
 // pulse and the subs stay in the middle.
 inline void render_stereo(State& voice, Common& shared, opxy::Output output, const i32* p, opxy::Pitch pitch) {
     const i32 unil = md::positive(p[UNIL]);
-    if (!unil) {
+    const i32 opened = swave::spread(md::positive(p[UNIW]));
+    if (!unil || !opened) {
         i32 mono[opxy::block_frames];
         render(voice, shared, mono, p, pitch);
         voice.side_low = 0;
@@ -373,7 +378,7 @@ inline void render_stereo(State& voice, Common& shared, opxy::Output output, con
     const u32 main = swave::base(pitch, p, TUNE);
     const i32 pair = multiply(md::positive(p[UNIW]), swave::width_most) / 2;
     const u32 inc[3] = {main, md::transpose(main, pair), md::transpose(main, -pair)};
-    const i32 level = multiply(unil, swave::middle_share), wide = multiply(unil, swave::side_share);
+    const i32 level = multiply(unil, swave::middle_share(opened)), wide = multiply(multiply(unil, opened), swave::side_share);
     const u32 width = duty_low + (static_cast<u32>(md::positive(p[PW])) >> 24) * duty_step + voice.offset;
     voice.offset += (static_cast<u32>(md::positive(p[PWAD])) >> 24) * sweep_per_block;
     const i32 sub1 = multiply(md::positive(p[SUB1]), sub1_most);
@@ -439,8 +444,8 @@ const u32 drift_per_block = 3115964u;  // 2^32 x 0.5 Hz x 64 / 44100
 const i32 out_level = 0x3628f5c3;      // Q28: 3.385 x, then x 4 (reference/fit_swave.py)
 // In stereo, how far each sounding voice leans: the main in the middle, then left, right, middle.
 const i32 chord_tilt[4] = {0, 0x26666666, -0x26666666, 0};
-// And a chorus copy's level on its side, against the mono's: 1 / sqrt 2, doubled, 3 dB up.
-const i32 wet_spread = 0x5a82799a;
+// And a chorus copy's level on its near side at full width: 0.207 more than half, doubled, 3 dB up.
+const i32 wet_lean = 0x1a827999;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -521,11 +526,20 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     }
 }
 
-// In stereo each voice's chorus copies go one a side, at 3 dB more so a side
-// holds the mono power, the sides swapping from voice to voice; and the chord's
-// voices stand apart, the second a little to the left, the third to the right,
-// with what one side gains the other loses, so their sum is unchanged.
-inline void render_stereo(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
+// In stereo CHRW opens the sides, by its square, so its low settings stay near mono
+// and 0 is exactly the mono voice. Each voice's chorus copies lean one a side, the
+// sides swapping from voice to voice, a side holding the mono power; and the chord's
+// voices stand apart, the second a little to the left, the third to the right, with
+// what one side gains the other loses, so their sum is unchanged.
+inline void render_stereo(State& voice, Common& shared, opxy::Output output, const i32* p, opxy::Pitch pitch) {
+    const i32 opened = swave::spread(md::positive(p[CHRW]));
+    if (!opened) {
+        i32 mono[opxy::block_frames];
+        render(voice, shared, mono, p, pitch);
+        voice.dent_right = voice.dent;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) output[2 * i] = output[2 * i + 1] = mono[i];
+        return;
+    }
     if (voice.fresh) {
         for (unsigned v = 0; v < 4; ++v)
             for (unsigned k = 0; k < 3; ++k) voice.phase[v][k] = 0;
@@ -558,14 +572,18 @@ inline void render_stereo(State& voice, Common&, opxy::Output output, const i32*
     const i32 w = md::positive(p[WAVE]);
     const i32 saw_part = md::one - w, pulse_part = multiply(w, pulse_level);
     const i32 chorus = md::positive(p[CHRL]);
-    const i32 dry = md::one - chorus, wet = multiply(multiply(chorus, wet_level), wet_spread) * 2;
+    const i32 dry = md::one - chorus, wet = multiply(multiply(chorus, wet_level), 0x40000000 + multiply(opened, wet_lean)) * 2;
+    // The far side's share of a copy, against the near side's: (1 - x) / (1 + 0.414 x), near enough.
+    const i32 far = multiply(md::one - opened, md::one - multiply(opened, 0x25800000));
     const i32 saw_of[3] = {multiply(saw_part, dry), multiply(saw_part, wet), multiply(saw_part, wet)};
     const i32 pulse_of[3] = {multiply(pulse_part, dry), multiply(pulse_part, wet), multiply(pulse_part, wet)};
     const unsigned first = dry ? 0 : 1, last = wet ? 3 : 1;
+    // The copies gather by the side they lean to, each side's leaking to the other once.
     i32 left[opxy::block_frames], right[opxy::block_frames];
-    for (unsigned i = 0; i != opxy::block_frames; ++i) left[i] = right[i] = 0;
+    i32 copies_left[opxy::block_frames], copies_right[opxy::block_frames];
+    for (unsigned i = 0; i != opxy::block_frames; ++i) left[i] = right[i] = copies_left[i] = copies_right[i] = 0;
     for (unsigned v = 0; v < voices; ++v) {
-        const i32 tilt = chord_tilt[v];
+        const i32 tilt = multiply(chord_tilt[v], opened);
         for (unsigned k = first; k < last; ++k) {
             const u32 bit = 1u << (v * 3 + k);
             u32 ph = voice.phase[v][k], slow_half = (voice.half & bit) ? 0x80000000u : 0u;
@@ -573,7 +591,7 @@ inline void render_stereo(State& voice, Common&, opxy::Output output, const i32*
             const i32 a = saw_of[k];
             const i32 high = multiply(static_cast<i32>((0u - width) >> 7), pulse_of[k]), low = multiply(-static_cast<i32>(width >> 7), pulse_of[k]);
             if (k) {
-                i32* const side = (k == 1) == ((v & 1) == 0) ? left : right;
+                i32* const side = (k == 1) == ((v & 1) == 0) ? copies_left : copies_right;
                 for (unsigned i = 0; i != opxy::block_frames; ++i) {
                     const u32 slow = (ph >> 1) + slow_half;
                     side[i] += multiply(swave::saw(ph), a) + (slow < width ? high : low);
@@ -598,6 +616,8 @@ inline void render_stereo(State& voice, Common&, opxy::Output output, const i32*
         }
     }
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        left[i] += copies_left[i] + multiply(copies_right[i], far);
+        right[i] += copies_right[i] + multiply(copies_left[i], far);
         voice.dent += multiply(left[i] - voice.dent, dent);
         voice.dent_right += multiply(right[i] - voice.dent_right, dent);
         output[2 * i] = md::finish(md::gain(swave::times(left[i] - voice.dent, out_level), 2));
