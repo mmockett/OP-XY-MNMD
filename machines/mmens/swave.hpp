@@ -49,46 +49,6 @@ inline i32 tracking(u32 increment, i32 ratio_q28) {
     const u32 limited = c > 0x28000000u ? 0x28000000u : c;
     return static_cast<i32>(limited) * 3 + multiply(static_cast<i32>(limited), 0x121fb544);   // x pi
 }
-
-// The passes SAW and PULSE share, each a short loop with its state in locals.
-// The high-pass, then the subs' sines (SUB2's when Sub2).
-template <bool Sub2, class State>
-__attribute__((noinline)) inline void dent_subs(i32* sum, State& voice, u32 main, i32 dent, i32 sub1, i32 sub2) {
-    u32 s0 = voice.sub[0], s1 = voice.sub[1];
-    const u32 half = main >> 1, quarter = main >> 2;
-    i32 hp = voice.dent;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 stack = sum[i];
-        hp += multiply(stack - hp, dent);
-        stack -= hp;
-        stack += multiply(md::sine(s0), sub1);
-        if (Sub2) stack += multiply(md::sine(s1), sub2);
-        s0 += half;
-        s1 += quarter;
-        sum[i] = stack;
-    }
-    voice.sub[0] = s0; voice.sub[1] = s1;
-    voice.dent = hp;
-}
-// md::finish(md::gain(times(x, level), 2)): the same clamp in one step.
-inline i32 level_out(i32 x, i32 level) {
-    i32 v = static_cast<i32>(static_cast<u32>(multiply(x, level)) << 3);
-    v = v > 0x10000000 ? 0x10000000 : v;
-    v = v < -0x10000000 ? -0x10000000 : v;
-    return static_cast<i32>(static_cast<u32>(v) << 2);
-}
-// The low-pass (md::Svf::run, on locals) and the output.
-template <i32 Damping, i32 Level>
-__attribute__((noinline)) inline void tone(opxy::Output output, const i32* sum, md::Svf& svf, i32 cut) {
-    i32 low = svf.low, band = svf.band, high = svf.high;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        low += multiply(cut, band) * 2;
-        high = sum[i] - low - multiply(Damping, band) * 2;
-        band += multiply(cut, high) * 2;
-        output[i] = level_out(low, Level);
-    }
-    svf.low = low; svf.band = band; svf.high = high;
-}
 }
 
 namespace swave_saw {
@@ -142,13 +102,6 @@ __attribute__((noinline)) void saws(i32* out, u32* phase, const u32* inc, i32 le
     }
     phase[0] = p0; phase[1] = p1; phase[2] = p2;
 }
-// With the pair's level at 0, the main saw alone.
-__attribute__((noinline)) void saw_only(i32* out, u32 phase, u32 inc) {
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = swave::saw(phase);
-        phase += inc;
-    }
-}
 // out += a pair of saws at `level`.
 __attribute__((noinline)) void pair(i32* out, u32* phase, const u32* inc, i32 level) {
     u32 p0 = phase[0], p1 = phase[1];
@@ -166,7 +119,40 @@ __attribute__((noinline)) void sub_saw(i32* out, u32 phase, u32 inc, i32 level) 
         phase += inc;
     }
 }
-using swave::dent_subs;
+// The high-pass, then the subs' sines (SUB2's when Sub2).
+template <bool Sub2>
+__attribute__((noinline)) void dent_subs(i32* sum, State& voice, u32 main, i32 dent, i32 sub1, i32 sub2) {
+    u32 s0 = voice.sub[0], s1 = voice.sub[1];
+    const u32 half = main >> 1, quarter = main >> 2;
+    i32 hp = voice.dent;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 stack = sum[i];
+        hp += multiply(stack - hp, dent);
+        stack -= hp;
+        stack += multiply(md::sine(s0), sub1);
+        if (Sub2) stack += multiply(md::sine(s1), sub2);
+        s0 += half;
+        s1 += quarter;
+        sum[i] = stack;
+    }
+    voice.sub[0] = s0; voice.sub[1] = s1;
+    voice.dent = hp;
+}
+// The low-pass (md::Svf::run, on locals) and the output.
+__attribute__((noinline)) void tone(opxy::Output output, const i32* sum, md::Svf& svf, i32 cut) {
+    i32 low = svf.low, band = svf.band, high = svf.high;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        low += multiply(cut, band) * 2;
+        high = sum[i] - low - multiply(low_damping, band) * 2;
+        band += multiply(cut, high) * 2;
+        // md::finish(md::gain(swave::times(low, out_level), 2)): the same clamp in one step.
+        i32 v = static_cast<i32>(static_cast<u32>(multiply(low, out_level)) << 3);
+        v = v > 0x10000000 ? 0x10000000 : v;
+        v = v < -0x10000000 ? -0x10000000 : v;
+        output[i] = static_cast<i32>(static_cast<u32>(v) << 2);
+    }
+    svf.low = low; svf.band = band; svf.high = high;
+}
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
@@ -189,17 +175,13 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     const i32 dent = swave::tracking(main, dent_ratio);
     const i32 cut = md::cutoff(low_pass);
     i32 sum[opxy::block_frames];
-    if (unil) saws(sum, voice.phase, inc, unil);
-    else {
-        saw_only(sum, voice.phase[0], main);
-        for (unsigned k = 0; k < 3; ++k) voice.phase[k] += inc[k] << 6;   // 64 steps (block_frames)
-    }
+    saws(sum, voice.phase, inc, unil);
     if (unix) pair(sum, voice.phase + 3, inc + 3, unix);
     else { voice.phase[3] += inc[3] << 6; voice.phase[4] += inc[4] << 6; }   // 64 steps (block_frames)
     if (subx) sub_saw(sum, voice.sub[0], main >> 1, subx);
     if (sub2) dent_subs<true>(sum, voice, main, dent, sub1, sub2);
     else dent_subs<false>(sum, voice, main, dent, sub1, sub2);
-    swave::tone<low_damping, out_level>(output, sum, voice.tone, cut);
+    tone(output, sum, voice.tone, cut);
 }
 }
 
@@ -241,26 +223,6 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.fresh = 0;
 }
 
-namespace {
-// With the pair's level at 0, the main pulse alone.
-__attribute__((noinline)) void pulse_only(i32* out, u32 phase, u32 inc, u32 width) {
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = swave::pulse(phase, width);
-        phase += inc;
-    }
-}
-// out = the main pulse + the detuned pair's at `level`.
-__attribute__((noinline)) void pulses(i32* out, u32* phase, const u32* inc, u32 width, i32 level) {
-    u32 p0 = phase[0], p1 = phase[1], p2 = phase[2];
-    const u32 i0 = inc[0], i1 = inc[1], i2 = inc[2];
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = swave::pulse(p0, width) + multiply(swave::pulse(p1, width) + swave::pulse(p2, width), level);
-        p0 += i0; p1 += i1; p2 += i2;
-    }
-    phase[0] = p0; phase[1] = p1; phase[2] = p2;
-}
-}
-
 inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
     if (voice.fresh) {
         voice.phase[0] = voice.phase[1] = voice.phase[2] = 0;
@@ -278,16 +240,18 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     const i32 sub2 = multiply(md::positive(p[SUB2]), sub2_most);
     const i32 dent = swave::tracking(main, dent_ratio);
     const i32 cut = md::cutoff(low_pass);
-    // In passes over a buffer, as SAW's: the pulses, then the high-pass and subs, the low-pass and the output.
-    i32 sum[opxy::block_frames];
-    if (unil) pulses(sum, voice.phase, inc, width, unil);
-    else {
-        pulse_only(sum, voice.phase[0], main, width);
-        for (unsigned k = 0; k < 3; ++k) voice.phase[k] += inc[k] << 6;   // 64 steps (block_frames)
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 stack = swave::pulse(voice.phase[0], width)
+                  + multiply(swave::pulse(voice.phase[1], width) + swave::pulse(voice.phase[2], width), unil);
+        for (unsigned k = 0; k < 3; ++k) voice.phase[k] += inc[k];
+        voice.dent += multiply(stack - voice.dent, dent);
+        stack -= voice.dent;
+        stack += multiply(md::sine(voice.sub[0]), sub1) + multiply(md::sine(voice.sub[1]), sub2);
+        voice.sub[0] += main >> 1;
+        voice.sub[1] += main >> 2;
+        voice.tone.run(stack, cut, low_damping);
+        output[i] = md::finish(md::gain(swave::times(voice.tone.low, out_level), 2));
     }
-    if (sub2) swave::dent_subs<true>(sum, voice, main, dent, sub1, sub2);
-    else swave::dent_subs<false>(sum, voice, main, dent, sub1, sub2);
-    swave::tone<low_damping, out_level>(output, sum, voice.tone, cut);
 }
 }
 
@@ -343,46 +307,6 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.fresh = 0;
 }
 
-namespace {
-// One copy, added to the sum: its saw at `a` and its pulse an octave down, one of
-// two levels the whole block. Returns which half of that longer cycle it ends in.
-__attribute__((noinline)) u32 both(i32* sum, u32& phase, u32 step, u32 slow_half, u32 width, i32 a, i32 high, i32 low) {
-    u32 ph = phase;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const u32 slow = (ph >> 1) + slow_half;   // the octave-down phase
-        i32 level = low;
-        if (slow < width) level = high;
-        sum[i] += multiply(swave::saw(ph), a) + level;
-        const u32 next = ph + step;
-        slow_half ^= static_cast<u32>(next < ph) << 31;
-        ph = next;
-    }
-    phase = ph;
-    return slow_half;
-}
-// With no pulse in it: the saw alone, and the half worked out from how many times
-// the block's 64 steps wrap (step >> 26 whole turns, and the last carry).
-__attribute__((noinline)) u32 saw_alone(i32* sum, u32& phase, u32 step, u32 slow_half, i32 a) {
-    u32 ph = phase;
-    const u32 start = ph;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        sum[i] += multiply(swave::saw(ph), a);
-        ph += step;
-    }
-    phase = ph;
-    return ((step >> 26) + (ph < start)) & 1u ? slow_half ^ 0x80000000u : slow_half;
-}
-// The high-pass and the output.
-__attribute__((noinline)) void finish(opxy::Output output, const i32* sum, i32& dent_of, i32 dent) {
-    i32 hp = dent_of;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        hp += multiply(sum[i] - hp, dent);
-        output[i] = swave::level_out(sum[i] - hp, out_level);
-    }
-    dent_of = hp;
-}
-}
-
 inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
     if (voice.fresh) {
         for (unsigned v = 0; v < 4; ++v)
@@ -428,18 +352,26 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     for (unsigned v = 0; v < voices; ++v) {
         for (unsigned k = first; k < last; ++k) {
             const u32 bit = 1u << (v * 3 + k);
-            u32 slow_half = (voice.half & bit) ? 0x80000000u : 0u;
-            if (pulse_of[k]) {
-                // The pulse is one of two levels the whole block: weigh them once.
-                const i32 high = multiply(static_cast<i32>((0u - width) >> 7), pulse_of[k]), low = multiply(-static_cast<i32>(width >> 7), pulse_of[k]);
-                slow_half = both(sum, voice.phase[v][k], inc[v][k], slow_half, width, saw_of[k], high, low);
-            } else {
-                slow_half = saw_alone(sum, voice.phase[v][k], inc[v][k], slow_half, saw_of[k]);
+            u32 ph = voice.phase[v][k], slow_half = (voice.half & bit) ? 0x80000000u : 0u;
+            const u32 step = inc[v][k];
+            // The pulse is one of two levels the whole block: weigh them once.
+            const i32 a = saw_of[k];
+            const i32 high = multiply(static_cast<i32>((0u - width) >> 7), pulse_of[k]), low = multiply(-static_cast<i32>(width >> 7), pulse_of[k]);
+            for (unsigned i = 0; i != opxy::block_frames; ++i) {
+                const u32 slow = (ph >> 1) + slow_half;   // the octave-down phase
+                sum[i] += multiply(swave::saw(ph), a) + (slow < width ? high : low);
+                const u32 next = ph + step;
+                if (next < ph) slow_half ^= 0x80000000u;
+                ph = next;
             }
+            voice.phase[v][k] = ph;
             voice.half = slow_half ? voice.half | bit : voice.half & ~bit;
         }
     }
-    finish(output, sum, voice.dent, dent);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        voice.dent += multiply(sum[i] - voice.dent, dent);
+        output[i] = md::finish(md::gain(swave::times(sum[i] - voice.dent, out_level), 2));
+    }
 }
 }
 }

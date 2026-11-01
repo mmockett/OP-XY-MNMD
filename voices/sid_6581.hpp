@@ -128,87 +128,6 @@ inline void reset(State& s, Common&, u32 owner) {
 
 inline void trigger(State& s, Common&) { s.fresh = 1; }
 
-namespace {
-// What a block's samples need.
-struct Block {
-    u32 inc, mod_inc, heard_inc, noise_inc, duty;
-    i32 level;
-    bool silent;
-};
-// The samples, one loop for each way they can be made, with the choices fixed and
-// the state on locals. Rung, Wave doesn't matter.
-template <u32 Wave, bool Synced, bool Ringing>
-__attribute__((noinline)) inline void samples(State& s, opxy::Output out, const Block& b) {
-    u32 phase = s.phase, mod_phase = s.mod_phase, noise_phase = s.noise_phase, seed = s.seed;
-    i32 noise = s.noise, held = s.held, low1 = s.low1, low2 = s.low2, ring_high = s.ring_high;
-    const u32 inc = b.inc, mod_inc = b.mod_inc, heard_inc = b.heard_inc, noise_inc = b.noise_inc, duty = b.duty;
-    const i32 level = b.level;
-    const bool silent = b.silent;
-    for (unsigned i = 0; i < opxy::block_frames; ++i) {
-        i32 now = 0, before = 0;
-        const u32 p = phase + inc;
-        const bool wrapped = p < phase;
-        phase = p;
-        i32 x = 0;   // how far past the oscillator's wrap this sample is, Q31
-        if (Synced && wrapped) x = fraction(p, inc);
-        u32 q;       // the heard wave's phase
-        if (Synced) {
-            const u32 free = mod_phase + mod_inc;
-            q = free;
-            if (wrapped) {
-                // The sync restarts the heard wave half way through its cycle; rung, at its start.
-                q = (Ringing ? 0u : 0x80000000u) + (static_cast<u32>(multiply(static_cast<i32>(mod_inc >> 1), x)) << 1);
-                if (!Ringing && Wave != noise_wave) blep(wave_at(Wave, q, duty) - wave_at(Wave, free, duty), x, now, before);
-            }
-            mod_phase = q;
-        } else {
-            q = p;
-            mod_phase += mod_inc;
-        }
-        const u32 last = q - heard_inc;   // the heard wave's phase a sample ago, unless reset
-        i32 v;
-        if (Ringing) {
-            // The triangles of the heard wave and the other oscillator, rung.
-            const i32 a = triangle(q), c = triangle(Synced ? p : mod_phase);
-            const i32 product = md::gain(multiply(a, c), 2);
-            ring_high += multiply(product - ring_high, ring_highpass);
-            v = a + c + multiply(product - ring_high, ring_product) * 2;
-        } else if (Wave == noise_wave) {
-            const u32 n = noise_phase + noise_inc;
-            if (!noise_inc || n < noise_phase) {
-                md::noise(seed);
-                noise = static_cast<i32>(seed >> 2) - unit;
-            }
-            noise_phase = n;
-            v = noise;
-        } else {
-            v = Wave == pulse && silent ? 0 : wave_at(Wave, q, duty);
-            // The heard wave's own edges, when the sync did not just reset it.
-            const bool own = !(Synced && wrapped) && q < last;   // it wrapped by itself
-            if (Wave == saw && own) blep(2 * unit, fraction(q, heard_inc), now, before);
-            if (Wave == pulse && !silent) {
-                const i32 rise = pulse_high(duty) - pulse_low(duty);
-                if (own) blep(rise, fraction(q, heard_inc), now, before);
-                if (!(Synced && wrapped) && q - duty < heard_inc) blep(-rise, fraction(q - duty, heard_inc), now, before);
-            }
-        }
-        v = multiply(v, level) + now;
-        const i32 sample = held + before;
-        held = v;
-        low1 += multiply(sample - low1, roll_off);
-        low2 += multiply(low1 - low2, roll_off);
-        out[i] = md::finish(low2);
-    }
-    s.phase = phase; s.mod_phase = mod_phase; s.noise_phase = noise_phase; s.seed = seed;
-    s.noise = noise; s.held = held; s.low1 = low1; s.low2 = low2; s.ring_high = ring_high;
-}
-template <u32 Wave>
-inline void of_wave(State& s, opxy::Output out, const Block& b, bool synced) {
-    if (synced) samples<Wave, true, false>(s, out, b);
-    else samples<Wave, false, false>(s, out, b);
-}
-}
-
 inline void render(State& s, Common& common, opxy::Output out, const i32* slots, opxy::Pitch pitch) {
     if (s.fresh) {
         s.fresh = 0;
@@ -238,18 +157,60 @@ inline void render(State& s, Common& common, opxy::Output out, const i32* slots,
     const u32 noise_inc = heard_inc < 0x10000000u ? heard_inc << 4 : 0;
     const i32 level = ringing ? ring_level : md::one;
 
-    const Block block = {inc, mod_inc, heard_inc, noise_inc, duty, level, silent};
-    if (ringing) {
-        if (synced) samples<tri, true, true>(s, out, block);
-        else samples<tri, false, true>(s, out, block);
-    } else {
-        switch (wave) {
-        case tri: of_wave<tri>(s, out, block, synced); break;
-        case saw: of_wave<saw>(s, out, block, synced); break;
-        case pulse: of_wave<pulse>(s, out, block, synced); break;
-        case mix: of_wave<mix>(s, out, block, synced); break;
-        default: of_wave<noise_wave>(s, out, block, synced); break;
+    for (unsigned i = 0; i < opxy::block_frames; ++i) {
+        i32 now = 0, before = 0;
+        const u32 p = s.phase + inc;
+        const bool wrapped = p < s.phase;
+        s.phase = p;
+        i32 x = 0;   // how far past the oscillator's wrap this sample is, Q31
+        if (wrapped) x = fraction(p, inc);
+        u32 q;       // the heard wave's phase
+        if (synced) {
+            const u32 free = s.mod_phase + mod_inc;
+            q = free;
+            if (wrapped) {
+                // The sync restarts the heard wave half way through its cycle; rung, at its start.
+                q = (ringing ? 0u : 0x80000000u) + (static_cast<u32>(multiply(static_cast<i32>(mod_inc >> 1), x)) << 1);
+                if (!ringing && wave != noise_wave) blep(wave_at(wave, q, duty) - wave_at(wave, free, duty), x, now, before);
+            }
+            s.mod_phase = q;
+        } else {
+            q = p;
+            s.mod_phase += mod_inc;
         }
+        const u32 last = q - heard_inc;   // the heard wave's phase a sample ago, unless reset
+        i32 v;
+        if (ringing) {
+            // The triangles of the heard wave and the other oscillator, rung.
+            const i32 a = triangle(q), b = triangle(synced ? p : s.mod_phase);
+            const i32 product = md::gain(multiply(a, b), 2);
+            s.ring_high += multiply(product - s.ring_high, ring_highpass);
+            v = a + b + multiply(product - s.ring_high, ring_product) * 2;
+        } else if (wave == noise_wave) {
+            const u32 n = s.noise_phase + noise_inc;
+            if (!noise_inc || n < s.noise_phase) {
+                md::noise(s.seed);
+                s.noise = static_cast<i32>(s.seed >> 2) - unit;
+            }
+            s.noise_phase = n;
+            v = s.noise;
+        } else {
+            v = wave == pulse && silent ? 0 : wave_at(wave, q, duty);
+            // The heard wave's own edges, when the sync did not just reset it.
+            const bool own = !(synced && wrapped) && q < last;   // it wrapped by itself
+            if (wave == saw && own) blep(2 * unit, fraction(q, heard_inc), now, before);
+            if (wave == pulse && !silent) {
+                const i32 rise = pulse_high(duty) - pulse_low(duty);
+                if (own) blep(rise, fraction(q, heard_inc), now, before);
+                if (!(synced && wrapped) && q - duty < heard_inc) blep(-rise, fraction(q - duty, heard_inc), now, before);
+            }
+        }
+        v = multiply(v, level) + now;
+        const i32 sample = s.held + before;
+        s.held = v;
+        s.low1 += multiply(sample - s.low1, roll_off);
+        s.low2 += multiply(s.low1 - s.low2, roll_off);
+        out[i] = md::finish(s.low2);
     }
 }
 }
