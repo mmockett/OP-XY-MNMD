@@ -102,6 +102,6 @@ these engines can't play them on stock firmware.
 
 ## CPU on the device
 
-The CPU figures so far are host estimates. To measure on the OP-XY, follow
-the SDK's `docs/profiling.md` with a build made with `--profiling on` (the
-default here).
+The published machines' figures are in their catalog records, and MD KIT's is in the
+README. To measure on the OP-XY, follow the SDK's `docs/profiling.md` with a build
+made with `--profiling on` (the default here).

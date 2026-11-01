@@ -6,7 +6,8 @@ the Teenage Engineering OP-XY, on the
 
 ![Screens of MD KIT's TRX kick and cowbell, and the Monomachine's DPRO-DENS, SWAVE-PULSE, SID-6581, VO-6, DPRO-WAVE and FM STAT](docs/machines.png)
 
-- **The Machinedrum is four drum kits**, one per family. They play like the
+- **The Machinedrum is two drum kits**: MD KIT with its synthesised families, TRX,
+  EFM, P-I and GND, and MD E12 with its sampled one. They play like the
   OP-XY's Drumline: each of the 24 keys holds its own machine (kick, snare,
   toms, clap, rim, cowbell, hats, cymbals and more). Shift and the first
   encoder choose a key's machine, the encoders hold that machine's eight
@@ -41,9 +42,13 @@ original ROMs running in an emulator. E12 and the DigiPRO machines need
 samples and waves from the ROM. You capture those from your own ROM into a
 folder outside the checkout, and without them those engines build silent.
 
-**Status:** experimental. Every engine passes its tests, and the drum kits
-have been played on an OP-XY on OS 1.2.0. CPU figures are host estimates and
-have not been profiled on the device yet.
+**Status:** experimental. Every engine passes its tests, and MD KIT and the published
+synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice measures 4.918% of the stock
+block budget on the device (`opxy-drum-callback-v1`, one capture), above the SDK's
+recommended 3.5%, and its own keys at its full 16 voices 31.295%. Those figures time
+its voices through the SDK's drum adapter, not stock's drum renderer, envelope or
+mixing. The track menu's scramble doesn't change a kit yet
+([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
 
 ## What you need
 
@@ -205,7 +210,7 @@ than being replaced.
 
 ## Links
 
-- [Open-XY SDK](https://github.com/etcetc000/open-xy), with drum-kit support in
+- [Open-XY SDK](https://github.com/etcetc000/open-xy), whose drum kits arrived in
   [#121](https://github.com/etcetc000/open-xy/pull/121)
 - [open-xy-mdkit](https://github.com/etcetc000/open-xy-mdkit), a 24-key
   drum kit of MDKit's TRX, EFM and PI models for Open-XY

@@ -14,7 +14,7 @@ repository's other tools use. Each engine here can join as its own entry,
 | `mmdyn` `mmens` `mmpar` `mmpulse` `mmsid` `mmstat` `mmvo6` | Yes: submitted in etcetc000/open-xy#168 at `v1.1.3`, with two-page controls and hardware CPU records from that commit | Review and merge |
 | `mmnois` | Yes: published at `v1.1.4` | |
 | `mmsaw` `mmsin` | Yes | Their absent slots are upstream's, since #218 |
-| `mdkit` | No | The drum kind, etcetc000/open-xy#121 and #143 (with model groups, 64 models and a paged row), merged and ported to OS 1.2.1 |
+| `mdkit` | Yes: published from `v1.2.0`, with a drum `cpu` record (`opxy-drum-callback-v1`) | The drum kind landed with etcetc000/open-xy#121 |
 | `mde12` `mmbbox` `mmddrw` `mmdens` `mmwave` | Never | Samples and waves captured from the owner's ROM, which can't be published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots |
 
 ## Linking with other machines
