@@ -23,19 +23,6 @@
 // 64) chokes the open ones still ringing.
 namespace md {
 namespace efm_hh {
-struct State {
-    efm::Fed fm;
-    i32 level;      // amplitude envelope, Q31
-    i32 depth;      // MDEC's envelope, Q31
-    i32 before;     // the high-pass's last input
-    i32 y1, y2;     // and its last two outputs
-    u32 tremolo;    // TREM's phase
-    u32 count;      // samples since the last jump
-    u32 seed;
-    u32 choke;      // an open hat: the closed hats started when it was struck
-    u32 open;       // this hit is an open hat, which a closed one chokes
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -57,19 +44,76 @@ const i32 choke_time = 778000;
 // 0.126 RMS at their peaks), 2 dB up as the TRX machines are.
 const i32 carrier_level = 0x14380000;
 
+}
 struct Block {
-    i32 base, decay_step, trem, rate, deviation, ratio, depth_step, fb;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    i32 decay_step, trem, rate, deviation, fb;
+    efm::Flat flat;
+    void plan(const i32* p, u32 middle) {
         decay_step = md::decay(md::table9(efm::dec_times, p[DEC]));
         trem = md::positive(p[TREM]);
         rate = md::table9(tremolo_rates, p[TFRQ]);
         deviation = efm::sixteenths(p[MOD]);
-        ratio = efm::ratio(p[MFRQ]);
-        depth_step = md::decay(md::table9(efm::mdec_times, p[MDEC]));
+        flat.prepare(md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span)), efm::ratio(p[MFRQ]),
+                     md::decay(md::table9(efm::mdec_times, p[MDEC])));
         fb = multiply(efm::feedback(p[FB]), fb_scale);
     }
 };
+
+struct State {
+    efm::Fed fm;
+    i32 level;      // amplitude envelope, Q31
+    i32 depth;      // MDEC's envelope, Q31
+    i32 before;     // the high-pass's last input
+    i32 y1, y2;     // and its last two outputs
+    u32 tremolo;    // TREM's phase
+    u32 count;      // samples since the last jump
+    u32 seed;
+    u32 choke;      // an open hat: the closed hats started when it was struck
+    u32 open;       // this hit is an open hat, which a closed one chokes
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffer might otherwise be the voice.
+__attribute__((noinline)) inline void run_highpass(State& voice, i32* x) {
+    i32 before = voice.before, y1 = voice.y1, y2 = voice.y2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 tone = -multiply(x[i], carrier_level);
+        const i32 y = tone - before + multiply(y1, pole1) - multiply(y2, pole2);
+        x[i] = y;
+        before = tone;
+        y2 = y1;
+        y1 = y;
+    }
+    voice.before = before;
+    voice.y1 = y1;
+    voice.y2 = y2;
+}
+// TREM: the level dips to 1 - TREM at the tremolo's trough.
+__attribute__((noinline)) inline void run_tremolo(State& voice, i32 trem, u32 rate, i32 fall, opxy::Output x) {
+    u32 tremolo = voice.tremolo;
+    i32 level = voice.level;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 swing = multiply(trem, 0x40000000 - multiply(md::sine(tremolo + 0x40000000u), 0x40000000));
+        tremolo += rate;
+        x[i] = md::finish(multiply(x[i], multiply(level, md::one - swing)));
+        level = multiply(level, fall);
+    }
+    voice.tremolo = tremolo;
+    voice.level = level;
+}
+// And with none, its sine multiplied by nothing.
+__attribute__((noinline)) inline void run_level(State& voice, i32 fall, opxy::Output x) {
+    i32 level = voice.level;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] = md::finish(multiply(x[i], multiply(level, md::one)));
+        level = multiply(level, fall);
+    }
+    voice.level = level;
 }
 
 inline void trigger(State& voice, Common&) {
@@ -82,12 +126,22 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.seed = 0x6c078965u * owner;
     voice.choke = shared.closed_hats;
     voice.open = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common& shared, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fm.reset(efm::from_zero);
         voice.open = parameters[DEC] >= 0x40000000;
@@ -101,28 +155,27 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
     }
     const bool choked = voice.open && voice.choke != shared.closed_hats;
     const i32 fall = choked ? md::decay(choke_time) : b.decay_step;
-    i32 flat = 0;
-    efm::Sweep sweep;
-    sweep.plan(md::transpose(pitch[0], b.base), 0, flat, md::one, b.ratio, b.deviation, voice.depth, b.depth_step);
+    const efm::Ramp swing = b.flat.deviation(b.deviation, voice.depth);
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+    efm::run_fed_modulator(voice.fm, b.flat.carrier, swing, b.flat.modulator, output);
+    // The carrier a run at a time, between its phase's jumps.
+    for (unsigned i = 0; i != opxy::block_frames;) {
         if (voice.count == jump_period) {
             voice.count = 0;
             voice.fm.carrier += static_cast<u32>(md::noise(voice.seed));
         }
-        ++voice.count;
-        const i32 s = voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()), sweep.modulator.step(), b.fb);
-        const i32 tone = -multiply(s, carrier_level);
-        const i32 y = tone - voice.before + multiply(voice.y1, pole1) - multiply(voice.y2, pole2);
-        voice.before = tone;
-        voice.y2 = voice.y1;
-        voice.y1 = y;
-        // TREM: the level dips to 1 - TREM at the tremolo's trough.
-        const i32 swing = multiply(b.trem, 0x40000000 - multiply(md::sine(voice.tremolo + 0x40000000u), 0x40000000));
-        voice.tremolo += static_cast<u32>(b.rate);
-        const i32 envelope = multiply(voice.level, md::one - swing);
-        output[i] = md::finish(multiply(y, envelope));
-        voice.level = multiply(voice.level, fall);
+        unsigned run = jump_period - voice.count;
+        if (run > opxy::block_frames - i) run = opxy::block_frames - i;
+        efm::run_fed_carrier(voice.fm, b.fb, output + i, run);
+        voice.count += run;
+        i += run;
+    }
+    run_highpass(voice, output);
+    if (b.trem) {
+        run_tremolo(voice, b.trem, static_cast<u32>(b.rate), fall, output);
+    } else {
+        voice.tremolo += static_cast<u32>(b.rate) << 6;
+        run_level(voice, fall, output);
     }
 }
 }

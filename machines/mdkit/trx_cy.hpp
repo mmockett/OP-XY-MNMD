@@ -25,18 +25,6 @@
 // its hats are. The key moves all of it.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace trx_cy {
-struct State {
-    u32 phase[6];             // the five squares, then the pulse
-    i32 body, top;            // the two envelopes, Q31
-    i32 size[2];              // the body's two high-pass poles (SIZE)
-    md::Svf knee;             // and its resonant stage
-    i32 dull[2];              // its two low-pass poles
-    i32 top_state[3][4];      // the top's three biquads: x1 x2 y1 y2
-    u32 seed;
-    i32 body_out, top_out;   // the gains each block ended on, which the next starts from
-    u32 carrying;     // they are set: a note's first block starts from its envelope
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -320,10 +308,12 @@ const i32 size_body[9] = {1250281612, 1126428056, 1105039925, 1221465160, 130482
 const i32 size_top[9] = {1702256925, 2147268900, 1946927463, 1714322106, 1937849247, 1292232921, 1601677888, 1592098745, 1390290868};
 const i32 body_damping = 214748365;
 const i32 body_lowpass = 1371000000;   // two poles at 7 kHz: the body stays flat up to the top, and no further
+}
 // The top: a resonant second-order high-pass that SIZE moves, then TTUN's
 // fourth-order Butterworth low-pass, 4.5 to 10.5 kHz, as two biquads:
 // coefficients Q30 (b0 b1 b2 a1 a2), each at its control's 0, 16, ..., 127.
 struct Biquad { i32 b0, b1, b2, a1, a2; };
+namespace {
 const Biquad ttun_lowpass0[9] = {
     {68669815, 137339629, 68669815, -1108493449, 309430884},
     {78805167, 157610334, 78805167, -1032132101, 273610944},
@@ -384,16 +374,26 @@ inline Biquad between(const Biquad* t, i32 parameter) {
 
 // The block's stages, one loop each: out of line, so each has a hardware loop and all the
 // registers to itself.
-__attribute__((noinline)) void add_lines(const i32* table, u32 phase, u32 increment, i32* out) {
+// Two squares a turn, a load and a store shared.
+__attribute__((noinline)) void start_lines(u32 a, u32 c, u32 step_a, u32 step_c, i32* out) {
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += table[phase >> 22];
-        phase += increment;
+        out[i] = square_table[a >> 22] + square_table[c >> 22];
+        a += step_a;
+        c += step_c;
     }
 }
-// The squares' sum weighed, the pulse added: the metal, at most 1/16 of full scale.
-__attribute__((noinline)) void weigh_with_pulse(u32 phase, u32 increment, i32 weight, i32* metal) {
+__attribute__((noinline)) void add_lines(u32 a, u32 c, u32 step_a, u32 step_c, i32* out) {
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        metal[i] = pulse_table[phase >> 22] + multiply(metal[i], weight);
+        out[i] += square_table[a >> 22] + square_table[c >> 22];
+        a += step_a;
+        c += step_c;
+    }
+}
+// The last square, the squares' sum weighed, the pulse added: the metal, at most 1/16 of full scale.
+__attribute__((noinline)) void weigh_with_pulse(u32 last, u32 step_last, u32 phase, u32 increment, i32 weight, i32* metal) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        metal[i] = pulse_table[phase >> 22] + multiply(metal[i] + square_table[last >> 22], weight);
+        last += step_last;
         phase += increment;
     }
 }
@@ -475,10 +475,12 @@ __attribute__((noinline)) void take_top(const i32* top, i32 gain, i32 slope, i32
 }
 
 
+}
 struct Block {
-    i32 weight, poles, knee, body, top, body_step, top_step;
+    i32 weight, poles, knee, body, top, body_block, top_block;
     Biquad high, low0, low1;
-    explicit Block(const i32* p) {
+    u32 increment[partial_count];
+    void plan(const i32* p, u32 middle) {
         weight = multiply(md::table9(rich_weight, p[RICH]), md::table9(rich_level, p[RICH]));
         poles = md::table9(size_poles, p[SIZE]);
         knee = md::table9(size_knee, p[SIZE]);
@@ -488,11 +490,28 @@ struct Block {
         low1 = between(ttun_lowpass1, p[TTUN]);
         top = multiply(multiply(multiply(md::table9(top_gain, p[TOP]), md::table9(peak_gain, p[PEAK])), md::table9(size_top, p[SIZE])), top_level);
         const i32 time = md::table9(decay_times, p[DEC]);
-        body_step = md::decay(time);
-        top_step = md::decay(time - top_faster);
+        body_block = md::per_block(md::decay(time));
+        top_block = md::per_block(md::decay(time - top_faster));
+        for (unsigned k = 0; k < partial_count; ++k) increment[k] = md::transpose(middle, partials[k]);
     }
 };
-}
+
+struct State {
+    u32 phase[6];             // the five squares, then the pulse
+    i32 body, top;            // the two envelopes, Q31
+    i32 size[2];              // the body's two high-pass poles (SIZE)
+    md::Svf knee;             // and its resonant stage
+    i32 dull[2];              // its two low-pass poles
+    i32 top_state[3][4];      // the top's three biquads: x1 x2 y1 y2
+    u32 seed;
+    i32 body_out, top_out;   // the gains each block ended on, which the next starts from
+    u32 carrying;     // they are set: a note's first block starts from its envelope
+    u32 fresh;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 inline void clear(State& voice) {
     voice.size[0] = voice.size[1] = 0;
@@ -508,12 +527,22 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     clear(voice);
     voice.seed = 0x3c6ef372u * owner;
     voice.carrying = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] = static_cast<u32>(md::noise(voice.seed));
         voice.body = voice.top = md::one;
@@ -521,11 +550,10 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.carrying = 0;
         voice.fresh = 0;
     }
-    u32 increment[partial_count];
-    for (unsigned k = 0; k < partial_count; ++k) increment[k] = md::transpose(pitch[0], partials[k]);
+    const u32* increment = b.increment;
     // The two gains, envelope and level together, in straight lines across the block.
-    const i32 body_next = multiply(voice.body, md::per_block(b.body_step));
-    const i32 top_next = multiply(voice.top, md::per_block(b.top_step));
+    const i32 body_next = multiply(voice.body, b.body_block);
+    const i32 top_next = multiply(voice.top, b.top_block);
     const i32 body_scale = b.body;
     // Each from where the last block's ended, so RICH, TOP or PEAK moved glides.
     i32 body_gain = voice.carrying ? voice.body_out : multiply(voice.body, body_scale);
@@ -543,13 +571,10 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     // One stage over the whole block at a time, each with its own hardware loop and registers:
     // the same arithmetic as one long loop, sample for sample, at half its cycles on the Blackfin.
     i32 metal[opxy::block_frames], body[opxy::block_frames];
-    for (unsigned i = 0; i != opxy::block_frames; ++i) metal[i] = 0;
-    for (unsigned k = 0; k < squares; ++k) {
-        add_lines(square_table, voice.phase[k], increment[k], metal);
-        voice.phase[k] += increment[k] << 6;
-    }
-    weigh_with_pulse(voice.phase[squares], increment[squares], b.weight, metal);
-    voice.phase[squares] += increment[squares] << 6;
+    start_lines(voice.phase[0], voice.phase[1], increment[0], increment[1], metal);
+    add_lines(voice.phase[2], voice.phase[3], increment[2], increment[3], metal);
+    weigh_with_pulse(voice.phase[4], increment[4], voice.phase[squares], increment[squares], b.weight, metal);
+    for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] += increment[k] << 6;
     run_size(voice.size, b.poles, metal, body);
     run_knee(voice.knee, b.knee, body);
     run_dull(voice.dull, body_gain, body_slope, body);

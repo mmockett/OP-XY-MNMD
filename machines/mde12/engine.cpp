@@ -150,9 +150,10 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     case 15: sound15(voice, shared, output, own); break;
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }
-    bool loud = false;
-    for (unsigned i = 0; i < opxy::block_frames; ++i) loud = loud || output[i] >= quiet_under || output[i] <= -quiet_under;
-    voice.quiet = loud ? 0 : voice.quiet + 1;
+    // Stops at the first loud sample: nearly every block of a sounding voice has one early.
+    unsigned under = 0;
+    while (under < opxy::block_frames && output[under] < quiet_under && output[under] > -quiet_under) ++under;
+    voice.quiet = under < opxy::block_frames ? 0 : voice.quiet + 1;
     if (voice.quiet >= quiet_blocks && !waiting(voice)) voice.done = 1;
 }
 }

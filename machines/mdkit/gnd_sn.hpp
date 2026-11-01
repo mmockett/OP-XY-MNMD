@@ -17,13 +17,6 @@
 // 2 ms at 0 to held from 112.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace gnd_sn {
-struct State {
-    u32 phase;
-    i32 level;      // amplitude envelope, Q31
-    i32 ramp;       // RAMP's envelope, Q31
-    i32 smooth;     // the roll-off's state
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -51,54 +44,87 @@ inline i32 excess_half(u32 key, i32 excess) {
     return eighth > 0x1fffffffu ? 0x7fffffff : static_cast<i32>(eighth << 2);
 }
 
+}
 struct Block {
-    i32 base, decay_step, excess, ramp_step;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    i32 decay_step, excess, ramp_block, half;
+    u32 base;
+    void plan(const i32* p, u32 middle) {
+        base = md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span));
         decay_step = md::decay(md::table9(dec_times, p[DEC]));
         excess = multiply(md::squared(p[RAMP]), excess_top);
-        ramp_step = p[RDEC] < ramp_held ? md::decay(md::table9(rdec_times, p[RDEC])) : md::one;
+        ramp_block = md::per_block(p[RDEC] < ramp_held ? md::decay(md::table9(rdec_times, p[RDEC])) : md::one);
+        // The excess runs apart from the pitch: their sum may pass a whole cycle a
+        // sample, where the phase wraps as it should.
+        half = excess_half(middle, excess);
     }
 };
-}
 
 // Whether a sound is still to come however quiet it is now: the envelope still
 // open (-102 dB). A pitch RAMP holds at half the sample rate, or at the sample
 // rate, can sample a sine at its zeros, silent until the ramp falls away from it.
+struct State {
+    u32 phase;
+    i32 level;      // amplitude envelope, Q31
+    i32 ramp;       // RAMP's envelope, Q31
+    i32 smooth;     // the roll-off's state
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
 inline bool waiting(const State& voice) { return multiply(voice.level, level) >= (1 << 14); }
+// The block, out of line and on locals, as `output` might otherwise be the voice.
+__attribute__((noinline)) inline void run_block(State& voice, u32 base, efm::Ramp excess, i32 step, opxy::Output output) {
+    u32 phase = voice.phase, moving = excess.value;
+    const u32 slope = static_cast<u32>(excess.slope);
+    i32 envelope = voice.level, smooth = voice.smooth;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        smooth += multiply(multiply(md::sine(phase), multiply(envelope, level)) - smooth, smoothing);
+        output[i] = md::finish(smooth);
+        phase += base + moving;
+        moving += slope;
+        envelope = multiply(envelope, step);
+    }
+    voice.phase = phase;
+    voice.level = envelope;
+    voice.smooth = smooth;
+}
+
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
 inline void reset(State& voice, Common& shared, u32) {
     voice.phase = 0;
     voice.level = voice.ramp = voice.smooth = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.phase = 0;
         voice.level = voice.ramp = md::one;
         voice.smooth = 0;
         voice.fresh = 0;
     }
-    const u32 base = md::transpose(pitch[0], b.base);
-    const i32 ramp_next = multiply(voice.ramp, md::per_block(b.ramp_step));
-    // The excess runs apart from the pitch: their sum may pass a whole cycle a
-    // sample, where the phase wraps as it should.
-    const i32 half = excess_half(pitch[0], b.excess);
+    const i32 ramp_next = multiply(voice.ramp, b.ramp_block);
     efm::Ramp excess;
-    excess.plan(static_cast<u32>(multiply(half, voice.ramp)) << 1, static_cast<u32>(multiply(half, ramp_next)) << 1);
+    excess.plan(static_cast<u32>(multiply(b.half, voice.ramp)) << 1, static_cast<u32>(multiply(b.half, ramp_next)) << 1);
     voice.ramp = ramp_next;
-
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        voice.smooth += multiply(multiply(md::sine(voice.phase), multiply(voice.level, level)) - voice.smooth, smoothing);
-        output[i] = md::finish(voice.smooth);
-        voice.phase += base + excess.step();
-        voice.level = multiply(voice.level, b.decay_step);
-    }
+    run_block(voice, b.base, excess, b.decay_step, output);
 }
 }
 }

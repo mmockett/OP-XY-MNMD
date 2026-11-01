@@ -18,17 +18,6 @@
 
 namespace md {
 namespace trx_hat {
-struct State {
-    u32 phase[6];    // the five squares, then the pulse
-    i32 level;       // the envelope after the hold, Q31
-    u32 hold;        // samples of hold still to run
-    u32 seed;
-    i32 low1, low2, low3;   // the high-pass's three poles
-    md::Svf top1, top2;     // the low-pass's two stages
-    u32 choke;       // the closed-hat count this open hat started under
-    u32 open;        // this note is an open hat
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -59,10 +48,12 @@ const i32 fall_short = 778050, open_fall_short = 793416, open_fall_shortest_long
 const i32 fall_long_closed = 924488, fall_long_open = 1089872;
 const i32 choke_time = 600000;                       // a choked open hat: -60 dB in about 6 ms
 
+}
 struct Block {
-    i32 lines, noise, highpass, broad, resonant, fall_step, open;
+    i32 lines, noise, highpass, broad, resonant, fall_step, fall_block, open;
     u32 hold;
-    Block(const i32* p, bool opened) {
+    u32 increment[partial_count];
+    void plan(const i32* p, u32 middle, bool opened) {
         // MTAL: the lines from an eighth to full, the noise from full to 0.22.
         const i32 made_up = multiply(md::table9(highpass_level, p[HPF]), md::table9(lowpass_level, p[LPF]));
         lines = multiply(multiply(md::span(p[MTAL], 0x10000000, md::one), made_up), square);
@@ -74,23 +65,48 @@ struct Block {
         const i32 shortest = md::span(open, fall_short, md::span(p[DEC], open_fall_short, open_fall_shortest_long));
         const i32 longest = md::span(open, fall_long_closed, fall_long_open);
         fall_step = md::decay(md::span(p[GAP], shortest, longest));
+        fall_block = md::per_block(fall_step);
+        for (unsigned k = 0; k < partial_count; ++k) increment[k] = md::transpose(middle, partials[k]);
         hold = static_cast<u32>(md::span(open, md::table9(holds, p[DEC]), md::table9(open_holds, p[DEC])));
     }
 };
-}
+
+struct State {
+    u32 phase[6];    // the five squares, then the pulse
+    i32 level;       // the envelope after the hold, Q31
+    u32 hold;        // samples of hold still to run
+    u32 seed;
+    i32 low1, low2, low3;   // the high-pass's three poles
+    md::Svf top1, top2;     // the low-pass's two stages
+    u32 choke;       // the closed-hat count this open hat started under
+    u32 open;        // this note is an open hat
+    u32 fresh;
+    u32 seen_opened;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // The block's stages, a loop each: out of line, so each has a hardware loop and all the
 // registers to itself.
-__attribute__((noinline)) inline void make_pulse(u32 phase, u32 increment, i32 lines, i32* band) {
+// In threes, a load and a store shared: the sum of three signs is the count of them set.
+__attribute__((noinline)) inline void start_lines(const u32* phase, const u32* increment, i32 lines, i32* band) {
+    u32 pulse = phase[squares], a = phase[0], c = phase[1];
+    const u32 step_pulse = increment[squares], step_a = increment[0], step_c = increment[1];
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        band[i] = phase < pulse_duty ? lines : -lines;
-        phase += increment;
+        band[i] = (pulse < pulse_duty ? lines : -lines) + (1 - static_cast<i32>(a >> 31) - static_cast<i32>(c >> 31)) * 2 * lines;
+        pulse += step_pulse;
+        a += step_a;
+        c += step_c;
     }
 }
-__attribute__((noinline)) inline void add_square(u32 phase, u32 increment, i32 lines, i32* band) {
+__attribute__((noinline)) inline void add_lines(u32 a, u32 c, u32 e, u32 step_a, u32 step_c, u32 step_e, i32 lines, i32* band) {
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        band[i] += phase & 0x80000000u ? -lines : lines;
-        phase += increment;
+        band[i] += (3 - 2 * static_cast<i32>((a >> 31) + (c >> 31) + (e >> 31))) * lines;
+        a += step_a;
+        c += step_c;
+        e += step_e;
     }
 }
 // One chain for both: three high-pass poles...
@@ -110,15 +126,25 @@ __attribute__((noinline)) inline void add_noise_through_highpass(State& voice, i
     voice.low3 = low3;
 }
 // ...then the low-pass, its broad stage first so the resonant one has headroom.
-__attribute__((noinline)) inline void finish_block(State& voice, i32 broad, i32 resonant, i32 level, i32 slope, const i32* band, opxy::Output output) {
-    md::Svf top1 = voice.top1, top2 = voice.top2;
+__attribute__((noinline)) inline void run_broad(State& voice, i32 broad, i32* band) {
+    i32 low = voice.top1.low, mid = voice.top1.band, high = voice.top1.high;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        top1.run(band[i], broad_at, broad);
-        top2.run(top1.low, resonant, resonant_damping);
+        low += multiply(broad_at, mid) * 2;
+        high = band[i] - low - multiply(broad, mid) * 2;
+        mid += multiply(broad_at, high) * 2;
+        band[i] = low;
+    }
+    voice.top1.low = low;
+    voice.top1.band = mid;
+    voice.top1.high = high;
+}
+__attribute__((noinline)) inline void finish_block(State& voice, i32 resonant, i32 level, i32 slope, const i32* band, opxy::Output output) {
+    md::Svf top2 = voice.top2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        top2.run(band[i], resonant, resonant_damping);
         output[i] = md::clamp(multiply(top2.low, level), -ceiling, ceiling) * after_gain;
         level += slope;
     }
-    voice.top1 = top1;
     voice.top2 = top2;
 }
 
@@ -133,12 +159,23 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.top2.reset();
     voice.choke = shared.closed_hats;
     voice.open = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common& shared, opxy::Output output, const i32* parameters, opxy::Pitch pitch, bool opened) {
-    const Block b(parameters, opened);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch) | (static_cast<u32>(opened) ^ voice.seen_opened);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        voice.seen_opened = opened;
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0], opened);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.open = opened;
         if (!voice.open) ++shared.closed_hats;
@@ -152,8 +189,7 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
     const i32 fall = choked ? md::decay(choke_time) : b.fall_step;
     if (choked) voice.hold = 0;
 
-    u32 increment[partial_count];
-    for (unsigned k = 0; k < partial_count; ++k) increment[k] = md::transpose(pitch[0], partials[k]);
+    const u32* increment = b.increment;
     // The level after the hold, in a straight line across the block.
     i32 next = voice.level;
     if (voice.hold >= opxy::block_frames) {
@@ -162,7 +198,7 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
         if (voice.hold) {
             for (unsigned i = voice.hold; i < opxy::block_frames; ++i) next = multiply(next, fall);
         } else {
-            next = multiply(next, md::per_block(fall));
+            next = multiply(next, choked ? md::per_block(fall) : b.fall_block);
         }
         voice.hold = 0;
     }
@@ -170,14 +206,12 @@ inline void render(State& voice, Common& shared, opxy::Output output, const i32*
     const i32 level_slope = (next - level) / 64;
     voice.level = next;
     i32 band[opxy::block_frames];
-    make_pulse(voice.phase[squares], increment[squares], b.lines, band);
-    voice.phase[squares] += increment[squares] << 6;
-    for (unsigned k = 0; k < squares; ++k) {
-        add_square(voice.phase[k], increment[k], b.lines, band);
-        voice.phase[k] += increment[k] << 6;
-    }
+    start_lines(voice.phase, increment, b.lines, band);
+    add_lines(voice.phase[2], voice.phase[3], voice.phase[4], increment[2], increment[3], increment[4], b.lines, band);
+    for (unsigned k = 0; k < partial_count; ++k) voice.phase[k] += increment[k] << 6;
     add_noise_through_highpass(voice, b.noise, b.highpass, band);
-    finish_block(voice, b.broad, b.resonant, level, level_slope, band, output);
+    run_broad(voice, b.broad, band);
+    finish_block(voice, b.resonant, level, level_slope, band, output);
 }
 }
 

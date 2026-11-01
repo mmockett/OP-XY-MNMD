@@ -15,12 +15,6 @@
 // shorter at the bottom, and pass EFM-SD's high-pass (HPF).
 namespace md {
 namespace efm_rs {
-struct State {
-    efm::Pair rim, snare;
-    i32 rim_level, snare_level;   // envelopes, Q31
-    i32 low;                      // HPF's state
-    u32 fresh;                    // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -39,33 +33,57 @@ const i32 rim_scale = 0x17000000, snare_scale = 0x60000000;
 // The level of each: the Machinedrum's, 2 dB up as the TRX machines are.
 const i32 body_level = 0x19919b6d;
 
+}
 struct Block {
-    i32 rim, snare, rim_step, snare_step, rim_depth, snare_depth, snare_level, hpf;
-    explicit Block(const i32* p) {
-        rim = md::span(p[PTCH], rim_low, rim_low + rim_span);
-        snare = md::span(p[SPTC], snare_low, snare_low + snare_span);
+    i32 rim_step, snare_step, snare_level, hpf, fb;
+    efm::Sweep rim, snare;   // nothing in them moves within a note
+    void plan(const i32* p, u32 middle) {
         rim_step = md::decay(md::table9(dec_times, p[DEC]));
         snare_step = md::decay(md::table9(dec_times, p[SDEC]));
-        rim_depth = multiply(efm::sixteenths(p[MOD]), rim_scale);
-        snare_depth = multiply(efm::sixteenths(p[SMOD]), snare_scale);
+        const i32 rim_depth = multiply(efm::sixteenths(p[MOD]), rim_scale);
+        const i32 snare_depth = multiply(efm::sixteenths(p[SMOD]), snare_scale);
         snare_level = multiply(md::positive(p[SNAR]), body_level);
         hpf = md::table9(efm::hpf_coefficients, p[HPF]);
+        fb = efm::feedback(md::one);
+        const i32 flat_block = md::per_block(md::one);
+        i32 flat = 0, held = md::one;
+        rim.plan(md::transpose(middle, md::span(p[PTCH], rim_low, rim_low + rim_span)), 0, flat, flat_block, ratio, rim_depth, held, flat_block);
+        snare.plan(md::transpose(middle, md::span(p[SPTC], snare_low, snare_low + snare_span)), 0, flat, flat_block, ratio, snare_depth, held, flat_block);
     }
 };
-}
 
-// One of the two, under its falling level, taken from `out`: one loop each, out of line, so
-// each has a hardware loop and all the registers to itself. Their pitches don't move in a block.
-__attribute__((noinline)) inline void take_pair(efm::Pair& held_pair, u32 increment, efm::Ramp deviation, u32 modulation, i32 fb,
-                                                i32& held_level, i32 step, i32 scale, i32* out) {
-    efm::Pair pair = held_pair;
+struct State {
+    efm::Pair rim, snare;
+    i32 rim_level, snare_level;   // envelopes, Q31
+    i32 low;                      // HPF's state
+    u32 fresh;                    // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
+// Each of the two under its falling level: a stage each, out of line, so each has a hardware
+// loop and all the registers to itself. Their pitches don't move in a block.
+template <bool First>
+__attribute__((noinline)) inline void take_pair(efm::Pair& pair, u32 increment, efm::Ramp deviation, u32 modulation, i32 fb, i32& held_level, i32 step, i32 scale, i32* out, i32* y) {
+    efm::run_modulator(pair, modulation, fb, y);
+    efm::run_carrier(pair, increment, deviation, y);
     i32 level = held_level;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] -= multiply(pair.run(increment, static_cast<i32>(deviation.step()), modulation, fb), multiply(level, scale));
+        const i32 taken = multiply(y[i], multiply(level, scale));
+        out[i] = First ? -taken : out[i] - taken;
         level = multiply(level, step);
     }
-    held_pair = pair;
     held_level = level;
+}
+__attribute__((noinline)) inline void run_highpass(State& voice, i32 hpf, const i32* mixed, opxy::Output output) {
+    i32 low = voice.low;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        low += multiply(mixed[i] - low, hpf);
+        output[i] = md::finish(mixed[i] - low);
+    }
+    voice.low = low;
 }
 
 inline void trigger(State& voice, Common&) {
@@ -75,12 +93,22 @@ inline void reset(State& voice, Common& shared, u32) {
     voice.rim.reset();
     voice.snare.reset();
     voice.rim_level = voice.snare_level = voice.low = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.rim.reset();
         voice.snare.reset();
@@ -88,22 +116,10 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.low = 0;
         voice.fresh = 0;
     }
-    const i32 fb = efm::feedback(md::one);
-    i32 flat = 0, held = md::one;
-    efm::Sweep rim, snare;
-    rim.plan(md::transpose(pitch[0], b.rim), 0, flat, md::one, ratio, b.rim_depth, held, md::one);
-    snare.plan(md::transpose(pitch[0], b.snare), 0, flat, md::one, ratio, b.snare_depth, held, md::one);
-
-    i32 mixed[opxy::block_frames];
-    for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
-    take_pair(voice.rim, rim.carrier.value, rim.deviation, rim.modulator.value, fb, voice.rim_level, b.rim_step, body_level, mixed);
-    take_pair(voice.snare, snare.carrier.value, snare.deviation, snare.modulator.value, fb, voice.snare_level, b.snare_step, b.snare_level, mixed);
-    i32 low = voice.low;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        low += multiply(mixed[i] - low, b.hpf);
-        output[i] = md::finish(mixed[i] - low);
-    }
-    voice.low = low;
+    i32 mixed[opxy::block_frames], y[opxy::block_frames];
+    take_pair<true>(voice.rim, b.rim.carrier.value, b.rim.deviation, b.rim.modulator.value, b.fb, voice.rim_level, b.rim_step, body_level, mixed, y);
+    take_pair<false>(voice.snare, b.snare.carrier.value, b.snare.deviation, b.snare.modulator.value, b.fb, voice.snare_level, b.snare_step, b.snare_level, mixed, y);
+    run_highpass(voice, b.hpf, mixed, output);
 }
 }
 }

@@ -18,14 +18,6 @@
 // near its trough at 127, which the high-pass turns into a click.
 namespace md {
 namespace efm_xt {
-struct State {
-    efm::Pair fm;
-    i32 level;      // amplitude envelope, Q31
-    i32 ramp;       // RAMP's envelope, Q31
-    i32 depth;      // MDEC's envelope, Q31
-    i32 low;        // the high-pass's state
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -42,18 +34,49 @@ const i32 click_phase = 0x30a3d70a;
 // The level: the Machinedrum's, 2 dB up as the TRX machines are.
 const i32 body_level = 0x151b6d1e;
 
+}
 struct Block {
-    i32 base, ramp_from, ramp_step, decay_step, deviation, ratio, depth_step;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    i32 ramp_from, ramp_block, decay_step, deviation, ratio, depth_block, fb;
+    u32 base;
+    void plan(const i32* p, u32 middle) {
+        base = md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span));
         ramp_from = efm::sixteenths(p[RAMP]) - 0x10000000;
-        ramp_step = md::decay(md::table9(efm::rdec_times, p[RDEC]));
+        ramp_block = md::per_block(md::decay(md::table9(efm::rdec_times, p[RDEC])));
         decay_step = md::decay(md::table9(efm::dec_times, p[DEC]));
         deviation = multiply(efm::sixteenths(p[MOD]), depth);
         ratio = efm::ratio(p[MFRQ]);
-        depth_step = md::decay(md::table9(efm::mdec_times, p[MDEC]));
+        depth_block = md::per_block(md::decay(md::table9(efm::mdec_times, p[MDEC])));
+        fb = efm::feedback(md::one);
     }
 };
+
+struct State {
+    efm::Pair fm;
+    i32 level;      // amplitude envelope, Q31
+    i32 ramp;       // RAMP's envelope, Q31
+    i32 depth;      // MDEC's envelope, Q31
+    i32 low;        // the high-pass's state
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
+// The level and the high-pass over the tone, out of line and on locals. Its peak and the
+// filter's lag are together well under the output's ceiling.
+__attribute__((noinline)) inline void run_level(State& voice, i32 fall, opxy::Output x) {
+    i32 level = voice.level, low = voice.low;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 s = multiply(x[i], multiply(level, body_level));
+        // A step too small to take settles the filter, so it ends at zero.
+        const i32 step = multiply(s - low, highpass);
+        low = step ? low + step : s;
+        x[i] = low - s;
+        level = multiply(level, fall);
+    }
+    voice.level = level;
+    voice.low = low;
 }
 
 inline void trigger(State& voice, Common&) {
@@ -62,12 +85,22 @@ inline void trigger(State& voice, Common&) {
 inline void reset(State& voice, Common& shared, u32) {
     voice.fm.reset();
     voice.level = voice.ramp = voice.depth = voice.low = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fm.reset();
         voice.fm.carrier = static_cast<u32>(multiply(md::positive(parameters[CLIC]), click_phase));
@@ -77,21 +110,11 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.low = 0;
         voice.fresh = 0;
     }
-    const i32 fb = efm::feedback(md::one);
     efm::Sweep sweep;
-    sweep.plan(md::transpose(pitch[0], b.base), b.ramp_from, voice.ramp, b.ramp_step, b.ratio, b.deviation, voice.depth,
-               b.depth_step);
-
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 s = multiply(voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()),
-                                            sweep.modulator.step(), fb),
-                               multiply(voice.level, body_level));
-        // A step too small to take settles the filter, so it ends at zero.
-        const i32 step = multiply(s - voice.low, highpass);
-        voice.low = step ? voice.low + step : s;
-        output[i] = md::finish(voice.low - s);
-        voice.level = multiply(voice.level, b.decay_step);
-    }
+    sweep.plan(b.base, b.ramp_from, voice.ramp, b.ramp_block, b.ratio, b.deviation, voice.depth, b.depth_block);
+    efm::run_modulator_swept(voice.fm, sweep.modulator, b.fb, output);
+    efm::run_carrier_swept(voice.fm, sweep.carrier, sweep.deviation, output);
+    run_level(voice, b.decay_step, output);
 }
 }
 }

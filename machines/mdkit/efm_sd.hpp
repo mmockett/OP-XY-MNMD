@@ -17,17 +17,6 @@
 // falling, at any pitch: the first sample is 0.07 of its peak, as the Machinedrum's.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_sd {
-struct State {
-    efm::Pair fm;
-    i32 level;      // the tone's envelope, Q31
-    i32 tail;       // the quiet tail under it, Q31
-    i32 depth;      // MDEC's envelope, Q31
-    i32 hiss;       // the noise's envelope, Q31
-    i32 low1, low2; // the noise's high-passes
-    i32 low;        // HPF's state
-    u32 seed;
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -47,19 +36,77 @@ const i32 tail_start = 34035589, tail_time = 880050;
 const i32 body_level = 0x1ae147ae;
 const i32 noise_level = 0x2b333333;
 
+}
 struct Block {
-    i32 base, decay_step, noise, noise_step, deviation, ratio, depth_step, hpf;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    i32 decay_step, noise, noise_step, deviation, hpf, tail_step, fb;
+    efm::Flat flat;
+    void plan(const i32* p, u32 middle) {
         decay_step = md::decay(md::table9(dec_times, p[DEC]));
         noise = multiply(md::positive(p[NOIS]), noise_level);
         noise_step = md::decay(md::table9(ndec_times, p[NDEC]));
         deviation = efm::sixteenths(p[MOD]);
-        ratio = efm::ratio(p[MFRQ]);
-        depth_step = md::decay(md::table9(efm::mdec_times, p[MDEC]));
+        flat.prepare(md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span)), efm::ratio(p[MFRQ]),
+                     md::decay(md::table9(efm::mdec_times, p[MDEC])));
         hpf = md::table9(efm::hpf_coefficients, p[HPF]);
+        tail_step = md::decay(tail_time);
+        fb = efm::feedback(md::one);
     }
 };
+
+struct State {
+    efm::Pair fm;
+    i32 level;      // the tone's envelope, Q31
+    i32 tail;       // the quiet tail under it, Q31
+    i32 depth;      // MDEC's envelope, Q31
+    i32 hiss;       // the noise's envelope, Q31
+    i32 low1, low2; // the noise's high-passes
+    i32 low;        // HPF's state
+    u32 seed;
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffer might otherwise be the voice.
+// The tone under the louder of its level and its tail.
+__attribute__((noinline)) inline void run_tone(State& voice, i32 step, i32 tail_step, i32* x) {
+    i32 level = voice.level, tail = voice.tail;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 held = level > tail ? level : tail;
+        x[i] = -multiply(x[i], multiply(held, body_level));
+        level = multiply(level, step);
+        tail = multiply(tail, tail_step);
+    }
+    voice.level = level;
+    voice.tail = tail;
+}
+// The noise; once its level has truncated to zero nothing reads its states before the next strike.
+__attribute__((noinline)) inline void run_noise(State& voice, i32 amount, i32 step, i32* x) {
+    u32 seed = voice.seed;
+    i32 low1 = voice.low1, low2 = voice.low2, hiss = voice.hiss;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        low1 += multiply(white - low1, colour);
+        const i32 once = white - low1;
+        low2 += multiply(once - low2, colour);
+        x[i] += multiply(once - low2, multiply(hiss, amount)) * 4;
+        hiss = multiply(hiss, step);
+    }
+    voice.seed = seed;
+    voice.low1 = low1;
+    voice.low2 = low2;
+    voice.hiss = hiss;
+}
+__attribute__((noinline)) inline void run_highpass(State& voice, i32 hpf, const i32* x, opxy::Output output) {
+    i32 low = voice.low;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        low += multiply(x[i] - low, hpf);
+        output[i] = md::finish(x[i] - low);
+    }
+    voice.low = low;
 }
 
 inline void trigger(State& voice, Common&) {
@@ -70,12 +117,22 @@ inline void reset(State& voice, Common& shared, u32) {
     voice.level = voice.tail = voice.depth = voice.hiss = 0;
     voice.low1 = voice.low2 = voice.low = 0;
     voice.seed = 0x2545f491u;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fm.reset(efm::fed_start);
         voice.level = voice.hiss = voice.depth = md::one;
@@ -84,27 +141,13 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.seed = 0x2545f491u;
         voice.fresh = 0;
     }
-    const i32 tail_step = md::decay(tail_time);
-    const i32 fb = efm::feedback(md::one);
-    i32 flat = 0;
-    efm::Sweep sweep;
-    sweep.plan(md::transpose(pitch[0], b.base), 0, flat, md::one, b.ratio, b.deviation, voice.depth, b.depth_step);
-
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 s = voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()), sweep.modulator.step(), fb);
-        const i32 held = voice.level > voice.tail ? voice.level : voice.tail;
-        const i32 white = md::noise_eighth(voice.seed);
-        voice.low1 += multiply(white - voice.low1, colour);
-        const i32 once = white - voice.low1;
-        voice.low2 += multiply(once - voice.low2, colour);
-        const i32 hiss = multiply(once - voice.low2, multiply(voice.hiss, b.noise));
-        const i32 mix = hiss * 4 - multiply(s, multiply(held, body_level));
-        voice.low += multiply(mix - voice.low, b.hpf);
-        output[i] = md::finish(mix - voice.low);
-        voice.level = multiply(voice.level, b.decay_step);
-        voice.tail = multiply(voice.tail, tail_step);
-        voice.hiss = multiply(voice.hiss, b.noise_step);
-    }
+    const efm::Ramp swing = b.flat.deviation(b.deviation, voice.depth);
+    i32 x[opxy::block_frames];
+    efm::run_modulator(voice.fm, b.flat.modulator, b.fb, x);
+    efm::run_carrier(voice.fm, b.flat.carrier, swing, x);
+    run_tone(voice, b.decay_step, b.tail_step, x);
+    if (voice.hiss) run_noise(voice, b.noise, b.noise_step, x);
+    run_highpass(voice, b.hpf, x, output);
 }
 }
 }

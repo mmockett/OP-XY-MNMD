@@ -24,20 +24,6 @@
 // about 25 dB, to stand with its hats. Like the clap, they have no pitch: keys play them alike.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace trx_ma {
-struct State {
-    i32 rise;        // ATT's envelope, Q31 (rises to one)
-    i32 gate;        // the burst's gate, Q31
-    u32 left;        // samples of the burst still to run
-    u32 again;       // samples until REV's second shake (0: none)
-    i32 grain;       // the current grains' level, Q31
-    i32 tail;        // RATL's rattle after the gate, Q31
-    i32 dark;        // DAMP's darkening so far, Q31 of the most
-    i32 low1, low2;  // the band's high-pass poles
-    md::Svf knee;    // its lower knee
-    i32 top1, top2;  // its low-pass poles
-    u32 seed;
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -78,10 +64,11 @@ const i32 damp_step = 0x01db6db7;              // the darkening's pace, per bloc
 const i32 burst_level = 1656822274;
 const i32 after_gain = 32, ceiling = md::half_scale / 32;   // the output's gain, and where it stops at half scale
 
+}
 struct Block {
-    i32 rate, grain_step, tail, position, position_low, position_high, knee_damp, level, damp, width;
+    i32 rate, grain_step, tail, position, position_low, position_high, knee_damp, level, damp, width, tail_block, tail_steps, release_steps;
     u32 length, again, chance;
-    explicit Block(const i32* p) {
+    void plan(const i32* p) {
         rate = md::table9(attack_rate, p[ATT]);
         length = static_cast<u32>(md::table9(lengths, p[SUS]));
         again = static_cast<u32>(md::table9(returns, p[REV]));
@@ -96,9 +83,33 @@ struct Block {
         level = multiply(multiply(md::table9(tone_level, p[TONE]), md::table9(hard_level, p[HARD])), burst_level);
         damp = multiply(md::positive(p[DAMP]), damp_most);
         width = multiply(md::positive(p[RATL]), width_most);
+        const i32 tail_step = md::decay(tail_time);
+        tail_block = md::per_block(tail_step);
+        const i32 tail2 = multiply(tail_step, tail_step);
+        tail_steps = multiply(tail2, tail2);
+        const i32 release2 = md::decay(release_time), release = multiply(release2, release2);
+        release_steps = multiply(release, release);
     }
 };
-}
+
+struct State {
+    i32 rise;        // ATT's envelope, Q31 (rises to one)
+    i32 gate;        // the burst's gate, Q31
+    u32 left;        // samples of the burst still to run
+    u32 again;       // samples until REV's second shake (0: none)
+    i32 grain;       // the current grains' level, Q31
+    i32 tail;        // RATL's rattle after the gate, Q31
+    i32 dark;        // DAMP's darkening so far, Q31 of the most
+    i32 low1, low2;  // the band's high-pass poles
+    md::Svf knee;    // its lower knee
+    i32 top1, top2;  // its low-pass poles
+    u32 seed;
+    u32 fresh;
+    i32 seen_dark, highpass, lowpass, knee_at, width;   // the band, at seen_dark
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // Whether a sound is still to come however quiet it is now: the burst, or REV's second shake.
 inline bool waiting(const State& voice) { return voice.left != 0 || voice.again != 0; }
@@ -107,26 +118,102 @@ inline void clear(State& voice) {
     voice.low1 = voice.low2 = voice.top1 = voice.top2 = 0;
     voice.knee.reset();
 }
-// One sample of a grain through the band, its full width added under the
-// high-passes, on to the low-pass.
-inline i32 through(State& voice, i32 grain, i32 highpass, i32 knee, i32 damping, i32 lowpass, i32 width) {
-    i32 band = grain - md::smooth(voice.low1, grain, highpass);
-    band -= md::smooth(voice.low2, band, highpass);
-    voice.knee.run(band, knee, damping);
-    md::smooth(voice.top1, voice.knee.high + multiply(grain, width), lowpass);
-    return md::smooth(voice.top2, voice.top1, lowpass);
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffers might otherwise be the voice.
+// A grain starts now and then; each rings briefly.
+__attribute__((noinline)) inline void run_grains(State& voice, u32 chance, i32 step, i32* x) {
+    u32 seed = voice.seed;
+    i32 grain = voice.grain;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        if ((seed << 16) < chance) grain = md::one;
+        x[i] = multiply(white, grain);
+        grain = multiply(grain, step);
+    }
+    voice.seed = seed;
+    voice.grain = grain;
+}
+// The grains through the band, their full width added under the high-passes...
+__attribute__((noinline)) inline void run_band(State& voice, i32 highpass, i32 knee, i32 damping, i32 width, i32* x) {
+    i32 low1 = voice.low1, low2 = voice.low2;
+    md::Svf svf = voice.knee;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 grain = x[i];
+        i32 band = grain - md::smooth(low1, grain, highpass);
+        band -= md::smooth(low2, band, highpass);
+        svf.run(band, knee, damping);
+        x[i] = svf.high + multiply(grain, width);
+    }
+    voice.low1 = low1;
+    voice.low2 = low2;
+    voice.knee = svf;
+}
+// ...on to the low-pass, in a line where the envelope is one.
+__attribute__((noinline)) inline void run_top(State& voice, i32 lowpass, i32* x) {
+    i32 top1 = voice.top1, top2 = voice.top2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        top1 += multiply(x[i] - top1, lowpass);
+        top2 += multiply(top1 - top2, lowpass);
+        x[i] = top2;
+    }
+    voice.top1 = top1;
+    voice.top2 = top2;
+}
+__attribute__((noinline)) inline void run_line(i32 envelope, i32 slope, opxy::Output x) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] = md::clamp(multiply(x[i], envelope), -ceiling, ceiling) * after_gain;
+        envelope += slope;
+    }
+}
+// Rising or gating: the envelope moves every fourth sample, by its steps to the fourth power.
+__attribute__((noinline)) inline void run_moving(State& voice, const Block& b, opxy::Output x) {
+    const i32 rate = md::gain(b.rate, 2), level = b.level;
+    i32 rise = voice.rise, gate = voice.gate, tail = voice.tail;
+    u32 left = voice.left, again = voice.again;
+    i32 envelope = multiply(multiply(rise, gate), level) + multiply(tail, level);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] = md::clamp(multiply(x[i], envelope), -ceiling, ceiling) * after_gain;
+        if (rise == md::one && left) --left;
+        if (again && !--again) {
+            // REV: the return shake.
+            gate = md::one;
+            left = b.length;
+        }
+        if ((i & 3) == 3) {
+            if (rise < md::one) {
+                const i32 add = multiply(rise, rate);
+                rise = rise > md::one - add ? md::one : rise + add;
+            } else if (!left) {
+                if (gate == md::one) tail = b.tail;
+                gate = multiply(gate, b.release_steps);
+            }
+            tail = multiply(tail, b.tail_steps);
+            envelope = multiply(multiply(rise, gate), level) + multiply(tail, level);
+        }
+    }
+    voice.rise = rise; voice.gate = gate; voice.tail = tail;
+    voice.left = left; voice.again = again;
 }
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.rise = voice.gate = voice.grain = voice.tail = voice.dark = 0;
     voice.left = voice.again = 0;
     clear(voice);
     voice.seed = 0x68e31da4u * owner;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch) {
-    const Block b(parameters);
+    // Only when a control has moved.
+    u32 moved = voice.stale;
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.rise = attack_floor;
         voice.gate = md::one;
@@ -136,68 +223,33 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         clear(voice);
         voice.fresh = 0;
     }
-    // The band for this block: TONE, HARD and DAMP's darkening so far.
-    const i32 darkened = multiply(voice.dark, b.damp);
-    const i32 highpass = md::table9(band_poles, md::clamp(b.position_low - darkened, 0, md::one));
-    const i32 lowpass = md::table9(band_poles, md::clamp(b.position_high - darkened, 0, md::one));
-    const i32 knee = md::table9(band_knee, md::clamp(b.position - darkened, 0, md::one));
-    // The grains' width under the band, all of it by half of the darkening's 100 ms.
-    const i32 width = multiply(b.width, voice.dark < 0x40000000 ? voice.dark * 2 : md::one);
-    const i32 tail_step = md::decay(tail_time);
+    // The band for this block: TONE, HARD and DAMP's darkening so far; the same until one moves.
+    if (moved || voice.dark != voice.seen_dark) {
+        voice.seen_dark = voice.dark;
+        const i32 darkened = multiply(voice.dark, b.damp);
+        voice.highpass = md::table9(band_poles, md::clamp(b.position_low - darkened, 0, md::one));
+        voice.lowpass = md::table9(band_poles, md::clamp(b.position_high - darkened, 0, md::one));
+        voice.knee_at = md::table9(band_knee, md::clamp(b.position - darkened, 0, md::one));
+        // The grains' width under the band, all of it by half of the darkening's 100 ms.
+        voice.width = multiply(b.width, voice.dark < 0x40000000 ? voice.dark * 2 : md::one);
+    }
+    const i32 highpass = voice.highpass, lowpass = voice.lowpass, knee = voice.knee_at, width = voice.width;
 
+    run_grains(voice, b.chance, b.grain_step, output);
+    run_band(voice, highpass, knee, b.knee_damp, width, output);
+    run_top(voice, lowpass, output);
     if (voice.rise == md::one && voice.left >= opxy::block_frames &&
         (!voice.again || voice.again > opxy::block_frames)) {
         // Shaking: the attack is over and the burst runs through the block, so
         // the gate holds and only the rattle's tail falls, in a straight line.
-        const i32 tail_next = multiply(voice.tail, md::per_block(tail_step));
-        i32 envelope = multiply(voice.gate, b.level) + multiply(voice.tail, b.level);
-        const i32 envelope_slope = (multiply(voice.gate, b.level) + multiply(tail_next, b.level) - envelope) / 64;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 white = md::noise_eighth(voice.seed);
-            if ((voice.seed << 16) < b.chance) voice.grain = md::one;
-            const i32 grain = multiply(white, voice.grain);
-            output[i] = md::clamp(multiply(through(voice, grain, highpass, knee, b.knee_damp, lowpass, width), envelope), -ceiling, ceiling) * after_gain;
-            voice.grain = multiply(voice.grain, b.grain_step);
-            envelope += envelope_slope;
-        }
+        const i32 tail_next = multiply(voice.tail, b.tail_block);
+        const i32 envelope = multiply(voice.gate, b.level) + multiply(voice.tail, b.level);
+        run_line(envelope, (multiply(voice.gate, b.level) + multiply(tail_next, b.level) - envelope) / 64, output);
         voice.tail = tail_next;
         voice.left -= opxy::block_frames;
         if (voice.again) voice.again -= opxy::block_frames;
-        voice.dark = voice.dark < md::one - damp_step ? voice.dark + damp_step : md::one;
-        return;
-    }
-
-    // Rising or gating: the envelope moves every fourth sample, by its steps to the fourth power.
-    const i32 rate = md::gain(b.rate, 2);
-    const i32 release2 = md::decay(release_time), release = multiply(release2, release2);
-    const i32 release_steps = multiply(release, release);
-    const i32 tail2 = multiply(tail_step, tail_step), tail_steps = multiply(tail2, tail2);
-    i32 envelope = multiply(multiply(voice.rise, voice.gate), b.level) + multiply(voice.tail, b.level);
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        // A grain starts now and then; each rings briefly.
-        const i32 white = md::noise_eighth(voice.seed);
-        if ((voice.seed << 16) < b.chance) voice.grain = md::one;
-        const i32 grain = multiply(white, voice.grain);
-        output[i] = md::clamp(multiply(through(voice, grain, highpass, knee, b.knee_damp, lowpass, width), envelope), -ceiling, ceiling) * after_gain;
-        voice.grain = multiply(voice.grain, b.grain_step);
-
-        if (voice.rise == md::one && voice.left) --voice.left;
-        if (voice.again && !--voice.again) {
-            // REV: the return shake.
-            voice.gate = md::one;
-            voice.left = b.length;
-        }
-        if ((i & 3) == 3) {
-            if (voice.rise < md::one) {
-                const i32 add = multiply(voice.rise, rate);
-                voice.rise = voice.rise > md::one - add ? md::one : voice.rise + add;
-            } else if (!voice.left) {
-                if (voice.gate == md::one) voice.tail = b.tail;
-                voice.gate = multiply(voice.gate, release_steps);
-            }
-            voice.tail = multiply(voice.tail, tail_steps);
-            envelope = multiply(multiply(voice.rise, voice.gate), b.level) + multiply(voice.tail, b.level);
-        }
+    } else {
+        run_moving(voice, b, output);
     }
     voice.dark = voice.dark < md::one - damp_step ? voice.dark + damp_step : md::one;
 }

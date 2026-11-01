@@ -28,16 +28,6 @@
 // with them. The key moves all of it.
 namespace md {
 namespace trx_cb {
-struct State {
-    u32 bell, voice, line, high;   // the pulse, the second voice, the lines
-    i32 level;               // the pulse's envelope, Q31
-    i32 others;              // the second voice's and the line's, Q31
-    i32 bump;                // BUMP's bend, Q31
-    i32 low1, low2;          // the pulse's low-pass
-    u32 fading;              // samples of the sines' fade in so far
-    u32 seed;
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -78,12 +68,13 @@ const u32 fade_in = 32;              // the sines' fade in, samples: a power of 
 const u32 fade_shift = 5;
 const i32 pulse_level = 0x10000000;
 
+}
 // 1 / step for the pulse's edges, without a division: the step moved up to [0.5, 1)
 // (Q31, by `shift`), then its reciprocal, Q29, from a line and two Newton steps.
 struct Reciprocal {
     i32 inverse;
     u32 shift;
-    explicit Reciprocal(u32 step) {
+    void plan(u32 step) {
         shift = 0;
         step |= 1u;   // never zero
         while (step < 0x40000000u) { step <<= 1; ++shift; }
@@ -98,8 +89,9 @@ struct Reciprocal {
 };
 
 struct Block {
-    i32 tune, bump, decay_step, others_step, duty, cutoff, keep, voice, line;
-    explicit Block(const i32* p) {
+    i32 tune, bump, decay_step, others_step, duty, cutoff, keep, voice, line, high, bump_block;
+    u32 edge;
+    void plan(const i32* p, u32 middle) {
         tune = md::span(p[PTCH], -tune_reach, tune_reach);
         bump = multiply(md::squared(p[BUMP]), bump_most);
         const i32 time = md::table9(decay_times, p[DEC]);
@@ -115,9 +107,29 @@ struct Block {
                                   md::table9(voice_damp, p[DAMP])), voice_ref);
         line = multiply(multiply(multiply(md::table9(line_enh, p[ENH]), md::table9(line_tone, p[TONE])),
                                  md::table9(line_damp, p[DAMP])), line_ref);
+        high = multiply(line, high_share);
+        edge = static_cast<u32>(duty) * 2;   // where the high half ends
+        bump_block = md::per_block(md::decay(bump_time));
     }
 };
-}
+
+struct State {
+    u32 bell, voice, line, high;   // the pulse, the second voice, the lines
+    i32 level;               // the pulse's envelope, Q31
+    i32 others;              // the second voice's and the line's, Q31
+    i32 bump;                // BUMP's bend, Q31
+    i32 low1, low2;          // the pulse's low-pass
+    u32 fading;              // samples of the sines' fade in so far
+    u32 seed;
+    u32 fresh;
+    i32 seen_bend;    // and the steps, for this bend, until it stops moving
+    u32 bell_step, voice_step, line_step, high_step;
+    Reciprocal reciprocal;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // The block's stages, a loop each: out of line, so each has a hardware loop and all the
 // registers to itself.
@@ -140,9 +152,11 @@ __attribute__((noinline)) inline void make_bell(State& voice, u32 step, u32 edge
     voice.low1 = low1;
     voice.low2 = low2;
 }
+template <bool First>
 __attribute__((noinline)) inline void add_sine(u32 phase, u32 step, i32 amount, i32* out) {
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += multiply(md::sine(phase), amount);
+        const i32 sine = multiply(md::sine(phase), amount);
+        out[i] = First ? sine : out[i] + sine;
         phase += step;
     }
 }
@@ -166,12 +180,22 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.low1 = voice.low2 = 0;
     voice.fading = fade_in;
     voice.seed = 0x2b6e1f3du * owner;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.bell = static_cast<u32>(b.duty);   // half way through the high half: half the pulse's push
         voice.fading = 0;
@@ -184,24 +208,24 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     }
     // One bend for the block: the oscillators move together.
     const i32 bend = b.tune + multiply(voice.bump, b.bump);
-    voice.bump = multiply(voice.bump, md::per_block(md::decay(bump_time)));
-    const u32 bell_step = md::transpose(pitch[0], bell_octaves + bend);
-    const u32 voice_step = md::transpose(pitch[0], voice_octaves + bend);
-    const u32 line_step = md::transpose(pitch[0], line_octaves + bend);
-    const u32 high_step = md::transpose(pitch[0], high_octaves + bend);
-    const i32 high = multiply(b.line, high_share);
-    const u32 edge = static_cast<u32>(b.duty) * 2;   // where the high half ends
-    const Reciprocal reciprocal(bell_step);
+    voice.bump = multiply(voice.bump, b.bump_block);
+    if (moved || bend != voice.seen_bend) {
+        voice.seen_bend = bend;
+        voice.bell_step = md::transpose(pitch[0], bell_octaves + bend);
+        voice.voice_step = md::transpose(pitch[0], voice_octaves + bend);
+        voice.line_step = md::transpose(pitch[0], line_octaves + bend);
+        voice.high_step = md::transpose(pitch[0], high_octaves + bend);
+        voice.reciprocal.plan(voice.bell_step);
+    }
 
     i32 bell[opxy::block_frames], others[opxy::block_frames];
-    make_bell(voice, bell_step, edge, reciprocal, b.cutoff, b.keep, bell);
-    for (unsigned i = 0; i != opxy::block_frames; ++i) others[i] = 0;
-    add_sine(voice.voice, voice_step, b.voice, others);
-    add_sine(voice.line, line_step, b.line, others);
-    add_sine(voice.high, high_step, high, others);
-    voice.voice += voice_step << 6;
-    voice.line += line_step << 6;
-    voice.high += high_step << 6;
+    make_bell(voice, voice.bell_step, b.edge, voice.reciprocal, b.cutoff, b.keep, bell);
+    add_sine<true>(voice.voice, voice.voice_step, b.voice, others);
+    add_sine<false>(voice.line, voice.line_step, b.line, others);
+    add_sine<false>(voice.high, voice.high_step, b.high, others);
+    voice.voice += voice.voice_step << 6;
+    voice.line += voice.line_step << 6;
+    voice.high += voice.high_step << 6;
     if (voice.fading < fade_in) {   // a note's first block
         for (unsigned i = 0; i != opxy::block_frames; ++i) {
             i32 sines = voice.others;
