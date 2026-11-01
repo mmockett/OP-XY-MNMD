@@ -117,7 +117,7 @@ KITS = {
         ("M1", "TRX-MA", {}), ("M2", "TRX-CL", {}), ("M3", "TRX-XC", {"PTCH": 80, "DEC": 36, "DAMP": 70}),
         ("M4", "TRX-B2", {}),
         ("BD2", "TRX-BD", {"PTCH": 22, "DEC": 96, "RAMP": 30, "RDEC": 70, "NOIS": 0, "CLIP": 10}),
-        ("SD2", "TRX-SD", {"PTCH": 90, "DEC": 20, "BUMP": 20, "BENV": 10, "SNAP": 100, "TONE": 20, "TUNE": 80}),
+        ("SD2", "TRX-SD", {"PTCH": 52, "DEC": 20, "BUMP": 20, "BENV": 10, "SNAP": 100, "TONE": 20, "TUNE": 80}),
         ("LC", "TRX-XC", {"PTCH": 60}), ("HC", "TRX-XC", {"PTCH": 92}),
         ("CP2", "TRX-CP", {"CLPY": 110, "TONE": 50, "HARD": 50, "RICH": 60, "RATE": 80, "ROOM": 100, "RSIZ": 90, "RTUN": 50}),
         ("PH", "TRX-CH", {"DEC": 8, "HPF": 90, "LPF": 100, "MTAL": 30}),

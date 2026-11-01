@@ -57,14 +57,23 @@ int main() {
     check("stays within the declared peak", bounded(out));
     check("decays", rms(out, 22050, 4410) < rms(out, 0, 4410) * 0.2);
 
-    // Fitted to the Machinedrum (reference/fit_sd.py): the body sits at 339 .. 345 Hz
-    // whatever PTCH is; TONE 127 adds the wires, a 6.98 kHz ring.
-    const int body[8] = {64, 90, 0, 30, 0, 0, 64, 0};
+    // Fitted to the Machinedrum (reference/fit_sd.py): the body sits near 342 Hz at the
+    // default PTCH; TONE 127 adds the wires, a 6.98 kHz ring.
+    const int body[8] = {48, 90, 0, 30, 0, 0, 64, 0};
     play(body, out);
     const double tone = frequency(out, 2205, 4410);
     std::printf("body pitch %.1f Hz\n", tone);
     check("body is the Machinedrum's 342 Hz", tone > 335 && tone < 350);
-    const int wires[8] = {64, 90, 0, 30, 0, 127, 64, 0};
+    // PTCH goes further than the Machinedrum's: five semitones either way of the default.
+    const int lowest[8] = {0, 90, 0, 30, 0, 0, 64, 0}, highest[8] = {127, 90, 0, 30, 0, 0, 64, 0};
+    play(lowest, out);
+    const double low = frequency(out, 2205, 4410);
+    play(highest, out);
+    const double high = frequency(out, 2205, 4410);
+    std::printf("PTCH 0 and 127: %.1f, %.1f Hz\n", low, high);
+    check("PTCH 0 is five semitones down", low > 250 && low < 262);
+    check("PTCH 127 is five semitones up", high > 445 && high < 465);
+    const int wires[8] = {48, 90, 0, 30, 0, 127, 64, 0};
     play(wires, out);
     const double hiss = frequency(out, 2205, 4410);
     std::printf("wires crossings as Hz %.1f\n", hiss);

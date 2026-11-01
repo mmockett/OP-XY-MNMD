@@ -9,8 +9,9 @@
 // the encoders, bottom row as their alternates:
 //   PTCH  DEC   BUMP  BENV
 //   SNAP  TONE  TUNE  CLIP
-// As on the Machinedrum: the body is one sine near 342 Hz, which PTCH barely
-// moves, with a small pitch bump (BUMP, BENV). TONE adds the wires: a 6.98 kHz
+// The body is one sine, 341 Hz at the default PTCH 48, with a small pitch bump (BUMP,
+// BENV). On the Machinedrum PTCH barely moves it (339 .. 345 Hz); here it goes further, five
+// semitones either way, finely around the default. As on the Machinedrum, TONE adds the wires: a 6.98 kHz
 // sine ring-modulated by high-passed noise, so a strong line with noise 10 dB
 // under it either side and a notch around it, swelling in over 5 to 10 ms and decaying
 // with the body (DEC). SNAP adds a 2 .. 7 kHz crack that holds 15 ms. TUNE has no measurable
@@ -22,7 +23,11 @@ using md::multiply;
 
 enum { PTCH, DEC, BUMP, BENV, SNAP, TONE, TUNE, CLIP };
 
-const i32 body_low = 24496, body_high = 26155;       // 339 .. 345 Hz at middle C, Q16 octaves
+const i32 body_home = 25123;                          // 341 Hz at middle C at PTCH 48, Q16 octaves
+const i32 ptch_home = 811647360;                     // PTCH 48
+const i32 ptch_up = 1726141916, ptch_down = 1420470959;     // the rest of PTCH's way either side to 0 .. 1: * 2, * 4
+const i32 ptch_reach = 27307;                        // five semitones
+const i32 ptch_line = 0x33333333, ptch_cube = 0x4ccccccd;   // 0.4 in a line near the default, 0.6 as a cube
 const i32 bump_most = 123123481;                     // 120 Hz (Q28 of middle C), as BUMP squared
 const i32 bump_short = 671808, bump_long = 832989;   // its time constant 4 .. 22 ms, as -60 dB times
 const i32 decay_short = 791506, decay_long = 1066696;// body and wires: -60 dB in 98 ms .. 1.8 s
@@ -38,13 +43,21 @@ const i32 snap_highpass = 764911434, snap_lowpass = 843229609;   // 2.5 .. 3.5 k
 const i32 snap_most = 0x7fffffff;
 const i32 body_level = 0x10000000;                   // the body peaks at an eighth of full scale
 
+// PTCH to the body's pitch: exactly body_home at the default, then fine, then wide.
+inline i32 body_pitch(i32 control) {
+    const i32 away = md::positive(control) - ptch_home;
+    const i32 x = away >= 0 ? multiply(away, ptch_up) * 2 : multiply(-away, ptch_down) * 4;
+    const i32 curve = multiply(x, ptch_line) + multiply(multiply(multiply(x, x), x), ptch_cube);
+    const i32 moved = multiply(curve, ptch_reach);
+    return away >= 0 ? body_home + moved : body_home - moved;
+}
 }
 struct Block {
     i32 body, bump, bump_block, decay_block, swell_block, wires, snap, snap_step;
     u32 wires_increment, base;
     md::Clip clip;
     void plan(const i32* p, u32 middle) {
-        body = md::span(p[PTCH], body_low, body_high);
+        body = body_pitch(p[PTCH]);
         bump = multiply(md::squared(p[BUMP]), bump_most);
         bump_block = md::per_block(md::decay(md::span(p[BENV], bump_short, bump_long)));
         decay_block = md::per_block(md::decay(md::span(p[DEC], decay_short, decay_long)));

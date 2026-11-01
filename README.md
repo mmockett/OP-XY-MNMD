@@ -47,7 +47,8 @@ synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice 
 block budget on the device (`opxy-drum-callback-v1`, one capture), under the SDK's
 recommended 3.5%, its own keys at its full 16 voices, saved as a project's are, 24.327%, and that heaviest voice on all 16 49.039%. Those figures time
 its voices through the SDK's drum adapter, not stock's drum renderer, envelope or
-mixing. The track menu's scramble doesn't change a kit yet
+mixing. TRX-SD's PTCH goes further than the original's, which barely moves: five semitones
+either way, finely around its default. The track menu's scramble doesn't change a kit yet
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
 
 ## What you need
