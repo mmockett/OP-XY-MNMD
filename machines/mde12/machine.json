@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.9",
+  "sdk": "1.8",
   "kind": "drum",
   "description": "The Machinedrum's E12 machines as a drum kit: each key picks its own machine and keeps its own controls.",
   "presetDefaults": {
