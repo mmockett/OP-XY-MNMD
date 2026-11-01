@@ -37,21 +37,38 @@ inline void reset(State& voice, Common&, u32 owner) {
     voice.red = 0;
 }
 
+namespace {
+// The block's samples, with the state on locals. A nonzero seed never returns to 0,
+// so md::noise's check is needed only before the first draw.
+__attribute__((noinline)) inline void samples(opxy::Output output, State& voice, i32 white, i32 red, i32 level) {
+    u32 seed = voice.seed ? voice.seed : 0x9e3779b9u;
+    i32 top0 = voice.top[0], top1 = voice.top[1], low = voice.red;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        const i32 n = static_cast<i32>(seed >> 3) - 0x10000000;   // md::noise_eighth
+        top0 += md::multiply(n - top0, top_pole);
+        top1 += md::multiply(top0 - top1, top_pole);
+        low += md::multiply(top1 - low, red_pole);                // within an eighth of full scale
+        // The red part is about 13 dB quieter than the white before its level: x 8 here.
+        const i32 mixed = md::multiply(top1, white) * 4 + md::multiply(low, red) * 32;
+        // md::finish(md::gain(md::multiply(mixed, level) * 8, 2)): the same clamp in one step.
+        i32 v = static_cast<i32>(static_cast<u32>(md::multiply(mixed, level)) << 3);
+        v = v > 0x10000000 ? 0x10000000 : v;
+        v = v < -0x10000000 ? -0x10000000 : v;
+        output[i] = static_cast<i32>(static_cast<u32>(v) << 2);
+    }
+    voice.seed = seed;
+    voice.top[0] = top0; voice.top[1] = top1;
+    voice.red = low;
+}
+}
+
 inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch) {
     const i32 white = md::table9(white_of, p[RED]);
     const i32 red = md::table9(red_of, p[RED]);
     const i32 st = p[STON] >= 0x40000000 ? 0x40000000 : md::table9(st_gain, p[ST]);
     const i32 level = md::multiply(out_level, st) * 2;                 // Q28
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 n = md::noise_eighth(voice.seed);
-        voice.top[0] += md::multiply(n - voice.top[0], top_pole);
-        voice.top[1] += md::multiply(voice.top[0] - voice.top[1], top_pole);
-        const i32 w = voice.top[1];                                   // within an eighth of full scale
-        voice.red += md::multiply(w - voice.red, red_pole);
-        // The red part is about 13 dB quieter than the white before its level: x 8 here.
-        const i32 mixed = md::multiply(w, white) * 4 + md::multiply(voice.red, red) * 32;
-        output[i] = md::finish(md::gain(md::multiply(mixed, level) * 8, 2));
-    }
+    samples(output, voice, white, red, level);
 }
 }
 }
