@@ -20,6 +20,17 @@
 // all-pole, two multiplies each.
 namespace md_mmvo6 {} namespace md = md_mmvo6; namespace md_mmvo6 {
 namespace vo_6 {
+struct Band { i32 b0, a1, a2; };
+// What the block's passes are given, kept while the syllable has settled and
+// the controls, the key and the limiter hold.
+struct Block {
+    u32 whole;
+    i32 inverse, pulse, pulse_mean;
+    i32 noise_gain, noise_slope, hiss_gain, hiss_slope;
+    Band band;
+    u32 breathing, hissing;
+    u32 trill;          // RR's flutter, moving on even when nothing reads it
+};
 struct State {
     u32 phase;          // the buzz's phase
     i32 carry;          // the part of the last impulse due next sample
@@ -34,7 +45,8 @@ struct State {
     u32 peak;           // the last block's peak
     u32 fresh;
     // Block values kept while what they are made from holds (cached: bit 0 the
-    // pitch's, bit 1 the formants'); each is worked out again when it moves.
+    // pitch's, bit 1 the formants', bit 2 the whole block's); each is worked out
+    // again when it moves.
     u32 cached;
     u32 tuned_from;     // pitch[0] and TUNE's octaves: the increment and its log2
     i32 tuned_by;
@@ -43,6 +55,10 @@ struct State {
     i32 formants[2];    // o1 and o2: the formants' coefficients and the power's gain
     i32 frequency, damp, a1[3];
     i32 shape;          // normal(o1, o2) + log2 of the cascade's gain at DC - 30 octaves
+    i32 seen[8];        // what the block was worked out from
+    u32 seen_pitch;
+    i32 seen_limit;
+    Block block;
 };
 namespace {
 using md::multiply;
@@ -62,6 +78,7 @@ const u32 first_width = 14680064;
 // out of the buzz and the noise before the cascade, so it keeps unity gain at DC.
 const i32 radius[3] = {2139086084, 2125415390, 2105072988};
 const i32 radius2[3] = {1065360679, 1051786956, 1031749949};
+const i32 minus_radius2[3] = {-1065360679, -1051786956, -1031749949};
 const u32 at_20hz = 1947831;                          // the phase increment of 20 Hz
 const i32 least_damping = 0x00cccccd;                 // Q at most 80
 const i32 buzz = 0x06666666;                          // the excitation's RMS, Q31, before the cascade's gains
@@ -80,7 +97,6 @@ const i32 root3 = 1859775393;                         // sqrt 3, Q30: uniform no
 // half its full-CVOL level and hiss at an eighth (it runs at a quarter, for
 // headroom in its filter); ramps as 2^31 / samples; the hiss's band
 // as a band-pass biquad's b0, a1, a2 in Q30 (b1 = 0, b2 = -b0), run twice.
-struct Band { i32 b0, a1, a2; };
 struct Segment { u32 length; i32 voice, aspirate, hiss, rise; Band band; };
 struct Consonant {
     u32 delay;
@@ -173,6 +189,15 @@ inline Syllable at(const Consonant& c, u32 t, u32 extra, bool sing, i32 vowel1, 
     if (c.locus[0]) m.o1 = c.locus[0] + multiply(vowel1 - c.locus[0], g);
     if (c.locus[1]) m.o2 = c.locus[1] + multiply(vowel2 - c.locus[1], g);
     return m;
+}
+
+// Whether at() returns the same from sample t on: its ramps only rise, and stay at one.
+inline bool settled(const Consonant& c, u32 t, u32 extra, bool sing) {
+    const u32 end = c.delay + c.segment[0].length + c.segment[1].length + extra * (c.stretch ? 1 : 0);
+    const u32 start = end > c.overlap ? end - c.overlap : 0;
+    const u32 last = end + (sing ? 0 : tail_length);
+    if (t < last || t < start || ramp(t - start, c.glide) != md::one) return false;
+    return !sing || (t - start >= boost_length && ramp(t - start, c.rise) == md::one);
 }
 
 // The Monomachine keeps a vowel's power whatever its formants, rising 2.9 dB
@@ -381,31 +406,22 @@ __attribute__((noinline)) u32 finish(opxy::Output out, const i32* in, u32 peak) 
 }
 }
 
-inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::Pitch pitch) {
-    if (voice.fresh) {
-        voice.fresh = 0;
-        voice.phase = 0xffffffffu;   // an impulse on the first sample
-        voice.carry = 0;
-        voice.age = 0;
-        voice.trill = 0x40000000u;  // the flutter starts at its loudest
-        voice.first.reset();
-        for (u32 k = 0; k < 6; ++k) voice.poles[k >> 1][k & 1] = 0;
-        for (u32 k = 0; k < 8; ++k) voice.hiss[k >> 2][k & 3] = 0;
-        voice.gains[0] = voice.gains[1] = voice.gains[2] = 0;
-    }
+namespace {
+// The block's figures, from the controls, the key, the syllable and the limiter.
+__attribute__((noinline)) inline void plan(State& voice, const i32* p, u32 played) {
     const i32 tune = multiply(md::positive(p[TUNE]) - 0x40810204, 21675);   // (TUNE - 64) / 32 semitones: 127 / 384 octave per unit
-    if (!(voice.cached & 1u) || voice.tuned_from != pitch[0] || voice.tuned_by != tune) {
-        voice.tuned_from = pitch[0];
+    if (!(voice.cached & 1u) || voice.tuned_from != played || voice.tuned_by != tune) {
+        voice.tuned_from = played;
         voice.tuned_by = tune;
-        voice.increment = md::transpose(pitch[0], tune);
+        voice.increment = md::transpose(played, tune);
         voice.log2_increment = log2_of(voice.increment);
         voice.cached |= 1u;
     }
-    const u32 increment = voice.increment;
+    Block& b = voice.block;
     // 1 / increment, for where an impulse falls within a sample.
     const i32 l = voice.log2_increment;
-    const u32 whole = static_cast<u32>(l) >> 16;
-    const i32 inverse = md::exp2_table[256 - ((static_cast<u32>(l) >> 8) & 255u)];   // 2^(1 - fraction), Q30
+    b.whole = static_cast<u32>(l) >> 16;
+    b.inverse = md::exp2_table[256 - ((static_cast<u32>(l) >> 8) & 255u)];   // 2^(1 - fraction), Q30
 
     // The syllable now and at the block's end.
     const Consonant& c = consonants[(static_cast<u32>(md::positive(p[CONS])) >> 16) * 21u >> 15];
@@ -416,6 +432,7 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
     const Syllable m = at(c, voice.age, extra, sing, vowel1, vowel2);
     const Syllable next = at(c, voice.age + opxy::block_frames, extra, sing, vowel1, vowel2);
     // RR's flutter: between full and a quarter, at its rate.
+    b.trill = c.trill;
     i32 flutter = md::one;
     if (c.trill) {
         flutter = 0x50000000 + multiply(0x30000000, md::sine(voice.trill));
@@ -437,12 +454,6 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
         voice.formants[1] = m.o2;
         voice.cached |= 2u;
     }
-    const i32 frequency = voice.frequency, damp = voice.damp;
-    const i32* a1 = voice.a1;
-    const i32 a2[3] = {-radius2[0], -radius2[1], -radius2[2]};
-    if (voice.peak > limit_peak) voice.limit = md::clamp(voice.limit + log2_of(limit_peak) - log2_of(voice.peak), limit_most, 0);
-    else voice.limit = voice.limit + limit_release < 0 ? voice.limit + limit_release : 0;
-    voice.peak = 0;
     const i32 norm = voice.shape + m.boost + voice.limit;
     // The impulse: K sqrt(period) high, so every pitch has the same power, less
     // its mean K / sqrt(period); the noise at K.
@@ -451,7 +462,7 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
     const i32 impulse = level(buzz, 16 * md::octave - height + norm);
     const i32 mean = level(buzz, height - 16 * md::octave + norm + (l > lowest ? 0 : l - lowest));
     const i32 noise_unit = level(multiply(buzz, root3) * 2, norm);
-    const Band band = m.band;
+    b.band = m.band;
 
     // The levels, ramped across the block: VOIC splits the voice into buzz and noise.
     const i32 voiced = md::table9(voiced_points, p[VOIC]), unvoiced = md::table9(unvoiced_points, p[VOIC]);
@@ -466,27 +477,68 @@ inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::
     // The buzz steps once a block (it only scales the impulses); the noise and the
     // hiss ramp across it.
     const i32 buzz_gain = opxy::q31::half(voice.gains[0]) + opxy::q31::half(target[0]);
-    const i32 pulse = multiply(impulse, buzz_gain), pulse_mean = multiply(mean, buzz_gain);
-    i32 noise_gain = multiply(voice.gains[1], noise_unit);
-    const i32 noise_slope = multiply(multiply(target[1] - voice.gains[1], 1 << 25), noise_unit);   // / 64
-    i32 hiss_gain = voice.gains[2];
-    const i32 hiss_slope = multiply(target[2] - hiss_gain, 1 << 25);
-    const bool breathing = voice.gains[1] || target[1], hissing = voice.gains[2] || target[2];
-    if (!hissing) for (u32 k = 0; k < 8; ++k) voice.hiss[k >> 2][k & 3] = 0;
+    b.pulse = multiply(impulse, buzz_gain);
+    b.pulse_mean = multiply(mean, buzz_gain);
+    b.noise_gain = multiply(voice.gains[1], noise_unit);
+    b.noise_slope = multiply(multiply(target[1] - voice.gains[1], 1 << 25), noise_unit);   // / 64
+    b.hiss_gain = voice.gains[2];
+    b.hiss_slope = multiply(target[2] - b.hiss_gain, 1 << 25);
+    b.breathing = voice.gains[1] || target[1];
+    b.hissing = voice.gains[2] || target[2];
+    if (!b.hissing) for (u32 k = 0; k < 8; ++k) voice.hiss[k >> 2][k & 3] = 0;
+    // Nothing above moves again until a control, the key or the limiter does, once the
+    // syllable has settled and the levels have come to rest (so nothing ramps and no hiss runs).
+    const bool rest = target[0] == voice.gains[0] && target[1] == voice.gains[1] && target[2] == 0 && !voice.gains[2]
+                      && settled(c, voice.age, extra, sing) && settled(c, voice.age + opxy::block_frames, extra, sing);
+    voice.cached = rest ? voice.cached | 4u : voice.cached & ~4u;
+    if (rest) {
+        voice.seen_pitch = played;
+        voice.seen_limit = voice.limit;
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = p[c];
+    }
     for (u32 k = 0; k < 3; ++k) voice.gains[k] = target[k];
+}
+}
+
+inline void render(State& voice, Common&, opxy::Output out, const i32* p, opxy::Pitch pitch) {
+    if (voice.fresh) {
+        voice.fresh = 0;
+        voice.phase = 0xffffffffu;   // an impulse on the first sample
+        voice.carry = 0;
+        voice.age = 0;
+        voice.trill = 0x40000000u;  // the flutter starts at its loudest
+        voice.first.reset();
+        for (u32 k = 0; k < 6; ++k) voice.poles[k >> 1][k & 1] = 0;
+        for (u32 k = 0; k < 8; ++k) voice.hiss[k >> 2][k & 3] = 0;
+        voice.gains[0] = voice.gains[1] = voice.gains[2] = 0;
+        voice.cached &= ~4u;
+    }
+    if (voice.peak > limit_peak) voice.limit = md::clamp(voice.limit + log2_of(limit_peak) - log2_of(voice.peak), limit_most, 0);
+    else voice.limit = voice.limit + limit_release < 0 ? voice.limit + limit_release : 0;
+    voice.peak = 0;
+    // Only when the block isn't at rest, or something it is made from has moved.
+    u32 moved = voice.cached & 4u ? 0u : 1u;
+    if (!moved) {
+        moved = (pitch[0] ^ voice.seen_pitch) | static_cast<u32>(voice.limit ^ voice.seen_limit);
+        for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(p[c] ^ voice.seen[c]);
+    }
+    if (moved) plan(voice, p, pitch[0]);
+    else voice.trill += voice.block.trill;
+    const Block& b = voice.block;
 
     // The samples, in passes over the output (block::), each a short loop with
     // its state in locals: the same arithmetic in the same order.
     i32 e[opxy::block_frames];
     const u32 seed = voice.seed;
-    if (breathing) voice.seed = block::excite<true>(e, voice, increment, whole, inverse, pulse, pulse_mean, noise_gain, noise_slope);
-    else block::excite<false>(e, voice, increment, whole, inverse, pulse, pulse_mean, noise_gain, noise_slope);
-    block::first(e, voice.first, frequency, damp);
-    block::poles(e, voice.poles, a1, a2);
-    block::pole(e, voice.poles[2], a1[2], a2[2]);
-    if (hissing) voice.seed = block::hiss(e, voice.hiss, seed, hiss_gain, hiss_slope, band);
+    if (b.breathing) voice.seed = block::excite<true>(e, voice, voice.increment, b.whole, b.inverse, b.pulse, b.pulse_mean, b.noise_gain, b.noise_slope);
+    else block::excite<false>(e, voice, voice.increment, b.whole, b.inverse, b.pulse, b.pulse_mean, b.noise_gain, b.noise_slope);
+    block::first(e, voice.first, voice.frequency, voice.damp);
+    block::poles(e, voice.poles, voice.a1, minus_radius2);
+    block::pole(e, voice.poles[2], voice.a1[2], minus_radius2[2]);
+    if (b.hissing) voice.seed = block::hiss(e, voice.hiss, seed, b.hiss_gain, b.hiss_slope, b.band);
     voice.peak = block::finish(out, e, voice.peak);
     voice.age += opxy::block_frames;
+    if (voice.age == 0u - opxy::block_frames) voice.cached &= ~4u;   // a note held 27 hours: at()'s t wraps
 }
 }
 }
