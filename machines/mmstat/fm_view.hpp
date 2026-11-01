@@ -83,7 +83,7 @@ inline void output(F& frame, u32 first_path, u32 paths, i32 spin, i32 tune, u32 
 }
 
 // A modulator's sine with its feedback (Q28 cycles), solved twice as the sound's
-// (fmp::run) is, at its phase p.
+// (fmp::feedback_swing) is, at its phase p.
 inline i32 fed_back(u32 p, i32 fb) {
     if (!fb) return md::sine(p);
     const i32 first = md::sine(p + (static_cast<u32>(multiply(md::sine(p), fb)) << 4));

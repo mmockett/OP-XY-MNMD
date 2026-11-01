@@ -193,21 +193,6 @@ inline i32 target(Op& op, i32 control, i32 peak, bool fresh) {
     return multiply(peak, op.envelope);
 }
 
-// A modulator's sample: its sine, with feedback (Q28 cycles) when given.
-inline i32 run(Op& op) {
-    const i32 y = md::sine(op.phase);
-    op.phase += op.increment;
-    return y;
-}
-inline i32 run(Op& op, i32 fb) {
-    if (!fb) return op.history[0] = run(op);   // the same sample, without solving the loop
-    const i32 first = md::sine(op.phase + (static_cast<u32>(multiply(op.history[0], fb)) << 4));
-    const i32 y = md::sine(op.phase + (static_cast<u32>(multiply(first, fb)) << 4));
-    op.history[0] = y;
-    op.phase += op.increment;
-    return y;
-}
-
 // The carrier's level: a quarter of full scale, as the other Monomachine engines.
 inline i32 level(i32 carrier) { return opxy::q31::half(opxy::q31::half(carrier)); }
 
@@ -220,17 +205,97 @@ struct Ramp {
         step = (opxy::q31::half(next) - opxy::q31::half(last)) / 32;   // halves: no overflow; a constant divisor
         last = next;
     }
-    i32 at(i32 y) { const i32 s = multiply(y, now); now += step; return s; }
 };
 
-// The carrier's instantaneous increment, its own plus the swings, held within
-// +-`limit` (or its own, if higher): the original's deviation seems to
-// saturate, which keeps the widest settings' aliasing mostly under 8 kHz.
+// The carrier's increment is its own plus the swings, held within +-`limit` (or
+// its own, if higher): the original's deviation seems to saturate, which keeps
+// the widest settings' aliasing mostly under 8 kHz.
 const i32 limit = 0x24000000;   // 6.2 kHz
-inline u32 increment(u32 carrier, i32 swings) {
+
+// The samples in passes, each a short loop with its state in locals: the
+// modulators' swings summed in order, then the carrier.
+// A modulator's swings for the block, its sine at the ramp's level: into `swings`
+// (md::add(0, x) is x), then added on.
+__attribute__((noinline)) inline void first_swing(i32* swings, Op& m, const Ramp& s) {
+    u32 phase = m.phase;
+    const u32 increment = m.increment;
+    i32 now = s.now;
+    const i32 step = s.step;
+    if (!(now | step)) {   // no swing at all, as a spent decay comes to: 64 steps at once
+        for (unsigned i = 0; i != opxy::block_frames; ++i) swings[i] = 0;
+        m.phase = phase + (increment << 6);
+        return;
+    }
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        swings[i] = multiply(md::sine(phase), now);
+        phase += increment;
+        now += step;
+    }
+    m.phase = phase;
+}
+// md::add from the saturating add: only its lowest result needs a second look.
+inline i32 added(i32 a, i32 b) {
+    const i32 sum = opxy::q31::add(a, b);
+    if (__builtin_expect(sum == static_cast<i32>(0x80000000u), 0))
+        return static_cast<u32>(a) + static_cast<u32>(b) == 0x80000000u ? sum : -md::one;
+    return sum;
+}
+__attribute__((noinline)) inline void add_swing(i32* swings, Op& m, const Ramp& s) {
+    u32 phase = m.phase;
+    const u32 increment = m.increment;
+    i32 now = s.now;
+    const i32 step = s.step;
+    if (!(now | step)) { m.phase = phase + (increment << 6); return; }
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        swings[i] = added(swings[i], multiply(md::sine(phase), now));
+        phase += increment;
+        now += step;
+    }
+    m.phase = phase;
+}
+// The carrier: its sine out, then its increment, md::clamp(md::add(own, swing),
+// -most, most). As own >= 0 and most >= own, that
+// is own + the swing held within -most - own .. most - own (the low end no
+// further than the swing can reach), without saturating on the way.
+__attribute__((noinline)) inline void carry(opxy::Output out, const i32* swings, u32& phase_of, u32 carrier) {
     const i32 own = static_cast<i32>(carrier > 0x7fffffffu ? 0x7fffffffu : carrier);
-    const i32 most = own > limit ? own : limit;   // a carrier above the limit keeps its own pitch
-    return static_cast<u32>(md::clamp(md::add(own, swings), -most, most));
+    const i32 most = own > limit ? own : limit;
+    const u32 below = static_cast<u32>(most) + static_cast<u32>(own);   // -low, at most 2^32 - 2
+    const i32 low = below >= 0x80000000u ? static_cast<i32>(0x80000000u) : -static_cast<i32>(below);
+    const i32 high = most - own;
+    u32 phase = phase_of;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        out[i] = level(md::sine(phase));   // a quarter of full scale at most: inside md::finish
+        i32 x = swings[i];
+        x = x > high ? high : x;
+        x = x < low ? low : x;
+        phase += static_cast<u32>(own + x);
+    }
+    phase_of = phase;
+}
+// With feedback (Q28 cycles): the modulator's sine of its phase plus feedback x
+// its own output, solved by two steps from the last sample's, into `swings`.
+__attribute__((noinline)) inline void feedback_swing(i32* swings, Op& m, const Ramp& s, i32 fb) {
+    u32 phase = m.phase;
+    const u32 increment = m.increment;
+    i32 now = s.now, y = m.history[0];
+    const i32 step = s.step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 first = md::sine(phase + (static_cast<u32>(multiply(y, fb)) << 4));
+        y = md::sine(phase + (static_cast<u32>(multiply(first, fb)) << 4));
+        swings[i] = multiply(y, now);
+        phase += increment;
+        now += step;
+    }
+    m.phase = phase;
+    m.history[0] = y;
+}
+// A modulator that may have feedback: without any there is no loop to solve, and
+// its history is only its last sine.
+inline void own_swing(i32* swings, Op& m, const Ramp& s, i32 fb) {
+    if (fb) { feedback_swing(swings, m, s, fb); return; }
+    first_swing(swings, m, s);
+    m.history[0] = md::sine(m.phase - m.increment);
 }
 }
 
@@ -239,10 +304,24 @@ inline u32 increment(u32 carrier, i32 swings) {
 // 1FIN, with feedback; its depth is 1ENV (static to 64, a decay above). M2 at a
 // listed ratio with a static depth, 2VOL. TONE filters both.
 namespace fmpstat {
+// A block's figures, kept while the controls and the key hold.
+struct Block {
+    u32 carrier;
+    i32 gain1;       // TONE on M1
+    i32 reach1;      // M1's index before TONE, while 1ENV is a depth
+    i32 decay1;      // and its decay while 1ENV is one; 0 while it isn't
+    i32 index2;      // M2's index and the swing it comes to
+    i32 swing2;
+    i32 fb;
+};
 struct State {
     u32 carrier;
     fmp::Op m1, m2;
     u32 fresh;
+    i32 seen[8];     // what the block was worked out from
+    u32 seen_pitch;
+    u32 stale;
+    Block block;
 };
 namespace {
 enum { FRQ1, FIN1, ENV1, FB1, FRQ2, VOL2, TONE, TUNE };
@@ -253,6 +332,7 @@ inline void reset(State& v, Common& shared, u32) {
     fmp::start(v.m1);
     fmp::start(v.m2);
     v.m1.swing = v.m2.swing = 0;
+    v.stale = 1;
     trigger(v, shared);
 }
 
@@ -267,22 +347,40 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
         fmp::start(v.m2);
         v.fresh = 0;
     }
-    const u32 carrier = md::transpose(pitch[0], fmp::tune(p[TUNE]));
-    const i32 r1 = fmp::ratio(p[FRQ1]) + fine(p[FIN1]);
-    v.m1.increment = md::scale(carrier, r1 > 0 ? r1 : 0);
-    v.m2.increment = md::scale(carrier, fmp::ratio(p[FRQ2]));
-    const i32 i1 = multiply(fmp::target(v.m1, p[ENV1], fmp::quarter_turn, fresh), fmp::tone_filter(p[TONE], v.m1.increment));
-    const i32 i2 = multiply(fmp::depth(p[VOL2]), fmp::tone_filter(p[TONE], v.m2.increment));
-    if (fresh) v.carrier = fmp::carrier_start(i1 + i2);
+    // Only when a control or the key has moved.
+    u32 moved = v.stale | (pitch[0] ^ v.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(p[c] ^ v.seen[c]);
+    Block& b = v.block;
+    if (moved) {
+        v.stale = 0;
+        v.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) v.seen[c] = p[c];
+        b.carrier = md::transpose(pitch[0], fmp::tune(p[TUNE]));
+        const i32 r1 = fmp::ratio(p[FRQ1]) + fine(p[FIN1]);
+        v.m1.increment = md::scale(b.carrier, r1 > 0 ? r1 : 0);
+        v.m2.increment = md::scale(b.carrier, fmp::ratio(p[FRQ2]));
+        b.gain1 = fmp::tone_filter(p[TONE], v.m1.increment);
+        b.decay1 = fmp::decays(p[ENV1]) ? fmp::decay_per_block(fmp::env_times, p[ENV1]) : 0;
+        if (!fmp::decays(p[ENV1])) b.reach1 = fmp::depth(p[ENV1]);
+        b.index2 = multiply(fmp::depth(p[VOL2]), fmp::tone_filter(p[TONE], v.m2.increment));
+        b.swing2 = fmp::swing(b.index2, v.m2.increment);
+        b.fb = fmp::feedback(p[FB1]);
+    }
+    // fmp::target(m1, 1ENV, a quarter turn, fresh), from the kept values.
+    i32 reach = b.reach1;
+    if (fmp::decays(p[ENV1])) {
+        if (!fresh) v.m1.envelope = multiply(v.m1.envelope, b.decay1);
+        reach = multiply(fmp::quarter_turn, v.m1.envelope);
+    }
+    const i32 i1 = multiply(reach, b.gain1);
+    if (fresh) v.carrier = fmp::carrier_start(i1 + b.index2);
     fmp::Ramp s1, s2;
     s1.plan(v.m1.swing, fmp::swing(i1, v.m1.increment), fresh);
-    s2.plan(v.m2.swing, fmp::swing(i2, v.m2.increment), fresh);
-    const i32 fb = fmp::feedback(p[FB1]);
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 y1 = fmp::run(v.m1, fb), y2 = fmp::run(v.m2);
-        out[i] = md::finish(fmp::level(md::sine(v.carrier)));
-        v.carrier += fmp::increment(carrier, md::add(s1.at(y1), s2.at(y2)));
-    }
+    s2.plan(v.m2.swing, b.swing2, fresh);
+    i32 swings[opxy::block_frames];
+    fmp::own_swing(swings, v.m1, s1, b.fb);
+    fmp::add_swing(swings, v.m2, s2);
+    fmp::carry(out, swings, v.carrier, b.carrier);
 }
 }
 
@@ -307,52 +405,6 @@ struct State {
 };
 namespace {
 enum { FRQ1, ENV1, FRQ2, ENV2, FRQ3, ENV3, TONE, TUNE };
-// A modulator's swings for the block, s.at(run(m)) a sample: into `swings`
-// (md::add(0, x) is x), then added on.
-__attribute__((noinline)) void first_swing(i32* swings, fmp::Op& m, const fmp::Ramp& s) {
-    u32 phase = m.phase;
-    const u32 increment = m.increment;
-    i32 now = s.now;
-    const i32 step = s.step;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        swings[i] = multiply(md::sine(phase), now);
-        phase += increment;
-        now += step;
-    }
-    m.phase = phase;
-}
-__attribute__((noinline)) void add_swing(i32* swings, fmp::Op& m, const fmp::Ramp& s) {
-    u32 phase = m.phase;
-    const u32 increment = m.increment;
-    i32 now = s.now;
-    const i32 step = s.step;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        swings[i] = md::add(swings[i], multiply(md::sine(phase), now));
-        phase += increment;
-        now += step;
-    }
-    m.phase = phase;
-}
-// The carrier: its sine out, then its increment, fmp::increment(carrier, swings):
-// md::clamp(md::add(own, swing), -most, most). As own >= 0 and most >= own, that
-// is own + the swing held within -most - own .. most - own (the low end no
-// further than the swing can reach), without saturating on the way.
-__attribute__((noinline)) void carry(opxy::Output out, const i32* swings, u32& phase_of, u32 carrier) {
-    const i32 own = static_cast<i32>(carrier > 0x7fffffffu ? 0x7fffffffu : carrier);
-    const i32 most = own > fmp::limit ? own : fmp::limit;
-    const u32 below = static_cast<u32>(most) + static_cast<u32>(own);   // -low, at most 2^32 - 2
-    const i32 low = below >= 0x80000000u ? static_cast<i32>(0x80000000u) : -static_cast<i32>(below);
-    const i32 high = most - own;
-    u32 phase = phase_of;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = md::finish(fmp::level(md::sine(phase)));
-        i32 x = swings[i];
-        x = x > high ? high : x;
-        x = x < low ? low : x;
-        phase += static_cast<u32>(own + x);
-    }
-    phase_of = phase;
-}
 }
 inline void trigger(State& v, Common&) { v.fresh = 1; }
 inline void reset(State& v, Common& shared, u32) {
@@ -400,13 +452,11 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
         sum += index;
     }
     if (fresh) v.carrier = fmp::carrier_start(sum);
-    // The samples in passes, each a short loop with its state in locals: the
-    // modulators' swings summed in order, then the carrier.
     i32 swings[opxy::block_frames];
-    first_swing(swings, v.m[0], s[0]);
-    add_swing(swings, v.m[1], s[1]);
-    add_swing(swings, v.m[2], s[2]);
-    carry(out, swings, v.carrier, carrier);
+    fmp::first_swing(swings, v.m[0], s[0]);
+    fmp::add_swing(swings, v.m[1], s[1]);
+    fmp::add_swing(swings, v.m[2], s[2]);
+    fmp::carry(out, swings, v.carrier, carrier);
 }
 }
 
@@ -415,12 +465,31 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
 // ratio swept by 1FEN and its depth (1VOL) moved by 1VEN; M2 at (v/64)^2, with
 // an ENV like STAT's 1ENV and feedback, 2FB.
 namespace fmpdyn {
+// A block's figures, kept while the controls and the key hold.
+struct Block {
+    u32 carrier, base;     // the carrier and M1 before its sweep
+    i32 sweep_decay, lift_decay;
+    i32 sweep_by, lift_by; // 1FEN's and 1VEN's reach
+    i32 steps;             // 1VOL's
+    i32 reach2;            // M2's index before its filter, while 2ENV is a depth
+    i32 decay2;            // and its decay while 2ENV is one
+    i32 gain2;             // the filter on M2
+    i32 fb;
+    u32 speed;             // M1's speed and the filter on it
+    i32 gain1;
+    i32 at;                // M1's steps and the index they come to
+    i32 depth;
+};
 struct State {
     u32 carrier;
     fmp::Op m1, m2;
     i32 sweep;   // 1FEN's envelope, Q31
     i32 lift;    // 1VEN's envelope, Q31
     u32 fresh;
+    i32 seen[8]; // what the block was worked out from
+    u32 seen_pitch;
+    u32 stale;
+    Block block;
 };
 namespace {
 enum { FRQ1, FEN1, VOL1, VEN1, FRQ2, ENV2, FB2, TUNE };
@@ -432,6 +501,7 @@ inline void reset(State& v, Common& shared, u32) {
     fmp::start(v.m2);
     v.m1.swing = v.m2.swing = 0;
     v.sweep = v.lift = 0;
+    v.stale = 1;
     trigger(v, shared);
 }
 
@@ -476,6 +546,27 @@ inline u32 times(u32 increment, i32 factor_q24) {
 
 inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitch pitch) {
     const bool fresh = v.fresh != 0;
+    // Only when a control or the key has moved.
+    u32 moved = v.stale | (pitch[0] ^ v.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(p[c] ^ v.seen[c]);
+    Block& b = v.block;
+    if (moved) {
+        v.stale = 0;
+        v.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) v.seen[c] = p[c];
+        b.carrier = md::transpose(pitch[0], fmp::tune(p[TUNE]));
+        b.base = md::scale(b.carrier, fmp::dyn_ratio1(p[FRQ1]));
+        b.sweep_decay = fmp::decay_per_block(fmp::fen_times, mirrored(p[FEN1]));
+        b.lift_decay = fmp::decay_per_block(fmp::ven_times, mirrored(p[VEN1]));
+        b.sweep_by = sweep_factor(p[FEN1]);
+        b.lift_by = lift_steps(p[VEN1]);
+        b.steps = fmp::steps_of(p[VOL1]);
+        v.m2.increment = md::scale(b.carrier, fmp::dyn_ratio2(p[FRQ2]));
+        b.decay2 = fmp::decays(p[ENV2]) ? fmp::decay_per_block(fmp::env_times, p[ENV2]) : 0;
+        if (!fmp::decays(p[ENV2])) b.reach2 = fmp::depth(p[ENV2]);
+        b.gain2 = fmp::dyn_filter(v.m2.increment);
+        b.fb = fmp::feedback(p[FB2]);
+    }
     if (fresh) {
         v.carrier = 0;
         fmp::start(v.m1);
@@ -483,27 +574,37 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
         v.sweep = v.lift = md::one;
         v.fresh = 0;
     } else {
-        v.sweep = multiply(v.sweep, fmp::decay_per_block(fmp::fen_times, mirrored(p[FEN1])));
-        v.lift = multiply(v.lift, fmp::decay_per_block(fmp::ven_times, mirrored(p[VEN1])));
+        v.sweep = multiply(v.sweep, b.sweep_decay);
+        v.lift = multiply(v.lift, b.lift_decay);
     }
-    const u32 carrier = md::transpose(pitch[0], fmp::tune(p[TUNE]));
-    const u32 base = md::scale(carrier, fmp::dyn_ratio1(p[FRQ1]));
-    v.m1.increment = times(base, (1 << 24) + multiply(sweep_factor(p[FEN1]), v.sweep));
-    v.m2.increment = md::scale(carrier, fmp::dyn_ratio2(p[FRQ2]));
-    const i32 x1 = fmp::steps_of(p[VOL1]) + multiply(lift_steps(p[VEN1]), v.lift);
+    v.m1.increment = times(b.base, (1 << 24) + multiply(b.sweep_by, v.sweep));
+    const i32 x1 = b.steps + multiply(b.lift_by, v.lift);
     const u32 m1_speed = v.m1.increment > 0x7fffffffu ? 0u - v.m1.increment : v.m1.increment;
-    const i32 i1 = multiply(fmp::depth_at(x1), fmp::dyn_filter(m1_speed));
-    const i32 i2 = multiply(fmp::target(v.m2, p[ENV2], fmp::quarter_turn, fresh), fmp::dyn_filter(v.m2.increment));
+    if (moved || b.speed != m1_speed) {
+        b.speed = m1_speed;
+        b.gain1 = fmp::dyn_filter(m1_speed);
+    }
+    if (moved || b.at != x1) {
+        b.at = x1;
+        b.depth = fmp::depth_at(x1);
+    }
+    const i32 i1 = multiply(b.depth, b.gain1);
+    // fmp::target(m2, 2ENV, a quarter turn, fresh), from the kept values.
+    i32 reach = b.reach2;
+    if (fmp::decays(p[ENV2])) {
+        if (!fresh) v.m2.envelope = multiply(v.m2.envelope, b.decay2);
+        reach = multiply(fmp::quarter_turn, v.m2.envelope);
+    }
+    const i32 i2 = multiply(reach, b.gain2);
     if (fresh) v.carrier = fmp::carrier_start(i1 + i2);
     fmp::Ramp s1, s2;
     s1.plan(v.m1.swing, fmp::swing(i1, m1_speed), fresh);
     s2.plan(v.m2.swing, fmp::swing(i2, v.m2.increment), fresh);
-    const i32 fb = fmp::feedback(p[FB2]);
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 y1 = fmp::run(v.m1), y2 = fmp::run(v.m2, fb);
-        out[i] = md::finish(fmp::level(md::sine(v.carrier)));
-        v.carrier += fmp::increment(carrier, md::add(s1.at(y1), s2.at(y2)));
-    }
+    // M2's first: md::add doesn't mind the order, and only M2 can have feedback.
+    i32 swings[opxy::block_frames];
+    fmp::own_swing(swings, v.m2, s2, b.fb);
+    fmp::add_swing(swings, v.m1, s1);
+    fmp::carry(out, swings, v.carrier, b.carrier);
 }
 }
 }
