@@ -43,9 +43,9 @@ samples and waves from the ROM. You capture those from your own ROM into a
 folder outside the checkout, and without them those engines build silent.
 
 **Status:** experimental. Every engine passes its tests, and MD KIT and the published
-synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice measures 4.930% of the stock
-block budget on the device (`opxy-drum-callback-v1`, one capture), above the SDK's
-recommended 3.5%, its own keys at its full 16 voices 31.226%, and that heaviest voice on all 16 76.091%. Those figures time
+synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice measures 3.091% of the stock
+block budget on the device (`opxy-drum-callback-v1`, one capture), under the SDK's
+recommended 3.5%, its own keys at its full 16 voices, saved as a project's are, 24.327%, and that heaviest voice on all 16 49.039%. Those figures time
 its voices through the SDK's drum adapter, not stock's drum renderer, envelope or
 mixing. The track menu's scramble doesn't change a kit yet
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
