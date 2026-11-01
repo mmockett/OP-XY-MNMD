@@ -59,6 +59,9 @@ const i32 crack_centre = 341403, crack_ptch = 124518;   // the band's centre sit
 const i32 crack_ptch_level[9] = {1392643250, 920110271, 607910827, 401642701, 268435456, 181484642, 122698677,
                                  82004914, 58055033};
 const u32 crack_hold = 3;   // blocks
+// Every mode here is under 1 kHz, so past the strike's first blocks they run at a quarter
+// of the rate (modal::Low).
+const u32 low_after = 8;   // blocks: 12 ms
 const i32 crack_time = 554612;
 const i32 crack_quiet = 0x16b54338, crack_loud = 0x4c106ba6;   // HARD 0 and 127, at half scale (HARD 64: 0x40000000)
 const i32 crack_level = 0x67000000;
@@ -110,6 +113,8 @@ struct State {
     u32 seen_pitch;
     i32 seen[8];     // the controls they were worked out from
     Block block;
+    u32 age;         // blocks since the strike, up to low_after
+    i32 low_end;     // the low modes' value where the last block ended
 };
 
 // The stick's burst and the wires, one sample of noise between them: out of line, so the
@@ -166,6 +171,8 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.band.reset();
     voice.seed = 0x7f4a7c15u * owner;
     voice.stale = 1;
+    voice.age = 0;
+    voice.low_end = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
@@ -190,14 +197,32 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.crack = voice.wires = md::one;
         voice.hold = crack_hold;
         voice.band.reset();
+        voice.age = 0;
     }
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
-    for (unsigned k = 0; k < mode_count; ++k) {
-        modal::Mode& mode = voice.modes[k];
-        if (mode.level < 0x00010000 || !b.amounts[k]) continue;
-        mode.increment = b.increments[k];
-        modal::ring_fall(mode, k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall, b.amounts[k], b.amounts[k], mixed);
+    if (voice.age < low_after) {
+        ++voice.age;
+        for (unsigned k = 0; k < mode_count; ++k) {
+            modal::Mode& mode = voice.modes[k];
+            if (mode.level < 0x00010000 || !b.amounts[k]) continue;
+            mode.increment = b.increments[k];
+            modal::ring_fall(mode, k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall, b.amounts[k], b.amounts[k], mixed);
+        }
+    } else {
+        const bool opening = voice.age == low_after;
+        voice.age = low_after + 1;
+        modal::Low low;
+        for (unsigned i = 0; i <= modal::low_frames; ++i) low.points[i] = 0;
+        if (!opening) low.points[0] = voice.low_end;
+        for (unsigned k = 0; k < mode_count; ++k) {
+            modal::Mode& mode = voice.modes[k];
+            if (mode.level < 0x00010000 || !b.amounts[k]) continue;
+            mode.increment = b.increments[k];
+            modal::ring_fall_low(mode, k == rim_count || k == rim_count + 1 ? b.head_fall : b.fall, b.amounts[k], low, opening);
+        }
+        voice.low_end = low.points[modal::low_frames];
+        modal::spread_low(low.points, mixed);
     }
     if (voice.crack > 0x00100000 || voice.wires > 0x00100000) {
         if (voice.crack) {

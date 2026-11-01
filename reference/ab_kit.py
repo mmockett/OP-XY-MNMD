@@ -13,6 +13,7 @@ dB. Host renders of the same integer code give the device's samples; nothing her
 says what a change costs. --wav writes each changed model's pair, A then a gap then B.
 """
 import argparse
+import os
 import pathlib
 import struct
 import subprocess
@@ -134,7 +135,7 @@ def main():
     parser.add_argument("--only", nargs="*", default=[])
     args = parser.parse_args()
     found = cases(args.only)
-    work = ROOT / "local" / "ab-kit"
+    work = ROOT / "local" / "ab-kit" / str(os.getpid())
     a, b = render(args.other.resolve(), found, work, "a"), render(ROOT, found, work, "b")
     identical, changed = [], {}
     print(f"{'case':16} {'level':>6} {'peak':>6} {'attack':>6} {'5ms':>6} {'band':>6} {'null':>7}")

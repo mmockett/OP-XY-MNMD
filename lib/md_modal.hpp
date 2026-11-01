@@ -132,6 +132,57 @@ inline void ring(Mode& mode, i32 step, i32 amount, i32 amount_next, i32* out) {
 }
 inline void ring(Mode& mode, i32 step, i32 amount, i32* out) { ring(mode, step, amount, amount, out); }
 
+// Low modes at a quarter of the rate. A mode well under the sample rate hardly moves between
+// samples, so after the strike's first blocks a voice can sound its low modes on every fourth
+// sample, into a `Low`, and draw straight lines between: linear interpolation's images of a
+// mode at 1 kHz sit about 40 dB under it, near 10 kHz, and fall 12 dB per octave as it drops.
+// The modes' phases and levels end each block exactly where the full rate leaves them.
+const unsigned low_frames = opxy::block_frames / 4;
+struct Low {
+    i32 points[low_frames + 1];   // [0] is the last block's end: the voice keeps it between blocks
+};
+__attribute__((noinline)) inline void sound_low(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    for (unsigned i = 0; i != low_frames; ++i) {
+        phase += increment;
+        level += slope;
+        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * static_cast<short>(static_cast<u32>(level) >> 8);
+    }
+}
+__attribute__((noinline)) inline void sound_low_wide(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    for (unsigned i = 0; i != low_frames; ++i) {
+        phase += increment;
+        level += slope;
+        out[i] += sine16(phase) * static_cast<i32>(static_cast<u32>(level) >> 8);
+    }
+}
+// A mode's block into `low`, as ring_fall into a whole block. On the first block at this rate,
+// `opening` also gives it the point where the block starts.
+inline void ring_fall_low(Mode& mode, i32 fall, i32 amount, Low& low, bool opening) {
+    const i32 next = multiply(mode.level, fall);
+    const i32 start = static_cast<i32>(static_cast<u32>(multiply(mode.level, amount)) >> 15);
+    const i32 end = static_cast<i32>(static_cast<u32>(multiply(next, amount)) >> 15);
+    if (start >= quiet || end >= quiet) {
+        if (opening) low.points[0] += sine16(mode.phase) * start;
+        if (start < 32768 && end < 32768) sound_low(mode.phase, mode.increment << 2, start * 256, (end - start) * 16, low.points + 1);
+        else sound_low_wide(mode.phase, mode.increment << 2, start * 256, (end - start) * 16, low.points + 1);
+    }
+    mode.phase += mode.increment << 6;
+    mode.level = next;
+}
+// The straight lines, added to the voice's mix.
+__attribute__((noinline)) inline void spread_low(const i32* points, i32* out) {
+    i32 now = points[0];
+    for (unsigned i = 0; i != low_frames; ++i) {
+        const i32 next = points[i + 1], step = (next - now) >> 2;
+        out[0] += now; now += step;
+        out[1] += now; now += step;
+        out[2] += now; now += step;
+        out[3] += now;
+        now = next;
+        out += 4;
+    }
+}
+
 // The voice's mix to its output at twice its level, stopping at the SDK's ceiling: what
 // md::finish(md::gain(x, 1)) gives, with no branches in the loop.
 __attribute__((noinline)) inline void finish_doubled(const i32* mixed, opxy::Output output) {
