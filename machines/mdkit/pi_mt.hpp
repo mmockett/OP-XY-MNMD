@@ -25,14 +25,6 @@
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace pi_mt {
 const unsigned head_count = 4, tube_count = 9, upper_count = 6, mode_count = head_count + tube_count + upper_count;
-struct State {
-    modal::Mode modes[mode_count];
-    i32 strike;      // the beater's burst envelope, Q31
-    u32 seed;
-    md::Svf band;    // the burst's band
-    u32 opened;      // the first block, with the upper modes swelling in, is over
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -76,21 +68,29 @@ const i32 strike_time = 681000;
 const i32 strike_level = 0x0c000000, strike_soft = 0x40000000;
 // The shell peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x07300000;
+// Past the strike's first blocks the modes under 900 Hz run at a quarter of the rate (modal::Low).
+const u32 low_after = 8;   // blocks: 12 ms
 
+}
 struct Block {
-    i32 offsets[mode_count], steps[mode_count], levels[mode_count], strike_tune, strike_amount;
-    Block(const i32* p) {
+    u32 increments[mode_count];
+    i32 falls[mode_count], amounts[mode_count];
+    i32 strike_tune, strike_amount, strike_step;
+    u32 low_set;   // the modes under modal::low_limit, one bit each
+    void plan(const i32* p, u32 middle) {
+        i32 offsets[mode_count], steps[mode_count], levels[mode_count];
         const i32 head = md::span(p[PTCH], head_low, head_low + head_span);
         strike_tune = md::cutoff(strike_centre + multiply(p[HAMR], strike_hamr));
         strike_amount = multiply(strike_level, md::span(p[HAMR], md::one, strike_soft));
+        strike_step = md::decay(strike_time);
         const i32 time = md::table9(decay_times, p[DEC]);
         for (unsigned k = 0; k < 3; ++k) {
             offsets[k] = head + head_ratios[k];
-            steps[k] = md::decay(time);
+            steps[k] = time;
             levels[k] = head_levels[k];
         }
         offsets[3] = head + md::table9(tune_ratios, p[TUNE]);
-        steps[3] = md::decay(time + tube_longer);
+        steps[3] = time + tube_longer;
         levels[3] = md::span(p[POS], pos_low, pos_high);
         const i32 shell = md::table9(tube, p[SIZE]);
         const i32 damp = md::table9(damp_share, p[DAMP]);
@@ -100,7 +100,7 @@ struct Block {
             offsets[head_count + k] = shell + harmonics[k];
             const i32 shorter = static_cast<i32>(k) * harmonic_shorter
                                 + multiply(damp, damp_first + static_cast<i32>(k) * damp_each);
-            steps[head_count + k] = md::decay(time + tube_longer - shorter);
+            steps[head_count + k] = time + tube_longer - shorter;
             levels[head_count + k] = multiply(tube_levels[k], tilt);
             tilt = multiply(tilt, soften);
         }
@@ -109,11 +109,48 @@ struct Block {
         const i32 upper_short = multiply(md::positive(p[DAMP]), upper_damp);
         for (unsigned k = 0; k < upper_count; ++k) {
             offsets[head_count + tube_count + k] = upper[k] + shell_move;
-            steps[head_count + tube_count + k] = md::decay(upper_times[k] - upper_short);
+            steps[head_count + tube_count + k] = upper_times[k] - upper_short;
             levels[head_count + tube_count + k] = multiply(upper_levels[k], upper_soften);
+        }
+        low_set = 0;
+        for (unsigned k = 0; k < mode_count; ++k) {
+            increments[k] = md::transpose(middle, offsets[k]);
+            falls[k] = md::per_block(md::decay(steps[k]));
+            amounts[k] = multiply(levels[k], body_level);
+            if (increments[k] < modal::low_limit) low_set |= 1u << k;
         }
     }
 };
+struct State {
+    modal::Mode modes[mode_count];
+    i32 strike;      // the beater's burst envelope, Q31
+    u32 seed;
+    md::Svf band;    // the burst's band
+    u32 opened;      // the first block, with the upper modes swelling in, is over
+    u32 fresh;
+    u32 stale;       // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];     // the controls they were worked out from
+    Block block;
+    u32 age;         // blocks since the strike, up to low_after
+    u32 low_set;     // the modes in low_end
+    i32 low_end;     // the low modes' value where the last block ended
+};
+
+// The beater's burst: out of line and on locals, as `mixed` might otherwise be the voice.
+__attribute__((noinline)) inline void add_strike(State& voice, const Block& b, i32* mixed) {
+    u32 seed = modal::live_seed(voice.seed);
+    i32 strike = voice.strike;
+    md::Svf band = voice.band;
+    const i32 tune = b.strike_tune, amount = b.strike_amount, step = b.strike_step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        band.run(modal::noise_eighth_on(seed), tune, 0x20000000);
+        mixed[i] += multiply(band.band, multiply(strike, amount)) * 4;   // far under gain()'s ceiling
+        strike = multiply(strike, step);
+    }
+    voice.seed = seed;
+    voice.strike = strike;
+    voice.band = band;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -126,12 +163,25 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.opened = 1;
     voice.seed = 0x5bd1e995u * owner;
     voice.band.reset();
+    voice.stale = 1;
+    voice.age = 0;
+    voice.low_set = 0;
+    voice.low_end = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fresh = 0;
         for (unsigned k = 0; k < mode_count; ++k) {
@@ -142,25 +192,39 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.strike = md::one;
         voice.band.reset();
         voice.opened = 0;
+        voice.age = 0;
     }
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
-    for (unsigned k = 0; k < mode_count; ++k) {
-        modal::Mode& mode = voice.modes[k];
-        if (mode.level < 0x00010000) continue;
-        mode.increment = md::transpose(pitch[0], b.offsets[k]);
-        const i32 amount = multiply(b.levels[k], body_level);
-        modal::ring(mode, b.steps[k], k < head_count + tube_count || voice.opened ? amount : 0, amount, mixed);
+    if (voice.age < low_after || !b.low_set) {
+        if (voice.age < low_after) ++voice.age;
+        voice.low_set = 0;
+        for (unsigned k = 0; k < mode_count; ++k) {
+            modal::Mode& mode = voice.modes[k];
+            if (mode.level < 0x00010000) continue;
+            mode.increment = b.increments[k];
+            const i32 amount = b.amounts[k];
+            modal::ring_fall(mode, b.falls[k], k < head_count + tube_count || voice.opened ? amount : 0, amount, mixed);
+        }
+    } else {
+        // A control can move a mode across the limit: the line then starts afresh.
+        const bool opening = voice.low_set != b.low_set;
+        voice.low_set = b.low_set;
+        modal::Low low;
+        for (unsigned i = 0; i <= modal::low_frames; ++i) low.points[i] = 0;
+        if (!opening) low.points[0] = voice.low_end;
+        for (unsigned k = 0; k < mode_count; ++k) {
+            modal::Mode& mode = voice.modes[k];
+            if (mode.level < 0x00010000) continue;
+            mode.increment = b.increments[k];
+            if (b.low_set >> k & 1u) modal::ring_fall_low(mode, b.falls[k], b.amounts[k], low, opening);
+            else modal::ring_fall(mode, b.falls[k], b.amounts[k], b.amounts[k], mixed);
+        }
+        voice.low_end = low.points[modal::low_frames];
+        modal::spread_low(low.points, mixed);
     }
     voice.opened = 1;
-    if (voice.strike > 0x00100000) {
-        const i32 step = md::decay(strike_time);
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            voice.band.run(md::noise_eighth(voice.seed), b.strike_tune, 0x20000000);
-            mixed[i] += md::gain(multiply(voice.band.band, multiply(voice.strike, b.strike_amount)), 2);
-            voice.strike = multiply(voice.strike, step);
-        }
-    }
+    if (voice.strike > 0x00100000) add_strike(voice, b, mixed);
     modal::finish_doubled(mixed, output);
 }
 }

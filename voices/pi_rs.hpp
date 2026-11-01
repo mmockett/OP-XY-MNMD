@@ -73,6 +73,7 @@ const i32 noise_low = 0x03a5e354, wire_body = 0x18a13c35, wire_top = 0x41380000;
 // The rim peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x03600000;
 
+}
 struct Block {
     i32 amounts[mode_count];
     u32 increments[mode_count];
@@ -99,7 +100,6 @@ struct Block {
         wire_step = md::decay(md::table9(wire_times, p[RDEC]));
     }
 };
-}
 struct State {
     modal::Mode modes[mode_count];
     i32 crack;       // the stick's burst envelope, Q31

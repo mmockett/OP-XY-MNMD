@@ -21,16 +21,6 @@
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_cy {
 const unsigned partials = 4;
-struct State {
-    u32 phase[partials];
-    u32 modulator[partials];
-    i32 last;             // the partials' previous sum, for feedback
-    i32 level;            // amplitude envelope, Q31
-    i32 depth;            // MDEC's envelope, Q31
-    i32 low1, low2;       // HPF's states
-    i32 before;           // the last sample before the output's soft top
-    u32 fresh;            // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -59,27 +49,49 @@ const i32 partial_level = 0x33f00000;
 // A sine without interpolation: cheap, and its -60 dB error is lost in a cymbal.
 inline i32 rough_sine(u32 phase) { return sine_table[phase >> 22]; }
 
+}
 struct Block {
-    i32 base, decay_step, fb, index, ratio, depth_step, hpf;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    i32 decay_step, fb, index, depth_step, hpf;
+    u32 increment[partials], modulation[partials];
+    void plan(const i32* p, u32 middle) {
         decay_step = md::decay(md::table9(dec_times, p[DEC]));
         fb = multiply(efm::feedback(p[FB]), fb_scale);
         index = md::span(p[MOD], index_low, index_low + index_span);
         // MFRQ / 16 + 0.5 of each sine, halved to fit Q28.
-        ratio = efm::sixteenths(p[MFRQ]) / 2 + 0x04000000;
+        const i32 ratio = efm::sixteenths(p[MFRQ]) / 2 + 0x04000000;
+        const u32 base = md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span));
+        for (unsigned k = 0; k < partials; ++k) {
+            increment[k] = md::scale(base, ratios[k]);
+            modulation[k] = md::scale(increment[k], ratio) << 1;
+        }
         depth_step = md::table9(mdec_steps, p[MDEC]);
         hpf = md::table9(hpf_coefficients, p[HPF]);
     }
 };
-}
+
+struct State {
+    u32 phase[partials];
+    u32 modulator[partials];
+    i32 last;             // the partials' previous sum, for feedback
+    i32 level;            // amplitude envelope, Q31
+    i32 depth;            // MDEC's envelope, Q31
+    i32 low1, low2;       // HPF's states
+    i32 before;           // the last sample before the output's soft top
+    u32 fresh;            // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // With no feedback (FB's default, and every kit's) each partial is on its own: a loop each,
 // out of line, so each has a hardware loop and all the registers to itself.
-__attribute__((noinline)) inline void add_partial(u32 phase, u32 increment, u32 modulator, u32 modulation, i32 index, u32* total) {
+// The first starts the sum.
+template <bool First> __attribute__((noinline)) inline void add_partial(u32 phase, u32 increment, u32 modulator, u32 modulation, i32 index, u32* total) {
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const u32 moved = static_cast<u32>(multiply(index, rough_sine(modulator))) << 3;
-        total[i] += (static_cast<u32>(rough_sine(phase + moved)) + 0x80000000u) >> 2;
+        const u32 quarter = (static_cast<u32>(rough_sine(phase + moved)) + 0x80000000u) >> 2;
+        total[i] = First ? quarter : total[i] + quarter;
         modulator += modulation;
         phase += increment;
     }
@@ -115,12 +127,22 @@ inline void reset(State& voice, Common& shared, u32) {
     for (unsigned k = 0; k < partials; ++k) voice.phase[k] = voice.modulator[k] = 0;
     voice.last = 0;
     voice.level = voice.depth = voice.low1 = voice.low2 = voice.before = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         for (unsigned k = 0; k < partials; ++k) voice.phase[k] = voice.modulator[k] = 0;
         voice.last = 0;
@@ -130,21 +152,17 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     }
     // Gone: the filters' last bits of rounding go too, so it ends at zero.
     if (!voice.level) voice.low1 = voice.low2 = voice.before = 0;
-    const u32 base = md::transpose(pitch[0], b.base);
     // The index, held over the block.
     const i32 index = multiply(b.index, voice.depth);
     voice.depth = multiply(voice.depth, b.depth_step);
-    u32 increment[partials], modulation[partials];
-    for (unsigned k = 0; k < partials; ++k) {
-        increment[k] = md::scale(base, ratios[k]);
-        modulation[k] = md::scale(increment[k], b.ratio) << 1;
-    }
+    const u32* increment = b.increment;
+    const u32* modulation = b.modulation;
 
     u32 total[opxy::block_frames];
     if (!b.fb) {
-        for (unsigned i = 0; i != opxy::block_frames; ++i) total[i] = 0;
         for (unsigned k = 0; k < partials; ++k) {
-            add_partial(voice.phase[k], increment[k], voice.modulator[k], modulation[k], index, total);
+            if (k) add_partial<false>(voice.phase[k], increment[k], voice.modulator[k], modulation[k], index, total);
+            else add_partial<true>(voice.phase[k], increment[k], voice.modulator[k], modulation[k], index, total);
             voice.phase[k] += increment[k] << 6;
             voice.modulator[k] += modulation[k] << 6;
         }

@@ -21,16 +21,6 @@
 // Machinedrum's (OS 1.63), so none here either.
 namespace md {
 namespace pi_bd {
-struct State {
-    modal::Mode body, second;
-    i32 bend;        // the strike's stretch still to relax, Q31
-    modal::Mode strike;   // the strike's burst: its level, and its centre as an increment
-    i32 high, low1, low2; // the burst's band: a high-pass pole and two low-pass
-    u32 seed;
-    u32 hold;        // blocks of the burst still held at full level
-    u32 age;         // blocks since the strike, through the body's swell
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -77,6 +67,8 @@ const u32 swell_blocks = 6;
 const i32 swell_step = md::one / 6;
 // The body peaks 2 dB over the Machinedrum's (reference/pi_measure.py, LEVEL_DB).
 const i32 body_level = 0x12a00000;
+// The fall per block while the burst is held: md::one to the 64th, as the plan's multiplies leave it.
+const i32 held_fall = 0x7fffffc0;
 const i32 low_level = 0x73333333, high_level = 0x60000000;   // PTCH 0 and 127: 0.9 and 2.5 dB down
 
 // A one-pole coefficient (Q31) for a corner at `increment` (of 2^32 a sample):
@@ -89,22 +81,60 @@ inline i32 corner(u32 increment) {
     return c < 0 ? md::one : c;
 }
 
+}
 struct Block {
-    i32 base, body_step, second_step, stretch, burst_tune, burst_amount, burst_step, level;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
-        body_step = md::decay(md::table9(body_times, p[DEC]));
-        second_step = md::decay(md::table9(second_times, p[DEC]));
+    u32 settled, upper;   // the two modes' increments at rest
+    i32 body_fall, second_fall, relax_fall, stretch, burst_high, burst_low, burst_amount, burst_fall, level;
+    void plan(const i32* p, u32 middle) {
+        const i32 base = md::span(p[PTCH], base_low, base_low + base_span);
+        settled = md::transpose(middle, base);
+        upper = md::transpose(middle, base + second_ratio);
+        body_fall = md::per_block(md::decay(md::table9(body_times, p[DEC])));
+        second_fall = md::per_block(md::decay(md::table9(second_times, p[DEC])));
+        relax_fall = md::per_block(md::decay(relax_time));
         stretch = multiply(md::table9(md::pi_bd::stretch, p[TENS]), md::table9(stretch_share, p[PTCH]));
         const i32 cap = md::table9(stretch_cap, p[PTCH]);
         if (stretch > cap) stretch = cap;
-        burst_tune = burst_centre + md::table9(burst_ptch, p[PTCH]) + md::table9(burst_tens, p[TENS])
-                     + md::table9(burst_hamr, p[HAMR]);
+        const u32 centre = md::transpose(middle, burst_centre + md::table9(burst_ptch, p[PTCH]) + md::table9(burst_tens, p[TENS])
+                                                     + md::table9(burst_hamr, p[HAMR]));
+        burst_high = corner(md::transpose(centre, band_below));
+        burst_low = corner(md::transpose(centre, band_above));
         burst_amount = multiply(burst_level, md::span(md::positive(p[HAMR] - 0x40000000) * 2, md::one, burst_quiet_hamr));
-        burst_step = md::decay(md::table9(burst_times, p[PTCH]));
+        burst_fall = md::per_block(md::decay(md::table9(burst_times, p[PTCH])));
         level = multiply(body_level, md::span(p[PTCH], low_level, high_level));
     }
 };
+struct State {
+    modal::Mode body, second;
+    i32 bend;        // the strike's stretch still to relax, Q31
+    modal::Mode strike;   // the strike's burst: its level, and its centre as an increment
+    i32 high, low1, low2; // the burst's band: a high-pass pole and two low-pass
+    u32 seed;
+    u32 hold;        // blocks of the burst still held at full level
+    u32 age;         // blocks since the strike, up to swell_blocks
+    u32 fresh;
+    u32 stale;       // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];     // the controls they were worked out from
+    Block block;
+    u32 seen_ratio;  // the ratio the targets were worked out from
+    u32 body_target, second_target;
+};
+
+// The burst: out of line and on locals, as `mixed` might otherwise be the voice.
+__attribute__((noinline)) inline void add_burst(State& voice, i32 corner_high, i32 corner_low, i32 level, i32 slope, i32* mixed) {
+    u32 seed = modal::live_seed(voice.seed);
+    i32 high = voice.high, low1 = voice.low1, low2 = voice.low2;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = modal::noise_eighth_on(seed);
+        md::smooth(high, white, corner_high);
+        md::smooth(low1, white - high, corner_low);
+        md::smooth(low2, low1, corner_low);
+        mixed[i] += multiply(low2, level) * 8;
+        level += slope;
+    }
+    voice.seed = seed;
+    voice.high = high; voice.low1 = low1; voice.low2 = low2;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -119,14 +149,23 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.bend = 0;
     voice.hold = 0;
     voice.age = swell_blocks;
+    voice.stale = 1;
+    voice.seen_ratio = 0;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
-    const u32 settled = md::transpose(pitch[0], b.base);
-    const u32 upper = md::transpose(pitch[0], b.base + second_ratio);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fresh = 0;
         voice.body.phase = voice.second.phase = 0;
@@ -138,12 +177,17 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.hold = burst_hold;
         voice.age = 0;
         const i32 ratio = 0x10000000 + b.stretch;
-        voice.body.increment = md::scale(settled, ratio);
-        voice.second.increment = md::scale(upper, ratio);
+        voice.body.increment = md::scale(b.settled, ratio);
+        voice.second.increment = md::scale(b.upper, ratio);
     }
     // The stretch relaxes along a straight line within the block.
-    voice.bend = multiply(voice.bend, md::per_block(md::decay(relax_time)));
+    voice.bend = multiply(voice.bend, b.relax_fall);
     const i32 ratio = 0x10000000 + multiply(b.stretch, voice.bend);
+    if (moved || static_cast<u32>(ratio) != voice.seen_ratio) {
+        voice.seen_ratio = static_cast<u32>(ratio);
+        voice.body_target = md::scale(b.settled, ratio);
+        voice.second_target = md::scale(b.upper, ratio);
+    }
 
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
@@ -151,24 +195,14 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     const i32 swell_next = voice.age + 1 < swell_blocks ? swell + swell_step : md::one;
     if (voice.age < swell_blocks) ++voice.age;
     const i32 now = multiply(b.level, swell), next = multiply(b.level, swell_next);
-    modal::ring_glide(voice.body, b.body_step, now, next, md::scale(settled, ratio), mixed);
-    modal::ring_glide(voice.second, b.second_step, now, next, md::scale(upper, ratio), mixed);
+    modal::ring_glide_fall(voice.body, b.body_fall, now, next, voice.body_target, mixed);
+    modal::ring_glide_fall(voice.second, b.second_fall, now, next, voice.second_target, mixed);
 
     if (voice.strike.level > 0x00100000) {
-        const u32 centre = md::transpose(pitch[0], b.burst_tune);
-        const i32 high = corner(md::transpose(centre, band_below));
-        const i32 low = corner(md::transpose(centre, band_above));
-        const i32 next = multiply(voice.strike.level, md::per_block(voice.hold ? md::one : b.burst_step));
-        i32 level = multiply(voice.strike.level, b.burst_amount);
+        const i32 next = voice.hold ? multiply(voice.strike.level, held_fall) : multiply(voice.strike.level, b.burst_fall);
+        const i32 level = multiply(voice.strike.level, b.burst_amount);
         const i32 slope = (multiply(next, b.burst_amount) - level) / 64;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 white = md::noise_eighth(voice.seed);
-            md::smooth(voice.high, white, high);
-            md::smooth(voice.low1, white - voice.high, low);
-            md::smooth(voice.low2, voice.low1, low);
-            mixed[i] += multiply(voice.low2, level) * 8;
-            level += slope;
-        }
+        add_burst(voice, b.burst_high, b.burst_low, level, slope, mixed);
         voice.strike.level = next;
         if (voice.hold) --voice.hold;
     }

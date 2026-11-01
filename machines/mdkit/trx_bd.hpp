@@ -21,24 +21,6 @@
 // Machinedrum's at middle C; other keys move all of it.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace trx_bd {
-struct State {
-    u32 phase;
-    i32 level;      // amplitude envelope, Q31
-    i32 tail;       // the quiet tail under it, Q31
-    i32 ramp;       // RAMP's sweep envelope, Q31
-    i32 thump;      // the built-in drop still to fall, Q28 of middle C
-    i32 burst;      // NOIS's burst envelope, Q31
-    i32 after;      // the click now, and its tail once the table has run, Q31 at half level
-    u32 age;        // samples since the note, counted through the opening only
-    i32 gate;       // the sine's first half cycle's gain, Q31; one after it
-    u32 halfway;    // the sine's first half cycle is over
-    u32 seed;       // noise
-    i32 tone;       // one-pole state for the burst
-    i32 highpass;   // CLIP's high-pass state
-    i32 burst_out;  // the burst's gain the last block ended on, which the next starts from
-    u32 carrying;   // it is set: the settled loop's first block starts from the envelope
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -109,22 +91,32 @@ const i32 clip_unity = 0x04000000;                              // a gain of one
 // HARM's pulse at full control: harmonics about 45 dB under the fundamental.
 const i32 harm_most = 0x04000000;
 
+}
 struct Block {
-    i32 base, depth, fall, ramp, ramp_step, decay_step, noise, burst_step, harm;
+    i32 depth, fall, ramp, ramp_block, decay_step, decay_block, noise, burst_step, burst_block, harm, pulse_on, pulse_off, tail_step, tail_block, first_step, after_step;
+    u32 base;
     md::Clip clip;   // md_dsp.hpp: fitted on this machine; the sine before its envelope, as measured
     i32 strike;      // STRT: how far from the soft click to the hard, 1 - (1 - p)^3
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    void plan(const i32* p, u32 middle) {
+        base = md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span));
         depth = md::table9(thump_depth, p[PTCH]);
         fall = md::table9(thump_fall, p[PTCH]);
         const i32 r = md::positive(p[RAMP]);
         ramp = multiply(multiply(multiply(r, r), r), ramp_most);
-        ramp_step = md::decay(md::span(p[RDEC], ramp_short, ramp_long));
+        ramp_block = md::per_block(md::decay(md::span(p[RDEC], ramp_short, ramp_long)));
         decay_step = md::decay(md::table9(decay_times, p[DEC]));
+        decay_block = md::per_block(decay_step);
         const i32 n = md::positive(p[NOIS]);
         noise = multiply(opxy::q31::half(n) + opxy::q31::half(multiply(n, n)), burst_most);
         burst_step = md::decay(md::span(p[NOIS], burst_short, burst_long));
+        burst_block = md::per_block(burst_step);
         harm = multiply(md::squared(p[HARM]), harm_most);
+        pulse_on = opxy::q31::half(harm);
+        pulse_off = opxy::q31::half(-(harm >> 3));
+        tail_step = md::decay(tail_time);
+        tail_block = md::per_block(tail_step);
+        first_step = md::decay(first_time);
+        after_step = md::decay(after_time);
         clip.prepare(p[CLIP], body_level, clip_onset, clip_stretch);
         clip.drive = clip_unity;
         clip.threshold = md::table9(clip_thresholds, p[CLIP]);
@@ -132,10 +124,121 @@ struct Block {
         strike = md::one - multiply(multiply(q, q), q);
     }
 };
-}
+
+struct State {
+    u32 phase;
+    i32 level;      // amplitude envelope, Q31
+    i32 tail;       // the quiet tail under it, Q31
+    i32 ramp;       // RAMP's sweep envelope, Q31
+    i32 thump;      // the built-in drop still to fall, Q28 of middle C
+    i32 burst;      // NOIS's burst envelope, Q31
+    i32 after;      // the click now, and its tail once the table has run, Q31 at half level
+    u32 age;        // samples since the note, counted through the opening only
+    i32 gate;       // the sine's first half cycle's gain, Q31; one after it
+    u32 halfway;    // the sine's first half cycle is over
+    u32 seed;       // noise
+    i32 tone;       // one-pole state for the burst
+    i32 highpass;   // CLIP's high-pass state
+    i32 burst_out;  // the burst's gain the last block ended on, which the next starts from
+    u32 carrying;   // it is set: the settled loop's first block starts from the envelope
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // The body's envelope: DEC's level over the quiet tail.
 inline i32 held(i32 level, i32 tail) { return level > tail ? level : tail; }
+// The block's stages once settled, a loop each: out of line, so each has a hardware loop and
+// all the registers to itself, and on locals, as the buffers might otherwise be the voice.
+// HARM: a narrow pulse on each cycle, under the sine at its full height.
+__attribute__((noinline)) inline void run_body(State& voice, u32 increment, i32 slope, i32 pulse_on, i32 pulse_off, i32 gain, i32 gain_slope, i32* x) {
+    u32 phase = voice.phase;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 sine = md::sine(phase);
+        const i32 pulse = phase < 0x20000000u ? pulse_on : pulse_off;
+        phase += increment;
+        increment += static_cast<u32>(slope);
+        x[i] = multiply(multiply(pulse - opxy::q31::half(sine), body_level) * 2, gain);
+        gain += gain_slope;
+    }
+    voice.phase = phase;
+}
+// CLIP shapes the sine at its full height, before the envelope: the shape holds as it falls.
+__attribute__((noinline)) inline void run_clipped(State& voice, u32 increment, i32 slope, const Block& b, i32 gain, i32 gain_slope, i32* x) {
+    u32 phase = voice.phase;
+    i32 highpass = voice.highpass;
+    const md::Clip clip = b.clip;
+    const i32 pulse_on = b.pulse_on, pulse_off = b.pulse_off;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 sine = md::sine(phase);
+        const i32 pulse = phase < 0x20000000u ? pulse_on : pulse_off;
+        phase += increment;
+        increment += static_cast<u32>(slope);
+        x[i] = multiply(clip.run(multiply(pulse - opxy::q31::half(sine), body_level) * 2, highpass), gain);
+        gain += gain_slope;
+    }
+    voice.phase = phase;
+    voice.highpass = highpass;
+}
+__attribute__((noinline)) inline void run_burst(State& voice, i32 gain, i32 gain_slope, i32* x) {
+    u32 seed = voice.seed;
+    i32 tone = voice.tone;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] += multiply(md::smooth(tone, opxy::q31::half(md::noise(seed)), burst_tone), gain) * 2;
+        gain += gain_slope;
+    }
+    voice.seed = seed;
+    voice.tone = tone;
+}
+// Doubling then stopping at half scale is stopping at a quarter, then doubling.
+__attribute__((noinline)) inline void run_finish(opxy::Output x) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) x[i] = md::clamp(x[i], -0x20000000, 0x20000000) * 2;
+}
+// The opening: the click, the first half cycle and the body starting.
+__attribute__((noinline)) inline void run_opening(State& voice, const Block& b, u32 increment, i32 slope, opxy::Output output) {
+    u32 phase = voice.phase, age = voice.age, seed = voice.seed, halfway = voice.halfway;
+    i32 gate = voice.gate, level = voice.level, tail = voice.tail, burst_level = voice.burst, tone = voice.tone, after = voice.after, highpass = voice.highpass;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        i32 mixed = 0;
+        if (age >= body_start) {
+            const i32 sine = md::sine(phase);
+            // HARM: a narrow pulse on each cycle, a little buzz of upper harmonics.
+            const i32 pulse = phase < 0x20000000u ? b.pulse_on : b.pulse_off;
+            phase += increment;
+            // The body: DEC's level over the quiet tail. The Machinedrum's sine starts upwards,
+            // and its first half cycle is small; at the turn it is passing nothing, so it can jump.
+            if (!halfway) {
+                if (phase < 0x80000000u) {
+                    halfway = 1;
+                    gate = md::one;
+                } else {
+                    gate = multiply(gate, b.first_step);
+                    if (gate < first_least) gate = first_least;
+                }
+            }
+            mixed = multiply(b.clip.run(multiply(pulse - opxy::q31::half(sine), body_level) * 2, highpass), multiply(held(level, tail), gate));
+        }
+        increment += static_cast<u32>(slope);
+        mixed += multiply(multiply(md::smooth(tone, opxy::q31::half(md::noise(seed)), burst_tone), multiply(burst_level, b.noise)), body_level) * 2;
+        if (age < click_length) {
+            const i32 soft = click_soft(age);
+            after = soft + multiply(click_hard(age) - soft, b.strike);
+        } else {
+            after = multiply(after, b.after_step);
+        }
+        mixed = md::add(mixed, after);
+        if (age < opening) ++age;
+        output[i] = md::finish(md::gain(mixed, 1));
+        level = multiply(level, b.decay_step);
+        tail = multiply(tail, b.tail_step);
+        burst_level = multiply(burst_level, b.burst_step);
+    }
+    voice.phase = phase; voice.age = age; voice.seed = seed; voice.halfway = halfway; voice.gate = gate;
+    voice.level = level; voice.tail = tail; voice.burst = burst_level; voice.tone = tone; voice.after = after; voice.highpass = highpass;
+}
+
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -146,6 +249,7 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.halfway = 1;
     voice.after = 0;
     voice.seed = 0x1234567u * owner;
+    voice.stale = 1;
     voice.carrying = 0;
     voice.level = voice.tail = voice.ramp = voice.burst = voice.thump = 0;
     voice.tone = voice.highpass = 0;
@@ -154,7 +258,16 @@ inline void reset(State& voice, Common& shared, u32 owner) {
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         // A half turn on, where the sine (subtracted) starts rising.
         voice.phase = 0x80000000u;
@@ -172,19 +285,14 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.carrying = 0;
         voice.fresh = 0;
     }
-    const i32 tail_step = md::decay(tail_time);
-    const i32 first_step = md::decay(first_time);
-    const i32 after_step = md::decay(after_time);
-
     // The pitch in Hz above the base, as Q28 of middle C, now and at the block's
     // end: the thump falls in a straight line, the sweep exponentially. Between
     // the two the increment moves in a straight line.
-    const u32 base = md::transpose(pitch[0], b.base);
+    const u32 base = b.base;
     const i32 thump_next = voice.thump > b.fall * 64 ? voice.thump - b.fall * 64 : 0;
-    const i32 ramp_next = multiply(voice.ramp, md::per_block(b.ramp_step));
+    const i32 ramp_next = multiply(voice.ramp, b.ramp_block);
     const u32 now = base + md::scale(pitch[0], voice.thump + multiply(voice.ramp, b.ramp));
     const u32 next = base + md::scale(pitch[0], thump_next + multiply(ramp_next, b.ramp));
-    u32 increment = now;
     const i32 slope = (static_cast<i32>(next) - static_cast<i32>(now)) / 64;
     voice.thump = thump_next;
     voice.ramp = ramp_next;
@@ -192,9 +300,9 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
     if (voice.age >= opening && voice.halfway) {
         // Settled: the click is over and its tail gone. The body's gain and the
         // burst's, envelopes and levels together, in straight lines across the block.
-        const i32 level_next = multiply(voice.level, md::per_block(b.decay_step));
-        const i32 tail_next = multiply(voice.tail, md::per_block(tail_step));
-        const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
+        const i32 level_next = multiply(voice.level, b.decay_block);
+        const i32 tail_next = multiply(voice.tail, b.tail_block);
+        const i32 burst_next = multiply(voice.burst, b.burst_block);
         i32 body_gain = held(voice.level, voice.tail);
         const i32 body_slope = (held(level_next, tail_next) - body_gain) / 64;
         // From where the last block's ended, so NOIS moved glides.
@@ -207,62 +315,13 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.level = level_next;
         voice.tail = tail_next;
         voice.burst = burst_next;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 sine = md::sine(voice.phase);
-            const i32 pulse = voice.phase < 0x20000000u ? b.harm : -(b.harm >> 3);
-            voice.phase += increment;
-            increment += static_cast<u32>(slope);
-            // CLIP shapes the sine at its full height, before the envelope: the shape holds as it falls.
-            i32 mixed = multiply(b.clip.run(multiply(opxy::q31::half(pulse) - opxy::q31::half(sine), body_level) * 2, voice.highpass), body_gain);
-            if (bursting)
-                mixed += multiply(md::smooth(voice.tone, opxy::q31::half(md::noise(voice.seed)), burst_tone), burst_gain) * 2;
-            output[i] = md::finish(md::gain(mixed, 1));
-            body_gain += body_slope;
-            burst_gain += burst_slope;
-        }
+        if (b.clip.amount) run_clipped(voice, now, slope, b, body_gain, body_slope, output);
+        else run_body(voice, now, slope, b.pulse_on, b.pulse_off, body_gain, body_slope, output);
+        if (bursting) run_burst(voice, burst_gain, burst_slope, output);
+        run_finish(output);
         return;
     }
-
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        i32 mixed = 0;
-        if (voice.age >= body_start) {
-            const i32 sine = md::sine(voice.phase);
-            // HARM: a narrow pulse on each cycle, a little buzz of upper harmonics.
-            const i32 pulse = voice.phase < 0x20000000u ? b.harm : -(b.harm >> 3);
-            voice.phase += increment;
-            // The body: DEC's level over the quiet tail. The Machinedrum's sine starts upwards,
-            // and its first half cycle is small; at the turn it is passing nothing, so it can jump.
-            if (!voice.halfway) {
-                if (voice.phase < 0x80000000u) {
-                    voice.halfway = 1;
-                    voice.gate = md::one;
-                } else {
-                    voice.gate = multiply(voice.gate, first_step);
-                    if (voice.gate < first_least) voice.gate = first_least;
-                }
-            }
-            const i32 envelope = multiply(held(voice.level, voice.tail), voice.gate);
-            mixed = multiply(b.clip.run(multiply(opxy::q31::half(pulse) - opxy::q31::half(sine), body_level) * 2, voice.highpass), envelope);
-        }
-        increment += static_cast<u32>(slope);
-        const i32 burst = multiply(md::smooth(voice.tone, opxy::q31::half(md::noise(voice.seed)), burst_tone),
-                                   multiply(voice.burst, b.noise));
-        mixed += multiply(burst, body_level) * 2;
-        if (voice.age < click_length) {
-            const i32 soft = click_soft(voice.age);
-            voice.after = soft + multiply(click_hard(voice.age) - soft, b.strike);
-        } else {
-            voice.after = multiply(voice.after, after_step);
-        }
-        mixed = md::add(mixed, voice.after);
-        if (voice.age < opening) ++voice.age;
-
-        output[i] = md::finish(md::gain(mixed, 1));
-
-        voice.level = multiply(voice.level, b.decay_step);
-        voice.tail = multiply(voice.tail, tail_step);
-        voice.burst = multiply(voice.burst, b.burst_step);
-    }
+    run_opening(voice, b, now, slope, output);
 }
 }
 }

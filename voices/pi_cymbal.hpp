@@ -54,6 +54,8 @@ struct State {
     u32 stale;
     i32 amounts[partial_count];
     i32 ring_fall, hiss_fall, hiss_lift;   // the fall per block of the plate and the layer; the layer's level
+    i32 grab_fall, tone_fall, tone_amount, corner, swell_step;
+    i32 settled[partial_count];   // the amounts, once the plate has swelled all the way
 };
 
 // One plate: its partials (Q16 octaves from middle C) and their levels (Q31), and
@@ -122,6 +124,38 @@ inline i32 sum(const i32 (&table)[8][9], const i32* p) {
     for (unsigned c = 0; c < 8; ++c) total += md::table9(table[c], p[c]);
     return total;
 }
+}
+
+// The dense layer, and below it the stick's click: out of line and on locals, as `mixed`
+// might otherwise be the voice and every field would be read and written back each sample.
+__attribute__((noinline)) inline void add_hiss(State& voice, i32 mid, i32 mid_slope, i32 top, i32 top_slope, i32* mixed) {
+    u32 seed = modal::live_seed(voice.seed);
+    i32 pole1 = voice.pole1, pole2 = voice.pole2, under = voice.under;
+    const i32 corner = voice.corner;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = modal::noise_eighth_on(seed);
+        md::smooth(pole1, white, corner);
+        md::smooth(pole2, pole1, corner);
+        md::smooth(under, pole2, under_pole);
+        mixed[i] += (multiply(pole2 - under, mid) + multiply(white - pole1, top)) * 16;
+        mid += mid_slope;
+        top += top_slope;
+    }
+    voice.seed = seed;
+    voice.pole1 = pole1;
+    voice.pole2 = pole2;
+    voice.under = under;
+}
+__attribute__((noinline)) inline void add_click(State& voice, i32* mixed) {
+    u32 seed = modal::live_seed(voice.seed);
+    i32 click = voice.strike;
+    const i32 slope = -(click >> 6);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        mixed[i] += multiply(modal::noise_eighth_on(seed), click) * 8;
+        click += slope;
+    }
+    voice.seed = seed;
+    voice.strike = 0;
 }
 
 // Whether a sound is still to come however quiet it is now: the grab, or the pedal's close.
@@ -209,7 +243,13 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
             voice.partials[k].increment = md::transpose(pitch[0], plate.partials[k] + shift);
             const i32 slope = multiply((plate.partials[k] - tilt_centre) * 256, tilt * 128);   // Q16 octaves
             voice.amounts[k] = multiply(multiply(plate.levels[k], power(level + slope)), plate.gain);
+            voice.settled[k] = multiply(voice.amounts[k], md::one);
         }
+        voice.grab_fall = md::per_block(md::decay(grab_ring));
+        voice.tone_fall = md::per_block(md::decay(tone_time));
+        voice.tone_amount = multiply(md::table9(plate.sheen, p[2]), md::table9(tone_ptch, p[0]));
+        voice.corner = md::table9(plate.corner, p[5]);
+        voice.swell_step = md::table9(plate.swell, p[2]);
     }
     // The plate rings for its time until grabbed, or until the hat's pedal
     // closes it with a chick, then dies fast. A hat at CLOS 127 never closes.
@@ -227,53 +267,46 @@ inline void render(const Plate& plate, State& voice, Common& shared, opxy::Outpu
             if (plate.hat) voice.hiss = md::add(voice.hiss, chick);
         }
     } else if (voice.held) {
-        fall = hiss_fall = md::per_block(md::decay(grab_ring));
+        fall = hiss_fall = voice.grab_fall;
     }
     const i32 swell = voice.swell;
-    voice.swell = md::add(swell, md::table9(plate.swell, p[2]));
+    voice.swell = md::add(swell, voice.swell_step);
 
     i32 mixed[opxy::block_frames];
     for (unsigned i = 0; i != opxy::block_frames; ++i) mixed[i] = 0;
-    for (unsigned k = 0; k < partial_count; ++k) {
-        modal::Mode& partial = voice.partials[k];
-        if (partial.level < 0x00010000) continue;
-        const i32 amount = voice.amounts[k];
-        modal::ring_fall(partial, fall, multiply(amount, swell), multiply(amount, voice.swell), mixed);
+    if (swell == md::one && voice.swell == md::one) {
+        i32 plate_mix[opxy::block_frames];
+        for (unsigned i = 0; i != opxy::block_frames; ++i) plate_mix[i] = 0;
+        for (unsigned k = 0; k < partial_count; ++k) {
+            modal::Mode& partial = voice.partials[k];
+            if (partial.level < 0x00010000) continue;
+            modal::ring_fall_plate(partial, fall, voice.settled[k], plate_mix, mixed);
+        }
+        modal::spread_plate(plate_mix, fall, mixed);
+    } else {
+        for (unsigned k = 0; k < partial_count; ++k) {
+            modal::Mode& partial = voice.partials[k];
+            if (partial.level < 0x00010000) continue;
+            const i32 amount = voice.amounts[k];
+            modal::ring_fall(partial, fall, multiply(amount, swell), multiply(amount, voice.swell), mixed);
+        }
     }
     if (voice.tone.level > 0x00010000) {
-        const i32 tone = multiply(md::table9(plate.sheen, p[2]), md::table9(tone_ptch, p[0]));
-        if (tone) modal::ring(voice.tone, md::decay(tone_time), tone, mixed);
+        if (voice.tone_amount) modal::ring_fall(voice.tone, voice.tone_fall, voice.tone_amount, voice.tone_amount, mixed);
         else voice.tone.level = 0;
     }
     if (voice.hiss > 0x00010000) {
         const i32 mid = multiply(plate.hiss_mid, voice.hiss_lift), top = multiply(plate.hiss_high, voice.hiss_lift);
         const i32 hiss_next = multiply(voice.hiss, hiss_fall);
         // The layer swells with the plate; each gain in a straight line across the block.
-        i32 mid_now = multiply(multiply(voice.hiss, mid), swell);
-        i32 top_now = multiply(multiply(voice.hiss, top), swell);
+        const i32 mid_now = multiply(multiply(voice.hiss, mid), swell);
+        const i32 top_now = multiply(multiply(voice.hiss, top), swell);
         const i32 mid_slope = (multiply(multiply(hiss_next, mid), voice.swell) - mid_now) / 64;
         const i32 top_slope = (multiply(multiply(hiss_next, top), voice.swell) - top_now) / 64;
         voice.hiss = hiss_next;
-        const i32 corner = md::table9(plate.corner, p[5]);
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 white = md::noise_eighth(voice.seed);
-            md::smooth(voice.pole1, white, corner);
-            md::smooth(voice.pole2, voice.pole1, corner);
-            md::smooth(voice.under, voice.pole2, under_pole);
-            mixed[i] += (multiply(voice.pole2 - voice.under, mid_now) + multiply(white - voice.pole1, top_now)) * 16;
-            mid_now += mid_slope;
-            top_now += top_slope;
-        }
+        add_hiss(voice, mid_now, mid_slope, top_now, top_slope, mixed);
     }
-    if (voice.strike) {   // the stick's click: a block and a bit of bare noise
-        i32 click = voice.strike;
-        const i32 slope = -(click >> 6);
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            mixed[i] += multiply(md::noise_eighth(voice.seed), click) * 8;
-            click += slope;
-        }
-        voice.strike = 0;
-    }
+    if (voice.strike) add_click(voice, mixed);   // a block and a bit of bare noise
     modal::finish_doubled(mixed, output);
 }
 

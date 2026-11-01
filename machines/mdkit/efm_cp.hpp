@@ -17,16 +17,6 @@
 // sample is 0.09 of the peak, as the Machinedrum's.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace efm_cp {
-struct State {
-    efm::Pair fm;
-    i32 clap;       // the current clap's envelope, Q31
-    i32 level;      // the tail's envelope, Q31
-    i32 depth;      // MDEC's envelope, Q31
-    i32 low;        // HPF's state
-    u32 count;      // samples into the current clap
-    u32 claps;      // claps still to come, the current one included
-    u32 fresh;      // a note has started and render has not yet run
-};
 namespace {
 using md::multiply;
 
@@ -47,25 +37,55 @@ inline u32 samples(i32 log2) {
     return static_cast<u32>(exp2_table[(l >> 8) & 255u]) >> (30 - (l >> 16));
 }
 
+}
 struct Block {
-    i32 base, decay_step, clap_step, deviation, ratio, depth_step, hpf;
+    i32 decay_step, clap_step, deviation, hpf, fb;
+    efm::Flat flat;
     u32 spacing;
-    explicit Block(const i32* p) {
-        base = md::span(p[PTCH], base_low, base_low + base_span);
+    void plan(const i32* p, u32 middle) {
         decay_step = md::decay(md::table9(efm::dec_times, p[DEC]));
         const i32 space = md::table9(spacings, p[CDEC]);
         spacing = samples(space);
         clap_step = md::decay(space + clap_time);
         deviation = efm::sixteenths(p[MOD]);
-        ratio = efm::ratio(p[MFRQ]);
-        depth_step = md::decay(md::table9(efm::mdec_times, p[MDEC]));
+        flat.prepare(md::transpose(middle, md::span(p[PTCH], base_low, base_low + base_span)), efm::ratio(p[MFRQ]),
+                     md::decay(md::table9(efm::mdec_times, p[MDEC])));
         hpf = md::table9(efm::hpf_coefficients, p[HPF]);
+        fb = efm::feedback(md::one);
     }
 };
-}
+
+struct State {
+    efm::Pair fm;
+    i32 clap;       // the current clap's envelope, Q31
+    i32 level;      // the tail's envelope, Q31
+    i32 depth;      // MDEC's envelope, Q31
+    i32 low;        // HPF's state
+    u32 count;      // samples into the current clap
+    u32 claps;      // claps still to come, the current one included
+    u32 fresh;      // a note has started and render has not yet run
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // Whether a sound is still to come however quiet it is now: a clap.
 inline bool waiting(const State& voice) { return voice.claps != 0; }
+// The tail, once the claps are done: the level and HPF over the tone, out of line and on
+// locals. Its peak and the filter's lag are together under the output's ceiling.
+__attribute__((noinline)) inline void run_tail(State& voice, i32 fall, i32 hpf, opxy::Output y) {
+    i32 level = voice.level, low = voice.low;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 x = -multiply(y[i], multiply(level, body_level));
+        level = multiply(level, fall);
+        low += multiply(x - low, hpf);
+        y[i] = x - low;
+    }
+    voice.level = level;
+    voice.low = low;
+}
+
 inline void trigger(State& voice, Common&) {
     voice.fresh = 1;
 }
@@ -73,12 +93,22 @@ inline void reset(State& voice, Common& shared, u32) {
     voice.fm.reset();
     voice.clap = voice.level = voice.depth = voice.low = 0;
     voice.count = voice.claps = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         const u32 claps = (static_cast<u32>(md::positive(parameters[CLPS])) + 0x4000000u) >> 27;   // CLPS / 8, rounded
         voice.fm.reset(efm::from_zero);
@@ -91,13 +121,15 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.low = 0;
         voice.fresh = 0;
     }
-    const i32 fb = efm::feedback(md::one);
-    i32 flat = 0;
-    efm::Sweep sweep;
-    sweep.plan(md::transpose(pitch[0], b.base), 0, flat, md::one, b.ratio, b.deviation, voice.depth, b.depth_step);
-
+    efm::Ramp swing = b.flat.deviation(b.deviation, voice.depth);
+    if (!voice.claps) {
+        efm::run_modulator(voice.fm, b.flat.modulator, b.fb, output);
+        efm::run_carrier(voice.fm, b.flat.carrier, swing, output);
+        run_tail(voice, b.decay_step, b.hpf, output);
+        return;
+    }
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 s = voice.fm.run(sweep.carrier.step(), static_cast<i32>(sweep.deviation.step()), sweep.modulator.step(), fb);
+        const i32 s = voice.fm.run(b.flat.carrier, static_cast<i32>(swing.step()), b.flat.modulator, b.fb);
         i32 envelope;
         if (voice.claps) {
             envelope = voice.clap;

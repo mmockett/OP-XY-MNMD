@@ -2,6 +2,7 @@
 // PI-MA: the sound, a module any engine can hold (docs/VOICES.md).
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
+#include "md_modal.hpp"
 
 // A Machinedrum PI-MA-style maraca: seeds rattling in a shell, written from
 // scratch in fixed point and fitted to the Machinedrum's own
@@ -18,14 +19,6 @@
 // down to 2.3 kHz.
 namespace md_mdkit {} namespace md = md_mdkit; namespace md_mdkit {
 namespace pi_ma {
-struct State {
-    i32 shake;      // the shake's energy, Q31
-    i32 sound;      // the seeds' ringing, Q31
-    u32 seed;
-    md::Svf shell;
-    i32 base;       // the shell's low output under 300 Hz, taken off it
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -63,12 +56,13 @@ const i32 out_level = 0x60000000;   // 8 dB over the emulator's main mix (with r
 // HARD: a harder shake, 5 dB louder at 127 than at 0.
 const i32 hard_soft = 0x47cf267e;
 
+}
 struct Block {
     u32 chance;
-    i32 shake_step, grain_step, tune, amount, damping, body;
-    explicit Block(const i32* p) {
+    i32 shake_fall, grain_step, tune, amount, damping, body;
+    void plan(const i32* p) {
         chance = md::transpose(grain_rate, multiply(md::positive(p[GRNS]), grain_span));
-        shake_step = md::decay(md::table9(decay_times, p[DEC]));
+        shake_fall = md::per_block(md::decay(md::table9(decay_times, p[DEC])));
         grain_step = md::decay(md::table9(grain_times, p[GLEN]));
         damping = md::table9(shell_damping, p[SIZE]);
         body = md::table9(body_levels, p[SIZE]);
@@ -77,6 +71,47 @@ struct Block {
         amount = multiply(amount, md::span(p[HARD], hard_soft, md::one));
     }
 };
+struct State {
+    i32 shake;      // the shake's energy, Q31
+    i32 sound;      // the seeds' ringing, Q31
+    u32 seed;
+    md::Svf shell;
+    i32 base;       // the shell's low output under 300 Hz, taken off it
+    u32 fresh;
+    u32 stale;      // the block's figures want working out, whatever the controls read
+    i32 seen[8];    // the controls they were worked out from
+    Block block;
+};
+
+// The seeds in the shell: out of line and on locals, as `output` might otherwise be the voice
+// and every field would be read and written back each sample.
+__attribute__((noinline)) inline void shake_block(State& voice, const Block& b, i32 shake_slope, opxy::Output output) {
+    u32 seed = modal::live_seed(voice.seed);
+    i32 shake = voice.shake, sound = voice.sound, base = voice.base;
+    md::Svf shell = voice.shell;
+    const u32 chance = b.chance;
+    const i32 amount = b.amount, grain_step = b.grain_step, tune = b.tune, damping = b.damping, body_level = b.body;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        modal::noise_on(seed);
+        // A seed hits: the ringing takes a random share of the shake's energy.
+        if (seed < chance) {
+            modal::noise_on(seed);
+            const i32 share = static_cast<i32>(seed >> 1);
+            sound = md::add(sound, multiply(multiply(shake, amount), share) * 8);
+        }
+        sound = multiply(sound, grain_step);
+        modal::noise_on(seed);
+        const i32 n = static_cast<i32>(seed >> 3) - 0x10000000;   // an eighth of full scale
+        shell.run(multiply(n, sound), tune, damping);
+        const i32 under = shell.low - md::smooth(base, shell.low, base_corner);
+        // md::finish(md::gain(x, 3)), with no branches in the loop.
+        output[i] = md::clamp(multiply(shell.band + multiply(under, body_level) * 2, out_level), -half_scale / 8, half_scale / 8) * 8;
+        shake += shake_slope;
+    }
+    voice.seed = seed;
+    voice.sound = sound;
+    voice.base = base;
+    voice.shell = shell;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -85,12 +120,21 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.seed = 0x2f6b3a91u * owner;
     voice.shell.reset();
     voice.base = 0;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch) {
-    const Block b(parameters);
+    // Only when a control has moved.
+    u32 moved = voice.stale;
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.fresh = 0;
         voice.shake = md::one;
@@ -102,25 +146,8 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = 0;
         return;
     }
-    const i32 shake_next = multiply(voice.shake, md::per_block(b.shake_step));
-    const i32 shake_slope = (shake_next - voice.shake) / 64;
-    i32 shake = voice.shake;
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        md::noise(voice.seed);
-        // A seed hits: the ringing takes a random share of the shake's energy.
-        if (voice.seed < b.chance) {
-            md::noise(voice.seed);
-            const i32 share = static_cast<i32>(voice.seed >> 1);
-            voice.sound = md::add(voice.sound, multiply(multiply(shake, b.amount), share) * 8);
-        }
-        voice.sound = multiply(voice.sound, b.grain_step);
-        md::noise(voice.seed);
-        const i32 n = static_cast<i32>(voice.seed >> 3) - 0x10000000;   // an eighth of full scale
-        voice.shell.run(multiply(n, voice.sound), b.tune, b.damping);
-        const i32 body = voice.shell.low - md::smooth(voice.base, voice.shell.low, base_corner);
-        output[i] = md::finish(md::gain(multiply(voice.shell.band + multiply(body, b.body) * 2, out_level), 3));
-        shake += shake_slope;
-    }
+    const i32 shake_next = multiply(voice.shake, b.shake_fall);
+    shake_block(voice, b, (shake_next - voice.shake) / 64, output);
     voice.shake = shake_next;
 }
 }
