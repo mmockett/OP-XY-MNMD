@@ -25,20 +25,6 @@
 // Machinedrum's, to stand with TRX-BD. The key moves the pitch.
 namespace md {
 namespace trx_b2 {
-struct State {
-    u32 phase;
-    i32 level;      // the body's envelope after the hold, Q31
-    i32 swell;      // the opening swell, Q31 (rises to one)
-    u32 hold;       // samples of hold still to run
-    i32 ramp;       // RAMP's sweep, Q31
-    i32 tick;       // TICK's spike, Q31
-    u32 tick_hold;  // samples of the spike's hold still to run
-    i32 burst;      // NOIS's envelope, Q31
-    i32 hiss;       // the burst's high-pass state
-    i32 droop;      // DIST's high-pass state
-    u32 seed;
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -68,6 +54,7 @@ const i32 dirt_steps[9] = {1277952, 1323827, 1376256, 1507328, 1605632, 1677722,
 // The body peaks at -10.8 dB of full scale (the Machinedrum's -17.9, lifted 7 dB); half here.
 const i32 body_level = 0x125a0000;
 
+}
 // DIRT's rounding to a step of 2^(log2 step), any fraction of an octave: scaled
 // down by the fraction, rounded to a power of two, scaled back.
 struct Crush {
@@ -88,16 +75,16 @@ struct Crush {
 };
 
 struct Block {
-    i32 base, ramp, decay_step, tick, burst, drive, dirt;
-    u32 hold, tick_hold;
+    i32 ramp, decay_step, tick, burst, drive, dirt, ramp_block, rise, tick_step, burst_step;
+    u32 base, hold, tick_hold;
     Crush crush;
-    explicit Block(const i32* p) {
-        base = md::table9(base_octaves, p[PTCH]);
+    void plan(const i32* p, u32 middle) {
+        base = md::transpose(middle, md::table9(base_octaves, p[PTCH]));
         ramp = md::table9(ramp_hz, p[RAMP]);
         decay_step = p[DEC] > 0x7e000000 ? md::one : md::decay(md::table9(decay_times, p[DEC]));   // none at 127
         hold = static_cast<u32>(md::table9(holds, p[HOLD]));
         const i32 t = md::positive(p[TICK]);
-        tick = t < tick_full ? multiply(multiply(t, tick_rise) * 4, tick_most) : tick_most;
+        tick = multiply(t < tick_full ? multiply(multiply(t, tick_rise) * 4, tick_most) : tick_most, body_level);
         tick_hold = 4 + static_cast<u32>(multiply(t, 12));   // 4 .. 15 samples
         burst = multiply(md::positive(p[NOIS]), burst_most);
         // DIST: a gain rising in a line from 1 to 4 over its first quarter, then on to 32. Q26.
@@ -105,8 +92,102 @@ struct Block {
         drive = !d ? 0 : over < 0 ? 0x04000000 + (d >> 3) * 3 : 0x10000000 + over + (over >> 3) + (over >> 5);
         dirt = p[DIRT] > 0 ? 1 : 0;
         crush.prepare(md::table9(dirt_steps, p[DIRT]));
+        ramp_block = md::per_block(md::decay(ramp_fall));
+        rise = md::one - md::decay(swell_time);
+        tick_step = md::decay(tick_time);
+        burst_step = md::decay(burst_time);
     }
 };
+
+struct State {
+    u32 phase;
+    i32 level;      // the body's envelope after the hold, Q31
+    i32 swell;      // the opening swell, Q31 (rises to one)
+    u32 hold;       // samples of hold still to run
+    i32 ramp;       // RAMP's sweep, Q31
+    i32 tick;       // TICK's spike, Q31
+    u32 tick_hold;  // samples of the spike's hold still to run
+    i32 burst;      // NOIS's envelope, Q31
+    i32 hiss;       // the burst's high-pass state
+    i32 droop;      // DIST's high-pass state
+    u32 seed;
+    u32 fresh;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
+
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffer might otherwise be the voice.
+// The sine at its full height: DIST and DIRT shape it there, before the envelope, so the
+// shape holds however far the hit has fallen.
+__attribute__((noinline)) inline void run_sine(State& voice, u32 increment, i32 slope, i32* x) {
+    u32 phase = voice.phase;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] = -multiply(md::sine(phase), body_level);
+        phase += increment;
+        increment += static_cast<u32>(slope);
+    }
+    voice.phase = phase;
+}
+__attribute__((noinline)) inline void run_drive(State& voice, i32 drive, i32* x) {
+    i32 droop = voice.droop;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 clipped = md::clamp(md::gain(multiply(x[i], drive), 5), -clip_threshold, clip_threshold);
+        droop += multiply(clipped - droop, clip_highpass);
+        x[i] = clipped - droop;
+    }
+    voice.droop = droop;
+}
+__attribute__((noinline)) inline void run_crush(const Crush& crush, i32* x) {
+    const Crush c = crush;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) x[i] = c.run(x[i]);
+}
+// The swell and the level: held for the first `held` samples, then falling.
+__attribute__((noinline)) inline void run_envelope(State& voice, u32 held, i32 rise, i32 step, i32* x) {
+    i32 swell = voice.swell, level = voice.level;
+    for (unsigned i = 0; i != held; ++i) {
+        x[i] = multiply(x[i], multiply(level, swell));
+        swell += multiply(md::one - swell, rise);
+    }
+    for (unsigned i = held; i != opxy::block_frames; ++i) {
+        x[i] = multiply(x[i], multiply(level, swell));
+        swell += multiply(md::one - swell, rise);
+        level = multiply(level, step);
+    }
+    voice.swell = swell;
+    voice.level = level;
+}
+// TICK: a downward spike, gone once it has truncated to zero.
+__attribute__((noinline)) inline void run_tick(State& voice, i32 height, i32 step, i32* x) {
+    i32 tick = voice.tick;
+    u32 hold = voice.tick_hold;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] -= multiply(tick, height) * 2;
+        if (hold) --hold;
+        else tick = multiply(tick, step);
+    }
+    voice.tick = tick;
+    voice.tick_hold = hold;
+}
+// NOIS: a burst above 1 kHz.
+__attribute__((noinline)) inline void run_burst(State& voice, i32 amount, i32 step, i32* x) {
+    u32 seed = voice.seed;
+    i32 hiss = voice.hiss, burst = voice.burst;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        md::smooth(hiss, white, burst_highpass);
+        x[i] += multiply(multiply(white - hiss, burst), amount);
+        burst = multiply(burst, step);
+    }
+    voice.seed = seed;
+    voice.hiss = hiss;
+    voice.burst = burst;
+}
+// Doubling then stopping at half scale is stopping at a quarter, then doubling.
+__attribute__((noinline)) inline void run_finish(const i32* x, opxy::Output output) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::clamp(x[i], -0x20000000, 0x20000000) * 2;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
@@ -115,12 +196,22 @@ inline void reset(State& voice, Common& shared, u32 owner) {
     voice.level = voice.swell = voice.ramp = voice.tick = voice.burst = voice.hiss = voice.droop = 0;
     voice.hold = voice.tick_hold = 0;
     voice.seed = 0x1b873593u * owner;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.phase = 0;
         voice.level = voice.ramp = voice.tick = voice.burst = md::one;
@@ -131,48 +222,23 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.fresh = 0;
     }
     // The pitch: the base plus the sweep in Hz, linear between the block's ends.
-    const u32 base = md::transpose(pitch[0], b.base);
-    const i32 ramp_next = multiply(voice.ramp, md::per_block(md::decay(ramp_fall)));
-    const u32 now = base + md::scale(pitch[0], multiply(voice.ramp, b.ramp));
-    const u32 next = base + md::scale(pitch[0], multiply(ramp_next, b.ramp));
-    u32 increment = now;
+    const i32 ramp_next = multiply(voice.ramp, b.ramp_block);
+    const u32 now = b.base + md::scale(pitch[0], multiply(voice.ramp, b.ramp));
+    const u32 next = b.base + md::scale(pitch[0], multiply(ramp_next, b.ramp));
     const i32 slope = (static_cast<i32>(next) - static_cast<i32>(now)) / 64;
     voice.ramp = ramp_next;
-    const i32 swell_step = md::decay(swell_time);
-    const i32 tick_step = md::decay(tick_time);
-    const i32 burst_step = md::decay(burst_time);
 
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        // The sine at its full height: DIST and DIRT shape it there, before the
-        // envelope, so the shape holds however far the hit has fallen.
-        i32 x = -multiply(md::sine(voice.phase), body_level);
-        voice.phase += increment;
-        increment += static_cast<u32>(slope);
-        if (b.drive) {
-            const i32 hot = md::gain(multiply(x, b.drive), 5);
-            const i32 clipped = md::clamp(hot, -clip_threshold, clip_threshold);
-            voice.droop += multiply(clipped - voice.droop, clip_highpass);
-            x = clipped - voice.droop;
-        }
-        if (b.dirt) x = b.crush.run(x);
-        x = multiply(x, multiply(voice.level, voice.swell));
-        // TICK: a downward spike.
-        x -= multiply(voice.tick, multiply(b.tick, body_level)) * 2;
-        // NOIS: a burst above 1 kHz.
-        if (b.burst) {
-            const i32 white = md::noise_eighth(voice.seed);
-            md::smooth(voice.hiss, white, burst_highpass);
-            x += multiply(multiply(white - voice.hiss, voice.burst), b.burst);
-        }
-        output[i] = md::finish(md::gain(x, 1));
-
-        voice.swell += multiply(md::one - voice.swell, md::one - swell_step);
-        if (voice.hold) --voice.hold;
-        else voice.level = multiply(voice.level, b.decay_step);
-        if (voice.tick_hold) --voice.tick_hold;
-        else voice.tick = multiply(voice.tick, tick_step);
-        voice.burst = multiply(voice.burst, burst_step);
-    }
+    i32 x[opxy::block_frames];
+    run_sine(voice, now, slope, x);
+    if (b.drive) run_drive(voice, b.drive, x);
+    if (b.dirt) run_crush(b.crush, x);
+    const u32 held = voice.hold < opxy::block_frames ? voice.hold : opxy::block_frames;
+    voice.hold -= held;
+    run_envelope(voice, held, b.rise, b.decay_step, x);
+    if (voice.tick) run_tick(voice, b.tick, b.tick_step, x);
+    if (b.burst) run_burst(voice, b.burst, b.burst_step, x);
+    else if (voice.burst) for (unsigned i = 0; i != opxy::block_frames; ++i) voice.burst = multiply(voice.burst, b.burst_step);
+    run_finish(x, output);
 }
 }
 }

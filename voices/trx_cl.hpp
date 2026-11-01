@@ -19,18 +19,6 @@
 // stand with them. The key moves the tones.
 namespace md {
 namespace trx_cl {
-struct State {
-    u32 phase, second;   // the two tones
-    i32 level;           // the main strike's envelope, Q31
-    i32 first;           // the first strike's (DUAL), Q31
-    i32 snap;            // ENH's extra, Q31
-    i32 rise;            // the attack, Q31
-    u32 wait;            // samples until the main strike (DUAL)
-    u32 click;           // samples of CLIC's click still to run
-    i32 hiss;            // the click's high-pass state
-    u32 seed;
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -51,10 +39,11 @@ const i32 click_most = 0x28000000;
 // The tone peaks near -10 dB of full scale (the Machinedrum's -18, lifted 8 dB); half here.
 const i32 tone_level = 0x18000000;
 
+}
 struct Block {
-    i32 ratio, second_ratio, decay_step, level, snap, second, click;
-    u32 delay;
-    explicit Block(const i32* p) {
+    i32 ratio, second_ratio, decay_step, level, snap, second, click, snap_step;
+    u32 delay, increment, second_increment;
+    void plan(const i32* p, u32 middle) {
         ratio = md::span(p[PTCH], tone_low, tone_high);
         second_ratio = md::span(p[TUNE], tone_low, tone_high);
         decay_step = md::decay(md::table9(decay_times, p[DEC]));
@@ -66,25 +55,120 @@ struct Block {
         second = multiply(md::span(p[PTCH], second_low, second_high), fade);
         click = multiply(md::squared(p[CLIC]), click_most);
         delay = static_cast<u32>(md::table9(dual_delay, p[DUAL]));
+        increment = md::scale(middle, ratio) << 1;
+        second_increment = md::scale(middle, second_ratio) << 1;
+        snap_step = md::decay(snap_time);
     }
 };
-}
+
+struct State {
+    u32 phase, second;   // the two tones
+    i32 level;           // the main strike's envelope, Q31
+    i32 first;           // the first strike's (DUAL), Q31
+    i32 snap;            // ENH's extra, Q31
+    i32 rise;            // the attack, Q31
+    u32 wait;            // samples until the main strike (DUAL)
+    u32 click;           // samples of CLIC's click still to run
+    i32 hiss;            // the click's high-pass state
+    u32 seed;
+    u32 fresh;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    u32 seen_pitch;
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // Whether a sound is still to come however quiet it is now: DUAL's main strike.
 inline bool waiting(const State& voice) { return voice.wait != 0; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffers might otherwise be the voice.
+// The tone, and the second opposite in phase.
+__attribute__((noinline)) inline void run_tones(State& voice, u32 increment, u32 second_increment, i32 amount, i32* x) {
+    u32 phase = voice.phase, second = voice.second;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        x[i] = opxy::q31::half(md::sine(phase)) - multiply(opxy::q31::half(md::sine(second)), amount);
+        phase += increment;
+        second += second_increment;
+    }
+    voice.phase = phase;
+    voice.second = second;
+}
+// The envelope while a strike is still to come or rising.
+__attribute__((noinline)) inline void run_rising(State& voice, const Block& b, i32* x) {
+    u32 wait = voice.wait;
+    i32 level = voice.level, snap = voice.snap, rise = voice.rise, first = voice.first;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        if (wait && !--wait) {
+            // DUAL: the main strike, after the first.
+            level = md::one;
+            snap = md::one;
+            rise = 0;
+        }
+        rise = rise < md::one - rise_step ? rise + rise_step : md::one;
+        // At half: the snap rides over the strike.
+        const i32 strike = opxy::q31::half(level) + opxy::q31::half(multiply(snap, b.snap));
+        x[i] = multiply(multiply(x[i], multiply(strike + first, rise)), b.level) * 4;
+        level = multiply(level, b.decay_step);
+        first = multiply(first, b.decay_step);
+        if (rise == md::one) snap = multiply(snap, b.snap_step);
+    }
+    voice.wait = wait; voice.level = level; voice.snap = snap; voice.rise = rise; voice.first = first;
+}
+// And once it has risen, with nothing left to test.
+__attribute__((noinline)) inline void run_risen(State& voice, const Block& b, i32* x) {
+    i32 level = voice.level, snap = voice.snap, first = voice.first;
+    const i32 snap_amount = b.snap, amount = b.level, step = b.decay_step, snap_step = b.snap_step;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 strike = opxy::q31::half(level) + opxy::q31::half(multiply(snap, snap_amount));
+        x[i] = multiply(multiply(x[i], multiply(strike + first, md::one)), amount) * 4;
+        level = multiply(level, step);
+        first = multiply(first, step);
+        snap = multiply(snap, snap_step);
+    }
+    voice.level = level; voice.snap = snap; voice.first = first;
+}
+// CLIC's click, its first millisecond.
+__attribute__((noinline)) inline void run_click(State& voice, i32 amount, i32* x) {
+    const u32 count = voice.click < opxy::block_frames ? voice.click : opxy::block_frames;
+    u32 seed = voice.seed;
+    i32 hiss = voice.hiss;
+    for (unsigned i = 0; i != count; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        md::smooth(hiss, white, click_highpass);
+        x[i] += multiply(white - hiss, amount) * 2;
+    }
+    voice.click -= count;
+    voice.seed = seed;
+    voice.hiss = hiss;
+}
+// Doubling then stopping at half scale is stopping at a quarter, then doubling.
+__attribute__((noinline)) inline void run_finish(opxy::Output x) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) x[i] = md::clamp(x[i], -0x20000000, 0x20000000) * 2;
+}
+
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.phase = voice.second = 0;
     voice.level = voice.first = voice.snap = voice.rise = 0;
     voice.wait = voice.click = 0;
     voice.hiss = 0;
     voice.seed = 0x7f4a7c15u * owner;
+    voice.stale = 1;
     trigger(voice, shared);
     voice.fresh = 0;
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch pitch) {
-    const Block b(parameters);
+    // Only when a control or the key has moved.
+    u32 moved = voice.stale | (pitch[0] ^ voice.seen_pitch);
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        voice.seen_pitch = pitch[0];
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters, pitch[0]);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.phase = voice.second = 0;
         voice.wait = b.delay;
@@ -96,37 +180,11 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         voice.hiss = 0;
         voice.fresh = 0;
     }
-    const u32 increment = md::scale(pitch[0], b.ratio) << 1;
-    const u32 second_increment = md::scale(pitch[0], b.second_ratio) << 1;
-    const i32 snap_step = md::decay(snap_time);
-
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        if (voice.wait && !--voice.wait) {
-            // DUAL: the main strike, after the first.
-            voice.level = md::one;
-            voice.snap = md::one;
-            voice.rise = 0;
-        }
-        voice.rise = voice.rise < md::one - rise_step ? voice.rise + rise_step : md::one;
-        // At half: the snap rides over the strike.
-        const i32 strike = opxy::q31::half(voice.level) + opxy::q31::half(multiply(voice.snap, b.snap));
-        const i32 envelope = multiply(strike + voice.first, voice.rise);
-        // The tone, and the second opposite in phase.
-        const i32 tone = opxy::q31::half(md::sine(voice.phase)) - multiply(opxy::q31::half(md::sine(voice.second)), b.second);
-        voice.phase += increment;
-        voice.second += second_increment;
-        i32 mixed = multiply(multiply(tone, envelope), b.level) * 4;
-        if (voice.click) {
-            const i32 white = md::noise_eighth(voice.seed);
-            md::smooth(voice.hiss, white, click_highpass);
-            mixed += multiply(white - voice.hiss, b.click) * 2;
-            --voice.click;
-        }
-        output[i] = md::finish(md::gain(mixed, 1));
-        voice.level = multiply(voice.level, b.decay_step);
-        voice.first = multiply(voice.first, b.decay_step);
-        if (voice.rise == md::one) voice.snap = multiply(voice.snap, snap_step);
-    }
+    run_tones(voice, b.increment, b.second_increment, b.second, output);
+    if (voice.wait || voice.rise != md::one) run_rising(voice, b, output);
+    else run_risen(voice, b, output);
+    if (voice.click) run_click(voice, b.click, output);
+    run_finish(output);
 }
 }
 }

@@ -21,19 +21,6 @@
 // low-pass poles a little under its centre. A clap has no pitch: keys play it alike.
 namespace md {
 namespace trx_cp {
-struct State {
-    u32 seed;
-    i32 burst;       // the current hand's level, Q31
-    i32 room;        // the room's level, Q31
-    u32 clock;       // samples since the note started
-    u32 fired;       // hands sounded so far
-    u32 next;        // when the next hand starts
-    i32 low;         // the hands' high-pass state
-    i32 bright, brighter;   // the hands' two low-passes
-    md::Svf space;   // the room's band-pass
-    i32 air1, air2;  // the room's two low-pass poles
-    u32 fresh;
-};
 namespace {
 using md::multiply;
 
@@ -52,9 +39,10 @@ const i32 room_most = 0x48000000;                               // and the mix t
 // RSIZ 0, 16, ..., 127: a bigger room is louder too, by 11 dB, as measured over the hands.
 const i32 room_sizes[9] = {605243126, 605243126, 605243126, 605243126, 761955951, 1076291388, 1354970579, 1705806894, 2147483647};
 
+}
 struct Block {
-    i32 gap, looseness, highpass, bright, burst_step, room_level, room_step, room_frequency, room_pole;
-    explicit Block(const i32* p) {
+    i32 gap, looseness, highpass, bright, burst_step, burst_block, room_level, room_step, room_block, room_frequency, room_pole;
+    void plan(const i32* p) {
         gap = gap_shortest + multiply(md::positive(p[RATE]), gap_range);
         looseness = opxy::q31::half(md::positive(p[CLPY]));             // up to half a gap either way
         highpass = md::span(p[TONE], highpass_low, highpass_high);
@@ -65,15 +53,99 @@ struct Block {
         room_step = md::decay(md::table9(room_times, p[RSIZ]));
         room_frequency = md::cutoff(md::span(p[RTUN], room_low, room_high));
         room_pole = multiply(room_frequency, 0x74000000);
+        burst_block = md::per_block(burst_step);
+        room_block = md::per_block(room_step);
     }
 };
-}
+
+struct State {
+    u32 seed;
+    i32 burst;       // the current hand's level, Q31
+    i32 room;        // the room's level, Q31
+    u32 clock;       // samples since the note started
+    u32 fired;       // hands sounded so far
+    u32 next;        // when the next hand starts
+    i32 low;         // the hands' high-pass state
+    i32 bright, brighter;   // the hands' two low-passes
+    md::Svf space;   // the room's band-pass
+    i32 air1, air2;  // the room's two low-pass poles
+    u32 fresh;
+    u32 stale;        // the block's figures want working out, whatever the controls read
+    i32 seen[8];      // the controls they were worked out from
+    Block block;
+};
 
 // Whether a sound is still to come however quiet it is now: a hand.
 inline bool waiting(const State& voice) { return voice.fired < hands; }
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }
+// The block's stages, a loop each: out of line, so each has a hardware loop and all the
+// registers to itself, and on locals, as the buffers might otherwise be the voice.
+// The room, in a line across the block: it leaves the noise for the hands.
+__attribute__((noinline)) inline void run_room(State& voice, const Block& b, i32 room, i32 room_slope, i32* white, i32* mixed) {
+    u32 seed = voice.seed;
+    md::Svf space = voice.space;
+    i32 air1 = voice.air1, air2 = voice.air2;
+    const i32 frequency = b.room_frequency, pole = b.room_pole;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 n = md::noise_eighth(seed);
+        white[i] = n;
+        space.run(n, frequency, room_damping);
+        md::smooth(air2, md::smooth(air1, space.band, pole), pole);
+        mixed[i] = multiply(air2, room) * 4;
+        room += room_slope;
+    }
+    voice.seed = seed;
+    voice.space = space;
+    voice.air1 = air1;
+    voice.air2 = air2;
+}
+__attribute__((noinline)) inline void run_hands(State& voice, i32 highpass, i32 bright, i32 burst, i32 burst_slope, const i32* white, i32* mixed) {
+    i32 low = voice.low, b1 = voice.bright, b2 = voice.brighter;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        md::smooth(low, white[i], highpass);
+        md::smooth(b2, md::smooth(b1, white[i] - low, bright), bright);
+        mixed[i] += multiply(b2 * 2, burst);
+        burst += burst_slope;
+    }
+    voice.low = low;
+    voice.bright = b1;
+    voice.brighter = b2;
+}
+__attribute__((noinline)) inline void run_finish(const i32* mixed, opxy::Output output) {
+    for (unsigned i = 0; i != opxy::block_frames; ++i) output[i] = md::finish(mixed[i] * 3);
+}
+// Until the last hand has started: each starts on its beat, nudged by CLPY; the room opens with the last.
+__attribute__((noinline)) inline void run_starting(State& voice, const Block& b, opxy::Output output) {
+    u32 seed = voice.seed, clock = voice.clock, fired = voice.fired, next = voice.next;
+    i32 burst = voice.burst, room = voice.room, low = voice.low, b1 = voice.bright, b2 = voice.brighter, air1 = voice.air1, air2 = voice.air2;
+    md::Svf space = voice.space;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 white = md::noise_eighth(seed);
+        if (fired < trx_cp::hands && clock >= next) {
+            burst = md::one;
+            if (++fired == trx_cp::hands) room = b.room_level;
+            // white is +-1/8: times 4 and the looseness, up to half a gap either way.
+            // The Machinedrum's gaps are uneven, the second an eighth longer and the third an eighth shorter.
+            const i32 even = fired == 2 ? b.gap + b.gap / 8 : fired == 3 ? b.gap - b.gap / 8 : b.gap;
+            next = clock + static_cast<u32>(even + multiply(multiply(white * 4, b.looseness), b.gap));
+        }
+        ++clock;
+        md::smooth(low, white, b.highpass);
+        md::smooth(b2, md::smooth(b1, white - low, b.bright), b.bright);
+        space.run(white, b.room_frequency, room_damping);
+        md::smooth(air2, md::smooth(air1, space.band, b.room_pole), b.room_pole);
+        output[i] = md::finish((multiply(b2 * 2, burst) + multiply(air2, room) * 4) * 3);
+        burst = multiply(burst, b.burst_step);
+        room = multiply(room, b.room_step);
+    }
+    voice.seed = seed; voice.clock = clock; voice.fired = fired; voice.next = next;
+    voice.burst = burst; voice.room = room; voice.low = low; voice.bright = b1; voice.brighter = b2;
+    voice.air1 = air1; voice.air2 = air2; voice.space = space;
+}
+
 inline void reset(State& voice, Common& shared, u32 owner) {
     voice.seed = 0x41c64e6du * owner;
+    voice.stale = 1;
     voice.burst = voice.room = 0;
     voice.clock = 0;
     voice.fired = hands;
@@ -86,7 +158,15 @@ inline void reset(State& voice, Common& shared, u32 owner) {
 }
 
 inline void render(State& voice, Common&, opxy::Output output, const i32* parameters, opxy::Pitch) {
-    const Block b(parameters);
+    // Only when a control has moved.
+    u32 moved = voice.stale;
+    for (unsigned c = 0; c < 8; ++c) moved |= static_cast<u32>(parameters[c] ^ voice.seen[c]);
+    if (moved) {
+        voice.stale = 0;
+        for (unsigned c = 0; c < 8; ++c) voice.seen[c] = parameters[c];
+        voice.block.plan(parameters);
+    }
+    const Block& b = voice.block;
     if (voice.fresh) {
         voice.clock = 0;
         voice.next = 0;
@@ -97,52 +177,20 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         // Every hand has started: no more timing. The two gains in straight
         // lines across the block, and the hands' filters only while they can
         // be heard (-102 dB).
-        const i32 burst_next = multiply(voice.burst, md::per_block(b.burst_step));
-        const i32 room_next = multiply(voice.room, md::per_block(b.room_step));
+        const i32 burst_next = multiply(voice.burst, b.burst_block);
+        const i32 room_next = multiply(voice.room, b.room_block);
         i32 burst = voice.burst, room = voice.room;
         const i32 burst_slope = (burst_next - burst) / 64, room_slope = (room_next - room) / 64;
         const bool clapping = burst >= (1 << 14) || burst_next >= (1 << 14);
         voice.burst = burst_next;
         voice.room = room_next;
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            const i32 white = md::noise_eighth(voice.seed);
-            i32 mixed = 0;
-            if (clapping) {
-                md::smooth(voice.low, white, b.highpass);
-                md::smooth(voice.brighter, md::smooth(voice.bright, white - voice.low, b.bright), b.bright);
-                mixed = multiply(voice.brighter * 2, burst);
-            }
-            voice.space.run(white, b.room_frequency, room_damping);
-            md::smooth(voice.air2, md::smooth(voice.air1, voice.space.band, b.room_pole), b.room_pole);
-            mixed += multiply(voice.air2, room) * 4;
-            output[i] = md::finish(mixed * 3);
-            burst += burst_slope;
-            room += room_slope;
-        }
+        i32 white[opxy::block_frames], mixed[opxy::block_frames];
+        run_room(voice, b, room, room_slope, white, mixed);
+        if (clapping) run_hands(voice, b.highpass, b.bright, burst, burst_slope, white, mixed);
+        run_finish(mixed, output);
         return;
     }
-    for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        // Each hand starts on its beat, nudged by CLPY; the room opens with the last.
-        const i32 white = md::noise_eighth(voice.seed);
-        if (voice.fired < hands && voice.clock >= voice.next) {
-            voice.burst = md::one;
-            if (++voice.fired == hands) voice.room = b.room_level;
-            // white is +-1/8: times 4 and the looseness, up to half a gap either way.
-            // The Machinedrum's gaps are uneven, the second an eighth longer and the third an eighth shorter.
-            const i32 even = voice.fired == 2 ? b.gap + b.gap / 8 : voice.fired == 3 ? b.gap - b.gap / 8 : b.gap;
-            voice.next = voice.clock + static_cast<u32>(even + multiply(multiply(white * 4, b.looseness), b.gap));
-        }
-        ++voice.clock;
-        md::smooth(voice.low, white, b.highpass);
-        md::smooth(voice.brighter, md::smooth(voice.bright, white - voice.low, b.bright), b.bright);
-        voice.space.run(white, b.room_frequency, room_damping);
-        md::smooth(voice.air2, md::smooth(voice.air1, voice.space.band, b.room_pole), b.room_pole);
-        const i32 hands = multiply(voice.brighter * 2, voice.burst);
-        const i32 room = multiply(voice.air2, voice.room) * 4;
-        output[i] = md::finish((hands + room) * 3);
-        voice.burst = multiply(voice.burst, b.burst_step);
-        voice.room = multiply(voice.room, b.room_step);
-    }
+    run_starting(voice, b, output);
 }
 }
 }
