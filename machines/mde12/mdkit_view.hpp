@@ -25,7 +25,7 @@ using opxy::u16;
 // the change it makes to the sound (the root of its share of 24 dB of band energy, at least 0.5).
 static const opxy::u16 travel[33][8] = {
     {128, 184, 183, 137, 132, 180, 128, 170},   // TRX-BD: PTCH 5.6, DEC 12.4, RAMP 12.2, RDEC 6.9, STRT 6.4, NOIS 11.8, HARM 1.1, CLIP 10.6
-    {128, 239, 128, 128, 142, 128, 128, 203},   // TRX-SD: PTCH 0.7, DEC 21.0, BUMP 0.8, BENV 0.5, SNAP 7.4, TONE 5.9, TUNE 4.8, CLIP 15.0
+    {157, 239, 128, 128, 142, 128, 128, 203},   // TRX-SD: PTCH 9.0, DEC 21.0, BUMP 0.8, BENV 0.3, SNAP 7.4, TONE 5.8, TUNE 4.7, CLIP 15.1
     {208, 256, 128, 137, 128, 160, 128, 0},   // TRX-XT: PTCH 15.8, DEC 27.9, RAMP 5.7, RDEC 6.8, DAMP 3.8, DIST 9.3, DTYP 1.5
     {128, 128, 128, 227, 256, 128, 163, 128},   // TRX-CP: CLPY 3.1, TONE 2.6, HARD 4.0, RICH 18.9, RATE 24.9, ROOM 3.6, RSIZ 9.7, RTUN 5.8
     {196, 256, 220, 0, 0, 0, 0, 0},   // TRX-RS: PTCH 14.1, DEC 33.5, DIST 17.7
