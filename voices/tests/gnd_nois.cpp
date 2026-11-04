@@ -83,6 +83,13 @@ double low_share(const opxy::i32* out) {
     return low / all;
 }
 
+// Zero crossings a second, after the first tenth of a second.
+double crossings(const opxy::i32* out) {
+    unsigned n = 0;
+    for (unsigned i = 4411; i < kFrames; ++i) n += (out[i] < 0) != (out[i - 1] < 0);
+    return n * 44100.0 / (kFrames - 4411);
+}
+
 int main() {
     static opxy::i32 out[kFrames];
     static md::gnd_nois::State voice;
@@ -110,6 +117,33 @@ int main() {
     std::printf("ST 127: %.2f x, with STON %.2f x\n", s, s_on);
     check("ST raises the level", s > 1.3 && s < 1.5);
     check("STON leaves the level", s_on > 0.95 && s_on < 1.05);
+    // The key and TUNE: the red part passes a two-pole high-pass an octave under the
+    // played note, so a higher note is a brighter, thinner rush. On the Monomachine
+    // at RED 127 the zero-crossing rate is about 900 a second at C2, 1700 at C4 and
+    // 4000 at C6 (ours 1200, 2550, 5090); the level falls 2.1 x from C2 to C4 (ours
+    // 2.0 x); TUNE 0 .. 127 moves the rate 1.16 x (ours 1.18 x). Up to v1.2.3 the
+    // key and TUNE did nothing here. At RED 0 the key leaves the noise alone.
+    play(NOIS, red, out, 65.406);
+    const double c2 = crossings(out), c2_rms = rms(out, 4410, kFrames - 4410);
+    play(NOIS, red, out);
+    const double c4 = crossings(out), c4_rms = rms(out, 4410, kFrames - 4410);
+    play(NOIS, red, out, 1046.502);
+    const double c6 = crossings(out);
+    const int red_down[8] = {0, 127, 0, 0, 0, 0, 0, 0}, red_up[8] = {0, 127, 0, 0, 0, 0, 0, 127};
+    play(NOIS, red_down, out);
+    const double t0 = crossings(out);
+    play(NOIS, red_up, out);
+    const double t127 = crossings(out);
+    play(NOIS, white, out, 65.406);
+    const double w2 = crossings(out);
+    play(NOIS, white, out, 1046.502);
+    const double w6 = crossings(out);
+    std::printf("RED 127 crossings/s C2 %.0f, C4 %.0f, C6 %.0f; level C2/C4 %.2f; TUNE 0 %.0f, 127 %.0f; white C2 %.0f, C6 %.0f\n",
+                c2, c4, c6, c2_rms / c4_rms, t0, t127, w2, w6);
+    check("the key moves RED's noise up", c4 / c2 > 1.35 && c6 / c4 > 1.8);
+    check("the key's level falls as on the original", c2_rms / c4_rms > 1.5 && c2_rms / c4_rms < 2.4);
+    check("TUNE moves RED's noise", t127 / t0 > 1.08 && t127 / t0 < 1.3);
+    check("the key leaves white noise alone", w6 / w2 > 0.9 && w6 / w2 < 1.1);
     // Every setting stays inside the ceiling.
     bool ok = true;
     for (int setting = 0; setting < 3; ++setting) {

@@ -57,7 +57,7 @@ measures for our machine beside it:
 | `reference/fit_sid_6581.py` | SID-6581 (Monomachine) plays MIDI pitch, within 1.3 cents from note 24 to 108. TRI, SAW (falling) and PULS share one amplitude; PW is symmetric, duty 1 - \|PW - 64\| / 128, so PW 64 is silent; PWAD sweeps PW at 40 to 332 steps a second, wrapping, from PW at the note with PWRS on; MIX is one fixed shape 10 dB under the saw; NOIS is noise held 16 times a cycle. TUNE is +-2 semitones. MFRQ puts the modulator at 2^((MFRQ - 32) / 32) x 261.6 Hz on every key; RING ignores WAVE (the triangles and 1.1 x their product, its difference tones high-passed near 200 Hz, 8.4 dB under the saw); SYNC restarts WAVE at the modulator's pitch half way through its cycle each cycle of the note (R+S: at its start). The output rolls off above 2 kHz |
 | `reference/fit_vo_6.py` | VO-6 is a buzz of impulses (or noise) through four resonances in cascade, each with unity gain at DC; VOC1 is the first formant, VOC2 the second; the level is held whatever the formants. Twenty consonants on CONS, lengthened by CLEN and scaled by CVOL. [VO-6](#vo-6) has the details |
 | `reference/fit_swave.py` | SWAVE-SAW is a main saw, a pair at +-UNIW (0 to 53.7 cents, linear) at UNIL's level and an inner pair at half the detune at UNIX x UNIL, all starting in phase; SUBX is a saw an octave down, SUB1 and SUB2 sines one and two octaves down. SWAVE-PULSE's duty runs 1% to 99% over PW; PWAD sweeps it on, wrapping, at 0.0422 cycles a second per step, and PWRS restarts the sweep at the note. SWAVE-ENS's PCH2..4 pick 33 sorted intervals (-12 to +12 semitones, just 6:5, 5:4, 4:3, 3:2 both ways, off at 61..63); WAVE crossfades the saw into a pulse an octave down whose duty is PW / 128 |
-| `reference/fit_mgnd.py` | GND-SIN is a pure sine; GND-NOIS is white noise rolled off above 7 kHz, turning red (a 1-pole near 170 Hz) with RED and loudest near its middle; ST adds up to +2.9 dB while STON is off |
+| `reference/fit_mgnd.py` | GND-SIN is a pure sine; GND-NOIS is white noise rolled off above 7 kHz, turning red with RED and loudest near its middle; the red part falls 6 dB an octave through a two-pole high-pass at half the played note, which TUNE moves +-2 semitones; ST adds up to +2.9 dB while STON is off |
 | `reference/fit_fmp.py` | FM+STAT, FM+PAR and FM+DYN (Monomachine; note 60 = 261.9 Hz) are one sine carrier at the note, true-FM modulated by two (STAT, DYN) or three (PAR) sine modulators in parallel at ratios of it. A depth control (and an ENV control up to 64) is an index of (pi/2)(v/64)^2 radians to 64, then a line to about 14 at 127; an ENV above 64 is an exponential decay of the index (about 22 s at 72, 95 ms at 96, 7.6 ms at 124) that does not follow the key. STAT and PAR's FRQ steps through 24 listed ratios, 1:64 to 4; DYN's 1FRQ is v/64 and 2FRQ (v/64)^2, 127 counting as 128. DYN's 1FEN sweeps M1's ratio and 1VEN its depth at the start, both signed about 64. Feedback (1FB, 2FB) adds harmonics to 32 and from about 48 shifts the carrier's pitch up (1FB 64: 323 Hz). TONE is a low-pass on the modulators that darkens high ratios and high notes first. TUNE is +-2 semitones |
 | `reference/fit_dpro.py` | The Monomachine's DigiPRO machines; below |
 | `reference/fit_efm_bd.py` | EFM-BD is a sine carrier, 25.7 Hz x 2^(3.96 PTCH), frequency-modulated by a sine at MFRQ / 16 of it (0 plays as 1/16) with a deviation of MOD / 16 times the carrier; RAMP starts the pitch RAMP / 16 times higher, settling at RDEC's rate (1.8 ms to 2.4 s); MDEC is the deviation's decay; MFB feeds the modulator back one sample late, which pulls the carrier down (102 Hz to 23 Hz by MFB 48) and goes chaotic near the top. DEC falls over a quiet tail from -20 dB |
@@ -411,9 +411,10 @@ Where ours knowingly differs, by measurement:
   way by CHRW, drifting +-3 cents over two seconds. The original's beats about
   3 Hz at middle C and drifts the pitch +-9 cents over a few seconds; CHRW
   barely changes it. The levels match within 5%.
-- **GND-NOIS** keeps 15 dB more above 12.8 kHz than the original, and about
-  3 dB more under 100 Hz when red. The original's ST is presumably a stereo
-  control; heard in mono it is the level change above.
+- **GND-NOIS** keeps 15 dB more above 12.8 kHz than the original, and the
+  original's top above 8 kHz darkens at high notes (about 20 dB at 11 kHz
+  from C4 to C8) where ours stays put. The original's ST is presumably a
+  stereo control; heard in mono it is the level change above.
 
 ### Where FM+ knowingly differs
 

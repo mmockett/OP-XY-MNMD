@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fits the Monomachine's GND-SIN and GND-NOIS (voices/gnd_sin.hpp, gnd_nois.hpp).
 
-    ../open-xy/.venv/bin/python reference/fit_mgnd.py [sin|nois ...]
+    ../open-xy/.venv/bin/python reference/fit_mgnd.py [sin|nois|key ...]
 
 Notes are held (the AMP page's HOLD at 127) and measured while they sound, as
 "MNM / ours" after each engine's gain (GAIN): our output is the Monomachine's
@@ -11,11 +11,18 @@ What the Monomachine was found to do:
 - GND-SIN: a pure sine at the played key (harmonics 60 dB down), peaking at
   0.183 of the output; TUNE +-2 semitones about 64, continuous.
 - GND-NOIS: white noise rolled off above about 7 kHz. RED fades it into red
-  noise, the octave bands falling 3 to 4 dB an octave above 150 Hz at 127, and
-  is loudest near 64. ST raises the level up to +2.9 dB while STON is off, and
-  does nothing with STON on; TUNE and the played key leave the noise alone.
+  noise, loudest near 64. ST raises the level up to +2.9 dB while STON is off,
+  and does nothing with STON on.
+- GND-NOIS's key: the red part is noise falling 6 dB an octave (to 31 Hz and
+  below) through a two-pole Butterworth high-pass at half the played note's
+  frequency (-3 dB at 131 Hz for middle C, -12 dB an octave under), which
+  TUNE moves +-2 semitones. So at RED 127 the zero-crossing rate rises about
+  4.5 x from C2 to C6 and the level falls about 2 x an octave pair. The white
+  part keeps its level and low end at every key; only its top above 8 kHz
+  darkens at high notes (about -5 dB at 8 kHz and -20 at 11 kHz from C4 to
+  C8), which ours leaves out.
 `nois` also prints the white and red levels that best fit each RED step (the
-tables in gnd_nois.hpp), solved from the octave bands.
+tables in gnd_nois.hpp), solved from the octave bands; `key` the key and TUNE.
 """
 import sys
 
@@ -90,6 +97,26 @@ def nois():
         print(f"  red{v:<6}white %.3f  red %.3f" % tuple(coef))
 
 
+def key():
+    print("GND-NOIS's key and TUNE")
+    notes = (24, 36, 48, 60, 72, 84, 96, 108)
+    jobs = [(f"k{red}-n{n}", 1.6, [0, red, 0, 0, 0, 0, 0, 64], f"note={n}") for red in (0, 64, 127) for n in notes]
+    jobs += [(f"k127-t{t}", 1.6, [0, 127, 0, 0, 0, 0, 0, t], "") for t in (0, 32, 96, 127)]
+    r = both("GND-NOIS", jobs)
+
+    def crossings(x, a=0.3, b=1.4):
+        seg = x[int(a * SR):int(b * SR)]
+        return np.mean(np.signbit(seg[1:]) != np.signbit(seg[:-1])) * SR
+    print(" rms and zero crossings a second, MNM / ours")
+    for t, *_ in jobs:
+        m, o = r[t]
+        print(f"  {t:<10} %.4f / %.4f   %6.0f / %6.0f" % (rms(m, 0.3, 1.4), rms(o, 0.3, 1.4), crossings(m), crossings(o)))
+    print(" octave bands (dB of the whole) at RED 127 from", EDGES[:-1])
+    for n in notes:
+        for side, x in zip(("MNM ", "ours"), r[f"k127-n{n}"]):
+            e = bands(x); print(f"  n{n:<4}{side} " + " ".join("%6.1f" % (10 * np.log10(a / e.sum())) for a in e))
+
+
 if __name__ == "__main__":
-    for w in sys.argv[1:] or ["sin", "nois"]:
-        {"sin": sin, "nois": nois}[w]()
+    for w in sys.argv[1:] or ["sin", "nois", "key"]:
+        {"sin": sin, "nois": nois, "key": key}[w]()
