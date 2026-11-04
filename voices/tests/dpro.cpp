@@ -212,12 +212,12 @@ int main() {
         check("DPRO-DDRW D08 RND: sets two apart unrelated", apart < 0.25);
     }
 
-    // DPRO-DENS: SINE (D01) voices, a quarter of DDRW's level each.
+    // DPRO-DENS: SINE (D01) voices, a quarter of DDRW's level each, then the engine's 6.9 dB.
     {
         const int alone[8] = {62, 62, 62, 0, 0, 0, 0, 64};
         play(dens, md::dpro_dens::reset, md::dpro_dens::trigger, md::dpro_dens::render, alone, out);
         const double one = tone(out, 4410, 8820, 261.63);
-        check("DPRO-DENS with PCH2..4 OFF (62) is one voice, a quarter of DDRW's (0.045)", one > 0.040 && one < 0.050);
+        check("DPRO-DENS with PCH2..4 OFF (62) is one voice, a quarter of DDRW's (0.045) 6.9 dB up", one > 0.089 && one < 0.111);
         const int fifth[8] = {101, 62, 62, 0, 0, 0, 0, 64};   // +7
         play(dens, md::dpro_dens::reset, md::dpro_dens::trigger, md::dpro_dens::render, fifth, out);
         check("DPRO-DENS PCH2 101 adds a fifth", tone(out, 4410, 8820, 392.0) > 0.04);
