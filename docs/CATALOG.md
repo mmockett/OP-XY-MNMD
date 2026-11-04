@@ -9,13 +9,30 @@ repository's other tools use. Each engine here can join as its own entry,
 
 ## Where each engine stands
 
-| Engines | Ready? | What it needs |
-| --- | --- | --- |
-| `mmdyn` `mmnois` `mmpar` `mmstat` `mmvo6` | Yes: published from `v1.2.3`, lighter with the same output, with sweep `cpu` records (`opxy-synth-c8-sweep-v1`) | |
-| `mmens` `mmpulse` `mmsid` | Yes: submitted in etcetc000/open-xy#168 at `v1.1.3`, with two-page controls and hardware CPU records from that commit | Review and merge |
-| `mmsaw` `mmsin` | Yes | Their absent slots are upstream's, since #218 |
-| `mdkit` | Yes: published from `v1.2.2`, with a drum `cpu` record (`opxy-drum-callback-v1`) | The drum kind landed with etcetc000/open-xy#121 |
-| `mde12` `mmbbox` `mmddrw` `mmdens` `mmwave` | Never | Samples and waves captured from the owner's ROM, which can't be published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots |
+Published on the catalog's `main`, so live in the open-xy.com builder, which
+installs the tag the catalog pins. CPU is the catalog record's
+`block_percent`: the heaviest setting of a sweep, or the heaviest voice for
+MD KIT.
+
+| Engine | Builder | Catalog tag | CPU record | CPU |
+| --- | --- | --- | --- | ---: |
+| `mdkit` | [Live](https://open-xy.com/#preview/machines/mdkit) | `v1.2.2` | `opxy-drum-callback-v1` | 3.09% |
+| `mmdyn` | [Live](https://open-xy.com/#preview/machines/mmdyn) | `v1.2.3` | `opxy-synth-c8-sweep-v1` | 3.27% |
+| `mmpar` | [Live](https://open-xy.com/#preview/machines/mmpar) | `v1.2.3` | `opxy-synth-c8-sweep-v1` | 3.22% |
+| `mmstat` | [Live](https://open-xy.com/#preview/machines/mmstat) | `v1.2.3` | `opxy-synth-c8-sweep-v1` | 2.84% |
+| `mmvo6` | [Live](https://open-xy.com/#preview/machines/mmvo6) | `v1.2.3` | `opxy-synth-c8-sweep-v1` | 2.03% |
+| `mmnois` | [Live](https://open-xy.com/#preview/machines/mmnois) | `v1.2.3` | `opxy-synth-c8-sweep-v1` | 1.54% |
+| `mmens` | [Live](https://open-xy.com/#preview/machines/mmens) | `v1.1.9` | `opxy-synth-c8-v1`, from `v1.1.3` | 2.80% |
+| `mmpulse` | [Live](https://open-xy.com/#preview/machines/mmpulse) | `v1.1.9` | `opxy-synth-c8-v1`, from `v1.1.3` | 2.64% |
+| `mmsid` | [Live](https://open-xy.com/#preview/machines/mmsid) | `v1.1.9` | `opxy-synth-c8-v1`, from `v1.1.3` | 1.87% |
+| `mmsaw` | [Live](https://open-xy.com/#preview/machines/mmsaw) | `v1.1.9` | `opxy-synth-c8-sweep-v1` | 2.48% |
+| `mmsin` | [Live](https://open-xy.com/#preview/machines/mmsin) | `v1.1.9` | `opxy-synth-c8-sweep-v1`, from `v1.1.6` | 1.75% |
+
+A pinned tag can be older than this repository's latest, `v1.2.3`.
+
+`mde12`, `mmbbox`, `mmddrw`, `mmdens` and `mmwave` are never in the catalog:
+they play samples and waves captured from the owner's ROM, which can't be
+published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots.
 
 ## Linking with other machines
 
@@ -76,9 +93,9 @@ for the ready engines. It uses a checkout of etcetc000/open-xy's `staging` at
    `catalog-cpu.json`. Its `cpu` member goes in the catalog entry. Keep the
    runs private, because they hold the device's serial number.
 
-The firmware holds only the ready engines, so the drum kits and other
-engines aren't on the device while it's installed. They need the fork's
-OS 1.2.0 build anyway.
+The firmware holds only the catalog's synths, so the drum kits and other
+engines aren't on the device while it's installed. MD E12 and the DPRO
+engines need the fork's OS 1.2.0 build anyway.
 
 Engine numbers come from each firmware's layout, so `identity` in
 `machine.json` is only a request. Synths share engines 34..62 with every other

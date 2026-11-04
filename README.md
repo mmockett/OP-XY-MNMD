@@ -56,12 +56,11 @@ its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The
 
 - macOS (the tools are written for it, though most of them run elsewhere).
 - Python 3.12, Node 22, Homebrew's `llvm` and `lld`.
-- The Open-XY SDK with drum-kit support. That support is in pull request
-  [#121](https://github.com/etcetc000/open-xy/pull/121), plus the device fixes
-  in [#143](https://github.com/etcetc000/open-xy/pull/143) on top
-  of it, and the two-page synth controls from upstream `staging`
-  (#125 and its follow-ups). Until those are merged, use the fork's branch
-  below.
+- The Open-XY SDK with drum-kit support. Upstream `staging` has it since
+  pull requests [#121](https://github.com/etcetc000/open-xy/pull/121) and
+  [#143](https://github.com/etcetc000/open-xy/pull/143) merged, with the
+  two-page synth controls (#125 and its follow-ups). These tools build for
+  OS 1.2.0 on the fork's branch below.
 - To put the engines on a device: an OP-XY on **OS 1.2.0** exactly, a USB
   cable, and the Open-XY Blackfin toolchain.
 - Only for E12 and DPRO's sounds, or for comparing against the originals:
@@ -126,6 +125,24 @@ The captures go to `~/Library/Application Support/OPXY-MD/private/`, and
 ignores them. Never commit them.
 
 ## Put it on the OP-XY
+
+MD KIT and ten of the Monomachine engines are live in the
+[open-xy.com](https://open-xy.com) builder, which builds them into a copy of
+your own OS 1.2.1 with none of the tools here:
+[MD KIT](https://open-xy.com/#preview/machines/mdkit),
+[SWAVE-SAW](https://open-xy.com/#preview/machines/mmsaw),
+[SWAVE-PULSE](https://open-xy.com/#preview/machines/mmpulse),
+[SWAVE-ENS](https://open-xy.com/#preview/machines/mmens),
+[SID-6581](https://open-xy.com/#preview/machines/mmsid),
+[FM STAT](https://open-xy.com/#preview/machines/mmstat),
+[FM PAR](https://open-xy.com/#preview/machines/mmpar),
+[FM DYN](https://open-xy.com/#preview/machines/mmdyn),
+[VO-6](https://open-xy.com/#preview/machines/mmvo6),
+[GND-SIN](https://open-xy.com/#preview/machines/mmsin) and
+[GND-NOIS](https://open-xy.com/#preview/machines/mmnois).
+[docs/CATALOG.md](docs/CATALOG.md) lists the version it installs for each.
+MD E12 and the DPRO engines need your own ROM's captures, so they aren't
+there; build them as below.
 
 Open-XY links these engines into a copy of your own OP-XY's OS, and you
 install the result from the device's boot menu. It is unofficial and
