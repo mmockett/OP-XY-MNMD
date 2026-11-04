@@ -78,10 +78,10 @@ int main() {
     char what[96];
 
     // ---- FM+STAT: 1FRQ 1FIN 1ENV 1FB / 2FRQ 2VOL TONE TUNE
-    // No depth: a pure sine at the note, at a quarter of full scale.
+    // No depth: a pure sine at the note, at STAT's level (a quarter of full scale, -4.4 dB).
     const int pure[8] = {82, 64, 0, 0, 82, 0, 64, 64};
     stat(pure, out);
-    check("STAT sounds at a quarter of full scale", std::fabs(level(out, 22050, 8820, kMiddleC) - 0.25) < 0.02);
+    check("STAT sounds at its level", std::fabs(level(out, 22050, 8820, kMiddleC) - md::fmp::stat_level / 2147483648.0) < 0.015);
     check("STAT with no depth is a pure sine", harmonic(out, 22050, 2) < -60);
 
     // Static depths, as on the Monomachine at ratio 1 (TONE 64): 2VOL 32 gives the
@@ -139,10 +139,10 @@ int main() {
 
     // Pitch: an octave up doubles; TUNE 127 is about +2 semitones.
     stat(pure, out, 72);
-    check("STAT tracks the key", level(out, 22050, 8820, 2 * kMiddleC) > 0.2);
+    check("STAT tracks the key", level(out, 22050, 8820, 2 * kMiddleC) > 0.8 * md::fmp::stat_level / 2147483648.0);
     const int tuned[8] = {82, 64, 0, 0, 82, 0, 64, 127};
     stat(tuned, out);
-    check("STAT TUNE 127 is +2 semitones", level(out, 22050, 8820, kMiddleC * std::pow(2.0, 63 / 32.0 / 12)) > 0.2);
+    check("STAT TUNE 127 is +2 semitones", level(out, 22050, 8820, kMiddleC * std::pow(2.0, 63 / 32.0 / 12)) > 0.8 * md::fmp::stat_level / 2147483648.0);
 
     // ---- FM+PAR: 1FRQ 1ENV 2FRQ 2ENV / 3FRQ 3ENV TONE TUNE
     const int par_pure[8] = {82, 0, 104, 0, 114, 0, 64, 64};

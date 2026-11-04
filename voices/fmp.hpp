@@ -193,8 +193,12 @@ inline i32 target(Op& op, i32 control, i32 peak, bool fresh) {
     return multiply(peak, op.envelope);
 }
 
-// The carrier's level: a quarter of full scale, as the other Monomachine engines.
-inline i32 level(i32 carrier) { return opxy::q31::half(opxy::q31::half(carrier)); }
+// The carrier's level, Q31: each engine's own, set so the Monomachine engines
+// and Max's other synths play at one loudness (about -21 LUFS-M on a held note,
+// the level pass of 2026-11-04). The Monomachine's was a quarter of full scale.
+const i32 stat_level = 323496715;   // 0.25 x -4.4 dB
+const i32 par_level = 285016416;    // 0.25 x -5.5 dB
+const i32 dyn_level = 265992796;    // 0.25 x -6.1 dB
 
 // The carrier's swings move in a straight line through each block.
 struct Ramp {
@@ -257,7 +261,7 @@ __attribute__((noinline)) inline void add_swing(i32* swings, Op& m, const Ramp& 
 // -most, most). As own >= 0 and most >= own, that
 // is own + the swing held within -most - own .. most - own (the low end no
 // further than the swing can reach), without saturating on the way.
-__attribute__((noinline)) inline void carry(opxy::Output out, const i32* swings, u32& phase_of, u32 carrier) {
+__attribute__((noinline)) inline void carry(opxy::Output out, const i32* swings, u32& phase_of, u32 carrier, i32 level) {
     const i32 own = static_cast<i32>(carrier > 0x7fffffffu ? 0x7fffffffu : carrier);
     const i32 most = own > limit ? own : limit;
     const u32 below = static_cast<u32>(most) + static_cast<u32>(own);   // -low, at most 2^32 - 2
@@ -265,7 +269,7 @@ __attribute__((noinline)) inline void carry(opxy::Output out, const i32* swings,
     const i32 high = most - own;
     u32 phase = phase_of;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = level(md::sine(phase));   // a quarter of full scale at most: inside md::finish
+        out[i] = multiply(md::sine(phase), level);   // under a quarter of full scale: inside md::finish
         i32 x = swings[i];
         x = x > high ? high : x;
         x = x < low ? low : x;
@@ -380,7 +384,7 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
     i32 swings[opxy::block_frames];
     fmp::own_swing(swings, v.m1, s1, b.fb);
     fmp::add_swing(swings, v.m2, s2);
-    fmp::carry(out, swings, v.carrier, b.carrier);
+    fmp::carry(out, swings, v.carrier, b.carrier, fmp::stat_level);
 }
 }
 
@@ -456,7 +460,7 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
     fmp::first_swing(swings, v.m[0], s[0]);
     fmp::add_swing(swings, v.m[1], s[1]);
     fmp::add_swing(swings, v.m[2], s[2]);
-    fmp::carry(out, swings, v.carrier, carrier);
+    fmp::carry(out, swings, v.carrier, carrier, fmp::par_level);
 }
 }
 
@@ -604,7 +608,7 @@ inline void render(State& v, Common&, opxy::Output out, const i32* p, opxy::Pitc
     i32 swings[opxy::block_frames];
     fmp::own_swing(swings, v.m2, s2, b.fb);
     fmp::add_swing(swings, v.m1, s1);
-    fmp::carry(out, swings, v.carrier, b.carrier);
+    fmp::carry(out, swings, v.carrier, b.carrier, fmp::dyn_level);
 }
 }
 }

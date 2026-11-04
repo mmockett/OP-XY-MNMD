@@ -88,7 +88,7 @@ int main() {
     play(SIN, rest, out);
     double most = 0;
     for (unsigned i = 0; i < kFrames; ++i) most = std::max(most, std::fabs(out[i] / 2147483648.0));
-    check("the fitted level", most > 0.36 && most < 0.372);
+    check("the level", most > 0.150 && most < 0.156);
     check("a pure sine", line(out, 13230, 30870, 2 * kMiddleC) < 0.001 * line(out, 13230, 30870, kMiddleC));
     check("starts at zero", std::fabs(out[0] / 2147483648.0) < 0.001);
     // TUNE: +-2 semitones about 64.
