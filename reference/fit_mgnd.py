@@ -17,12 +17,17 @@ What the Monomachine was found to do:
   below) through a two-pole Butterworth high-pass at half the played note's
   frequency (-3 dB at 131 Hz for middle C, -12 dB an octave under), which
   TUNE moves +-2 semitones. So at RED 127 the zero-crossing rate rises about
-  4.5 x from C2 to C6 and the level falls about 2 x an octave pair. The white
-  part keeps its level and low end at every key; only its top above 8 kHz
-  darkens at high notes (about -5 dB at 8 kHz and -20 at 11 kHz from C4 to
-  C8), which ours leaves out.
+  3.2 x from C2 to C6 and the level falls about 2 x an octave pair. The white
+  part keeps its level and low end at every key, but its top darkens as the
+  key rises: its centroid falls from 5.1 kHz at C1 to 2.7 kHz at C7 (0.93
+  octave), steeply above a corner near 15 kHz at C1 and 10 kHz at C8 (`top`).
+- GND-NOIS's unnamed slots (3 to 6, the "-" on its LCD) do nothing measurable:
+  at RED 0, 64 and 127, notes 36, 60 and 84, and with STON on, each at 32 and
+  127 moves the level and octave bands no more than rendering the same
+  setting twice does (`slots`).
 `nois` also prints the white and red levels that best fit each RED step (the
-tables in gnd_nois.hpp), solved from the octave bands; `key` the key and TUNE.
+tables in gnd_nois.hpp), solved from the octave bands; `key` the key and TUNE;
+`top` the white top's corner at each key (gnd_nois.hpp's top_pole_of).
 """
 import sys
 
@@ -117,6 +122,64 @@ def key():
             e = bands(x); print(f"  n{n:<4}{side} " + " ".join("%6.1f" % (10 * np.log10(a / e.sum())) for a in e))
 
 
+def mm_only(jobs):
+    """The Monomachine's GND-NOIS alone, held: (name, seconds, slots, options) -> {name: samples}."""
+    r = render_many([(f"mgnois-{t}", ID["GND-NOIS"], s, v, f"gate={s - 0.1:.1f} {HOLD} {o}".strip()) for t, s, v, o in jobs], "mm")
+    return {t: r[f"mgnois-{t}"] * GAIN["GND-NOIS"] for t, s, v, o in jobs}
+
+
+def slots():
+    print("GND-NOIS's unnamed slots: the level (dB) and the largest octave band's move (dB) against the base;"
+          " the base rendered twice shows the spread")
+    jobs = []
+    for red, ston in ((0, 0), (64, 0), (127, 0), (64, 127)):
+        for n in (36, 60, 84) if not ston else (60,):
+            base = [0, red, ston, 0, 0, 0, 0, 64]
+            jobs += [(f"slot-r{red}-o{ston}-n{n}-base", 1.6, base, f"note={n}"), (f"slot-r{red}-o{ston}-n{n}-again", 1.6, base, f"note={n} ")]
+            for slot in (3, 4, 5, 6):
+                for v in (32, 127):
+                    p = list(base); p[slot] = v
+                    jobs.append((f"slot-r{red}-o{ston}-n{n}-s{slot}v{v}", 1.6, p, f"note={n}"))
+    r = mm_only(jobs)
+
+    def moved(a, b):
+        ea, eb = bands(a), bands(b)
+        keep = ea > ea.sum() * 1e-3
+        return db(rms(a, 0.3, 1.4)) - db(rms(b, 0.3, 1.4)), np.abs(10 * np.log10(ea[keep] / eb[keep])).max()
+    for t, *_ in jobs:
+        if t.endswith("-base"):
+            continue
+        base = t.rsplit("-", 1)[0] + "-base"
+        level, band = moved(r[t], r[base])
+        print(f"  {t:<26} level {level:+5.2f}  band {band:4.1f}")
+
+
+def top():
+    """The white part's top at each C: a pair of 1-poles whose corner gives the original's centroid."""
+    print("GND-NOIS's white top: the original's centroid at RED 0 and the pair of 1-poles' corner that gives it")
+    notes = (24, 36, 48, 60, 72, 84, 96, 108)
+    r = mm_only([(f"k0-n{n}", 1.6, [0, 0, 0, 0, 0, 0, 0, 64], f"note={n}") for n in notes])
+    f = np.linspace(15, SR / 2, 20000)
+
+    def centroid(fc):   # white noise through the pair; our measure reads 0.990 of it (5676 Hz at the old 8 kHz)
+        a = 1 - np.exp(-2 * np.pi * fc / SR)
+        p = np.abs(a / (1 - (1 - a) * np.exp(-2j * np.pi * f / SR))) ** 4
+        return 0.990 * (p * f).sum() / p.sum(), p.mean()
+    corners = []
+    for n in notes:
+        seg = r[f"k0-n{n}"][int(0.3 * SR):int(1.4 * SR)]
+        s = np.abs(np.fft.rfft(seg * np.hanning(len(seg)))) ** 2; fr = np.fft.rfftfreq(len(seg), 1 / SR)
+        want = (s[fr >= 15] * fr[fr >= 15]).sum() / s[fr >= 15].sum()
+        lo, hi = 1000.0, 40000.0
+        for _ in range(60):
+            mid = (lo * hi) ** 0.5
+            lo, hi = (mid, hi) if centroid(mid)[0] < want else (lo, mid)
+        corners.append(mid)
+        print(f"  C{n // 12 - 1}  centroid {want:5.0f} Hz  corner {mid:5.0f} Hz  gain holding the level {np.sqrt(centroid(8000)[1] / centroid(mid)[1]):.3f}")
+    # The table runs C0 .. C8: C0's corner continues C1 and C2's ratio.
+    print("  C0 corner (extrapolated) %.0f Hz" % (corners[0] ** 2 / corners[1]))
+
+
 if __name__ == "__main__":
     for w in sys.argv[1:] or ["sin", "nois", "key"]:
-        {"sin": sin, "nois": nois, "key": key}[w]()
+        {"sin": sin, "nois": nois, "key": key, "slots": slots, "top": top}[w]()
