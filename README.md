@@ -192,9 +192,10 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   H4.0k, and back to the middle (OPEN) for none. **Encoder 2** is SRR, the
   Machinedrum's sample-rate reduction, from OFF through 22k down to 689 Hz.
   Every key has the second row, a machine with four or fewer controls too.
-  **Encoders 3 and 4** (FX I and FX II) set how much of the track's sends the
-  key passes: TRK follows the track, then 0 (dry) up to 86. A kick can stay
-  dry while the snare goes to the reverb.
+  **Encoders 3 and 4** (FX I and FX II) set the key's own sends: TRK follows
+  the track's send, then 0 (dry) up to 100, whatever the track's send is. A
+  kick can stay dry while the snare goes to the reverb, even with the track's
+  sends at 0.
 - **Eight controls a key:** the four encoders hold the machine's first four
   controls. **Press an encoder** to switch it to its alternate (controls 5
   to 8), and press it again to switch back. The labels and values follow the

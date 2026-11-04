@@ -274,7 +274,7 @@ def pad_mix_problems():
     spec.loader.exec_module(ruler)
     # MACHINE's value is the machine, its title the family ("trx" over "BD").
     names = [n.split("-", 1)[1] for e in sorted(make_engine.PAD_MIX) for n in catalog.ENGINES[e]]
-    sends = ["TRK", *(str(round((c - 1) * 100 / 7)) for c in range(1, 8))]
+    sends = ["TRK", *(str(round((c - 1) * 100 / 6)) for c in range(1, 8))]
     middle, last = 58, 55
     rows = [  # each Shift row's four columns: its captions and their room
         [(names, middle), (["none", "1", "2", "3"], middle), ([str(v) for v in range(-100, 101)], middle),

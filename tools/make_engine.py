@@ -888,13 +888,13 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     second_line = mixed
     if mixed:
         mix_values = f"""        // The key's own pan, -100..100 with 0 centred, and level in dB; and
-        // its sends: 0 follows the track's (TRK), 1..7 pass 0..86 percent of it.
+        // its sends: 0 follows the track's (TRK), 1..7 send its own 0..100 percent.
         char pan[8], level[8], sends[2][4];
         signed_text(pan, sizeof(pan), input.pan, "");
         signed_text(level, sizeof(level), input.level, "dB");
         for (u32 s = 0; s < 2; ++s) {{
             const i32 code = input.pad[2 + s];
-            if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 7, "");
+            if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 6, "");
             else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
         }}
 """
