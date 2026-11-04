@@ -245,11 +245,52 @@ def case_problems(played, recorded):
     return problems
 
 
+def pad_mix_problems():
+    """A padMix kit's (make_engine.PAD_MIX) presets keep each key's pan and level
+    within what its Shift row offers (pan -100..100, level -30..0 dB), and its
+    Shift captions fit the header in the device font (OP-XY-Dev
+    tools/caption_width.py, with XY_FONT naming the font; skipped without it).
+    A value has 53 px, 2 px clear of the next column's title; LEVEL sits in the
+    last column, whose room is the 55 px to the screen's edge, and its widest,
+    "-30dB", is 53.7 px."""
+    import importlib.util
+    import os
+    import catalog
+    import build_firmware
+    import make_engine
+    problems = []
+    for engine in sorted(make_engine.PAD_MIX):
+        for kit in catalog.ENGINE_KITS.get(engine, ()):
+            for region in build_firmware.kit_regions(engine, kit):
+                pan, gain = region.get("pan", 0), region.get("gain", 0)
+                if not (isinstance(pan, int) and -100 <= pan <= 100 and isinstance(gain, int) and -30 <= gain <= 0):
+                    problems.append(f"{engine} {kit} key {region['hikey']}: pan {pan}, gain {gain}")
+    tool = pathlib.Path(os.environ.get("CAPTION_WIDTH", ROOT.parent / "OP-XY-Dev" / "tools" / "caption_width.py"))
+    if not os.environ.get("XY_FONT") or not tool.is_file():
+        print("SKIP captions: set XY_FONT (and CAPTION_WIDTH if OP-XY-Dev is elsewhere) to measure them")
+        return problems
+    spec = importlib.util.spec_from_file_location("caption_width", tool)
+    ruler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ruler)
+    pans = [str(v) for v in range(-100, 101)]
+    levels = [f"{v}dB" for v in range(-30, 1)]
+    columns = [(pans, ruler.VALUE_ROOM), (levels, ruler.VALUE_ROOM + 2), (["none", "1", "2", "3"], ruler.VALUE_ROOM)]
+    for texts, room in columns:
+        for text in texts:
+            if ruler.width(text, ruler.VALUE_PX) > room:
+                problems.append(f"caption {text!r}: {ruler.width(text, ruler.VALUE_PX):.1f} px, room {room}")
+    for title in ("kit", "machine", "pan", "level", "choke"):   # the two-page header writes titles in lower case
+        if ruler.width(title, ruler.TITLE_PX) > ruler.TITLE_ROOM:
+            problems.append(f"title {title!r}: {ruler.width(title, ruler.TITLE_PX):.1f} px")
+    return problems
+
+
 def main():
     problems = []
     for check, passed, find in (("detents", "every stepped control moves a step a detent", detent_problems),
                                 ("slots", "no engine offers an empty slot as a control", slot_problems),
-                                ("presets", "every kit preset loads each key as its own sound", preset_problems)):
+                                ("presets", "every kit preset loads each key as its own sound", preset_problems),
+                                ("pad mix", "a padMix kit's presets and Shift captions fit its Shift row", pad_mix_problems)):
         found = find()
         for p in found:
             print(f"FAIL {check}: {p}")

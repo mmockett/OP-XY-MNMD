@@ -5,6 +5,21 @@
 // its family's panel on the right, at that key's values (a held step's locks
 // included), struck by each note.
 namespace mdkit {
+// A whole number and its unit, as stock shows a key's pan ("-40", "0", "40")
+// and level ("-6dB", "0dB"): no plus sign.
+inline void signed_text(char* out, u32 capacity, i32 value, const char* unit) {
+    char text[12];
+    u32 n = 0;
+    if (value < 0) { text[n++] = '-'; value = -value; }
+    if (value > 999) value = 999;
+    if (value >= 100) text[n++] = static_cast<char>('0' + value / 100);
+    if (value >= 10) text[n++] = static_cast<char>('0' + value / 10 % 10);
+    text[n++] = static_cast<char>('0' + value % 10);
+    for (u32 i = 0; unit[i] && n + 1 < sizeof(text); ++i) text[n++] = unit[i];
+    text[n] = 0;
+    opxy::draw::copy(out, capacity, text);
+}
+
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
@@ -79,12 +94,18 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
     }
     if (input.shift) {
-        static const char* const shift_titles[4] = {"KIT", "MACHINE", "CHOKE", ""};
-        const char* const shift_values[4] = {kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0], kit::model[selected].name, chokes[input.choices[2] & 3u], ""};
         const u32 row = input.shown[0] >= 4 ? 4 : 0;
+        // The key's own pan, -100..100 with 0 centred, and level in dB, as stock shows them.
+        char pan[8], level[8];
+        signed_text(pan, sizeof(pan), input.pan, "");
+        signed_text(level, sizeof(level), input.level, "dB");
+        // The second row's Shift: the choke group; the rest free.
+        static const char* const shift_titles[2][4] = {{"KIT", "MACHINE", "PAN", "LEVEL"}, {"CHOKE", "", "", ""}};
+        const u32 line = row ? 1 : 0;
+        const char* const shift_values[2][4] = {{kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0], kit::model[selected].name, pan, level}, {chokes[input.choices[2] & 3u], "", "", ""}};
         for (u32 c = 0; c < 4; ++c) {
-            titles[row + c] = shift_titles[c];
-            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
+            titles[row + c] = shift_titles[line][c];
+            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[line][c]);
         }
     }
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);

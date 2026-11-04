@@ -105,6 +105,7 @@
     "outputPeakQ31": 1073741824,
     "modelCount": 33,
     "chokeSameKey": 1,
+    "padMix": 1,
     "display": {
       "stateBytes": 44,
       "stateAlignment": 4,
