@@ -39,9 +39,10 @@ def slug(name):
 
 # The engines whose screens move with a note follow the track's amp envelope
 # (SDK 1.10's input.amp, docs/SCREEN.md). DPRO-WAVE's and DPRO-DDRW's screens
-# don't move with a note; MD KIT doesn't read it yet.
+# don't move with a note; MD KIT doesn't read it yet; DPRO-DENS waits for the
+# DPRO link fix, as only SDKs before 1.10 build its firmware.
 AMP_ENVELOPE = {"mmsaw", "mmpulse", "mmens", "mmsid", "mmstat", "mmpar", "mmdyn", "mmvo6", "mmsin", "mmnois",
-                "mmdens", "mmbbox", "mde12"}
+                "mmbbox", "mde12"}
 
 
 def moment(engine):

@@ -9,7 +9,8 @@
 With the envelope unknown each screen must draw exactly the frames recorded in
 tools/envelope_frames.json, from the screens before they read the envelope.
 Exits 1 if any engine draws other frames, moves at rest, changes more than 25
-nodes a frame on average, or keeps a pluck moving after its sound has gone.
+nodes a frame on average, or (an engine that reads the envelope, SDK 1.10)
+keeps a pluck moving after its sound has gone.
 """
 import argparse
 import json
@@ -26,11 +27,16 @@ ENGINES = sorted(p.name for p in (ROOT / "machines").iterdir() if p.name.startsw
 
 def run(engine, sdk, machines, out, cxx):
     folder = machines / engine
-    kit = json.loads((folder / "machine.json").read_text())["kind"] == "drum"
+    machine = json.loads((folder / "machine.json").read_text())
+    kit = machine["kind"] == "drum"
     exe = out / f"envelope-{engine}"
     flags = [cxx, "-std=c++11", "-O2", "-fwrapv", "-w", f"-I{sdk}/sdk/include", f"-I{folder}", f"-DENGINE={engine}"]
     if kit:
         flags.append("-DKIT")
+    # Only an engine that reads the envelope (SDK 1.10) is asked to follow it;
+    # the rest must draw the recorded frames whatever the envelope.
+    if machine["sdk"] == "1.10":
+        flags.append("-DFOLLOWS")
     subprocess.run([*flags, str(ROOT / "tools" / "check_envelope.cpp"), "-o", str(exe)], check=True)
     result = subprocess.run([str(exe)], capture_output=True, text=True)
     return result.returncode, result.stdout

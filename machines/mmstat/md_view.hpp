@@ -66,7 +66,7 @@ const i32 least = 154;
 template <class In>
 inline Amp amp_of(const In& input) {
     Amp a = {0, 0, 0, 0, 0};
-    if (!opxy::draw::envelope_known(input.amp)) return a;
+    if (!envelope_known(input.amp)) return a;   // unqualified: found when used, so older SDKs never need it
     a.known = 1;
     a.attack = seconds_of(input.amp.attack);
     a.decay = md::clamp(seconds_of(input.amp.decay), least, 1 << 20);

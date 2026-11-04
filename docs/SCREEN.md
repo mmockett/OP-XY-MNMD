@@ -202,12 +202,17 @@ and adds nothing to the drawing. All of it is in `md::view::Moment`
 | A sway or swell while held (`live::sway`, `live::swell`) | SWAVE-SAW, -PULSE, -ENS; FM STAT, PAR, DYN | its depth is the envelope's level, and it keeps moving through the release |
 | A turn (`live::turning`) | SID-6581 (its scroll and PW sweep), VO-6, GND-SIN | it turns as far as the level has carried the note, so it gathers speed over the attack and slows with the decay; a note with no sustain brings its turn home as it dies away; from the release it turns home as the release falls |
 | The noise running (`Moment::running`) | GND-NOIS | it runs at the level's speed, for as long as the sound lasts |
-| DENS's chorus copy | DPRO-DENS | comes down to the wave as far as the level, over the hit's first quarter second, and rises as the sound fades |
 | BBOX's playhead | DPRO-BBOX | goes back once the sound has faded; an envelope can cut a sample short, not play it past its end |
 | E12's tape run | MD E12 | runs no further than the level and comes back as the sound fades, within the hit's own 0.52 s |
 
 DPRO-WAVE and DPRO-DDRW don't move with a note, so they don't read it. MD
-KIT doesn't read it yet. With the envelope unknown (a host before SDK 1.10, the
+KIT doesn't read it yet. DPRO-DENS doesn't either, for now: its firmware fails
+to link on the SDK's `staging` ("multiple definition" of the DPRO wave tables,
+the COMDAT issue), so it stays on SDK 1.3 and builds on the fork. Its view
+already knows the envelope (the chorus copy comes down to the wave as far as
+the level over the hit's first quarter second, and rises as the sound fades);
+it will follow it once the DPRO link issue is fixed and it moves to 1.10
+(`AMP_ENVELOPE` in `tools/make_engine.py`). With the envelope unknown (a host before SDK 1.10, the
 builder's preview, a non-instrument track) every screen draws exactly what it
 drew before: `tools/check_envelope.py` hashes a fixed run of frames against
 `tools/envelope_frames.json`, recorded from the screens before they read it.
@@ -229,7 +234,7 @@ and samplers: MD E12's use of it is unverified on the device.
 0, 64 and 127 and at random settings, no engine averages more than 6 changed
 nodes a frame or peaks above 8, and nothing changes at rest
 (`tools/check_envelope.py`). Motion that only follows the level moves in whole
-pixels (DENS's copy, E12's tape) and the level in 1/256 steps, so a slow
+pixels (E12's tape, and DENS's copy once it reads it) and the level in 1/256 steps, so a slow
 release redraws only when something visibly moves.
 
 ## Checking a screen

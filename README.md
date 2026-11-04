@@ -63,8 +63,9 @@ until 1.10 is released. The builder keeps installing the versions it pins
 ([docs/CATALOG.md](docs/CATALOG.md)). Nothing in the sound changed, so saved
 sounds and projects play as before. Stock's envelope times are assumed, not
 measured, and MD E12's screen hasn't been checked on an OP-XY with the
-envelope. DPRO-WAVE and DPRO-DDRW don't move with a note and MD KIT doesn't
-follow the envelope yet; they are unchanged.
+envelope. DPRO-WAVE and DPRO-DDRW don't move with a note, MD KIT doesn't
+follow the envelope yet, and DPRO-DENS waits until its firmware links on SDK
+1.10; they are unchanged.
 
 ## What you need
 
