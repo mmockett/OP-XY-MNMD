@@ -918,7 +918,8 @@ inline void signed_text(char* out, u32 capacity, i32 value, const char* unit) {
 
 """ if mixed else ""
     if second_line:
-        shift_block = f"""        // The second row's Shift: FILTER and SRR, then FX I and FX II.
+        shift_block = f"""        const u32 row = input.shown[0] >= 4 ? 4 : 0;
+        // The second row's Shift: FILTER and SRR, then FX I and FX II.
         static const char* const shift_titles[2][4] = {{{{{", ".join(f'"{t}"' for t in shift_titles)}}}, {{{", ".join(f'"{t}"' for t in second_titles)}}}}};
         const u32 line = row ? 1 : 0;
         const char* const shift_values[2][4] = {{{{{", ".join(shift_values)}}}, {{{", ".join(second_values)}}}}};
@@ -930,6 +931,7 @@ inline void signed_text(char* out, u32 capacity, i32 value, const char* unit) {
     else:
         shift_block = f"""        static const char* const shift_titles[4] = {{{", ".join(f'"{t}"' for t in shift_titles)}}};
         const char* const shift_values[4] = {{{", ".join(shift_values)}}};
+        const u32 row = input.shown[0] >= 4 ? 4 : 0;
         for (u32 c = 0; c < 4; ++c) {{
             titles[row + c] = shift_titles[c];
             opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
@@ -1005,7 +1007,6 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
     }}
     if (input.shift) {{
-        const u32 row = input.shown[0] >= 4 ? 4 : 0;
 {mix_values}{shift_block}
     }}
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);

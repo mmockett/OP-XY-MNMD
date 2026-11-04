@@ -94,7 +94,6 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
     }
     if (input.shift) {
-        const u32 row = input.shown[0] >= 4 ? 4 : 0;
         // The key's own pan, -100..100 with 0 centred, and level in dB; and
         // its sends, 0 the track's (TRK).
         char pan[8], level[8], sends[2][4];
@@ -104,6 +103,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
             if (input.pad[2 + s] > 0) signed_text(sends[s], sizeof(sends[s]), input.pad[2 + s], "");
             else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
         }
+        const u32 row = input.shown[0] >= 4 ? 4 : 0;
         // The second row's Shift: FILTER and SRR, then FX I and FX II.
         static const char* const shift_titles[2][4] = {{"MACHINE", "CHOKE", "PAN", "LEVEL"}, {"FILTER", "SRR", "FX I", "FX II"}};
         const u32 line = row ? 1 : 0;
