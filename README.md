@@ -186,10 +186,10 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   the key (PAN, -100 left to 100 right, 0 in the centre) and **encoder 4** to
   set its level (LEVEL, 0dB down to -30dB), as on the OP-XY's Drumline. A
   fast turn moves the pan further.
-- **Filter and SRR:** on MD KIT, press an encoder to move to the second row
-  and hold **Shift**. **Encoder 1** is the key's FILTER: turn left for a
-  low-pass, from L8.0k down to L150, right for a high-pass, from H50 up to
-  H4.0k, and back to the middle (OPEN) for none. **Encoder 2** is SRR, the
+- **Filter and SRR:** on MD KIT, hold **Shift** and press any encoder to move
+  Shift to the second row (press again to come back). **Encoder 1** is the
+  key's FILTER: turn left for a low-pass, from L8.0k down to L150, right for a
+  high-pass, from H50 up to H4.0k, and back to the middle (OPEN) for none. **Encoder 2** is SRR, the
   Machinedrum's sample-rate reduction, from OFF through 22k down to 689 Hz.
   Every key has the second row, a machine with four or fewer controls too.
   **Encoders 3 and 4** (FX I and FX II) set the key's own sends: TRK follows
