@@ -1,12 +1,8 @@
 {
   "schema": 1,
-  "sdk": "1.3",
+  "sdk": "1.10",
   "kind": "synth",
   "description": "The Monomachine's FM+PAR, fitted to the original: three modulators into one carrier, each with its own depth or decay.",
-  "identity": {
-    "engine": 49,
-    "page": 97
-  },
   "presetDefaults": {
     "amp": {
       "attack": 0,

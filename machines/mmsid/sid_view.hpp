@@ -48,7 +48,7 @@ inline void view(F& frame, const i32* slots, const view::Moment& moment) {
     const u32 rate = static_cast<u32>(md::table9(sweep_rate, slots[PWAD]));
     const u32 age = static_cast<u32>(held.time);
     const u32 spin = md::live::turning(held, md::live::one_hz, 0, md::live::one_hz);
-    const u32 sweep = static_cast<u32>(multiply(static_cast<i32>(rate * 43u * age), held.amount));   // 44100 / 1024
+    const u32 sweep = md::live::turning(held, rate * 43u, 0, rate * 43u);   // 44100 / 1024: rate x age x amount
     const u32 width = (static_cast<u32>(multiply(md::positive(slots[PW]), 0x7f000000)) << 1) + sweep;
     const u32 apart = width >= 0x80000000u ? width - 0x80000000u : 0x80000000u - width;
     const u32 duty = apart < 0x100u ? 0xffffff00u : 0u - apart;

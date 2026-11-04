@@ -37,6 +37,24 @@ def slug(name):
     return re.sub(r"[^a-z0-9]+", "_", name.lower().replace("+", "p")).strip("_")
 
 
+# The engines whose screens move with a note follow the track's amp envelope
+# (SDK 1.10's input.amp, docs/SCREEN.md). DPRO-WAVE's and DPRO-DDRW's screens
+# don't move with a note; MD KIT doesn't read it yet.
+AMP_ENVELOPE = {"mmsaw", "mmpulse", "mmens", "mmsid", "mmstat", "mmpar", "mmdyn", "mmvo6", "mmsin", "mmnois",
+                "mmdens", "mmbbox", "mde12"}
+
+
+def moment(engine):
+    """The display's Moment: the note's times, and the track's amp envelope where the engine follows it."""
+    amp = ", md::view::amp_of(input)" if engine in AMP_ENVELOPE else ""
+    return f"const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet{amp}}};"
+
+
+def sdk_version(engine, kit=False):
+    """The SDK an engine targets: 1.10 to read the amp envelope, else 1.8 for the drum kind, 1.3 for a synth."""
+    return "1.10" if engine in AMP_ENVELOPE else "1.8" if kit else "1.3"
+
+
 # Modules that hold more than one machine.
 SOUND_HEADER = {"TRX-CH": "trx_hat", "TRX-OH": "trx_hat", "TRX-XT": "trx_tom", "TRX-XC": "trx_tom",
                 "PI-RC": "pi_cymbal", "PI-CC": "pi_cymbal", "PI-HH": "pi_cymbal",
@@ -353,7 +371,7 @@ inline void display_reset(DisplayState& state) {{
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {{
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet}};{f'''
+    {moment(engine)}{f'''
     i32 own[8] = {{}};{own.format(source="input.slots")}''' if remapped else ""}
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], {"own" if remapped else "input.slots"}, moment);
     md::{s}::view(frame, {"own" if remapped else "input.slots"}, moment);{header}
@@ -397,9 +415,11 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 
     # --- machine.json
     (folder / "machine.json").write_text(json.dumps({
-        "schema": 1, "sdk": "1.3", "kind": "synth",
+        "schema": 1, "sdk": sdk_version(engine), "kind": "synth",
         "description": (PRESETS.get(name, {}).get("description") or f"The Monomachine's {name}, fitted to the original.")[:160],
-        "identity": {"engine": 36 + index, "page": 84 + index},
+        # From SDK 1.5 a build's layout gives the numbers, and identity is refused;
+        # the previous layout keeps them (tools/build_firmware.py passes it).
+        **({"identity": {"engine": 36 + index, "page": 84 + index}} if sdk_version(engine) == "1.3" else {}),
         "presetDefaults": {"amp": {"attack": 0, "decay": 32767, "sustain": 32767, "release": 4096}},
         **({"presets": "presets"} if (folder / "presets").is_dir() else {}),
     }, indent=2) + "\n")
@@ -747,7 +767,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }}
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {{state.hit.age, input.reduced_motion, state.hit.quiet}};
+    {moment(engine)}
     i32 own[8];
     kit::controls(selected, input.slots, own);
     for (u32 m = 0; m < kit::models; ++m)
@@ -811,8 +831,9 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 
     # --- machine.json
     (folder / "machine.json").write_text(json.dumps({
-        # SDK 1.9: drum kits, numberless; each build's layout gives the engine and page.
-        "schema": 1, "sdk": "1.8", "kind": "drum",
+        # SDK 1.8: drum kits, numberless; each build's layout gives the engine and page.
+        # SDK 1.10 for one that follows the amp envelope.
+        "schema": 1, "sdk": sdk_version(engine, kit=True), "kind": "drum",
         "description": f"The Machinedrum's {fam.replace('PI', 'P-I')} machines as a drum kit: each key picks its own machine and keeps its own controls."[:160],
         # The longest release: a step's note ends long before most tails do (125 ms
         # at 120 BPM; TRX-BD and the EFM machines ring 14-18 s at DEC 127, and

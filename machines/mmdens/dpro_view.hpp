@@ -171,7 +171,11 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
         // While a note plays the copy sways down to the wave and back up.
         const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
         const i32 idle = 4 * unit + multiply(md::positive(s[6]), 14 * unit);
-        const i32 lift = idle - (ph > 0 ? multiply(idle, (ph < 512 ? ph : 1023 - ph) << 21) : 0);
+        i32 lift = idle - (ph > 0 ? multiply(idle, (ph < 512 ? ph : 1023 - ph) << 21) : 0);
+        // With the track's amp envelope it comes down over the hit's first quarter
+        // second as far as the envelope's level, stays while the sound holds and
+        // rises as it fades, in whole pixels.
+        if (m.amp.known) lift = idle - (multiply(idle, multiply(m.level(), view::through(m.age, 266))) & ~(unit - 1));
         row(b, dpro_data::d_table[w], dpro_data::d_norm[w], 258, 472, 78, multiply(34, md::one - (chrl >> 2)), 3 * turn_per_point, 0xffffffffu, 0x08000000u);
         for (u32 i = 0; i < 32; ++i) b[i].y -= lift;
         single(frame, comb, b, 365, 64, key_of_slots(s, 3, 5, 6, 6) ^ static_cast<u32>(lift), dim);
@@ -233,8 +237,10 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
         }
         show(frame, paths[g], p, centre[g], 110, key_of_slots(s, 0, 1, 1, 8 + g), g < 2 ? dim : mid);
     }
-    // The start's handle; while a note plays it runs on along the strip, as the playhead.
-    const i32 ph = m.phase(md::rig::drum.length, md::rig::drum.speed);
+    // The start's handle; while a note plays it runs on along the strip, as the
+    // playhead. With the track's amp envelope it goes back when the sound has
+    // faded: an envelope can cut a sample short, but not play past its end.
+    const i32 ph = m.amp.known && !m.level() ? -1 : m.phase(md::rig::drum.length, md::rig::drum.speed);
     const i32 at = ph > 0 ? sx_q10 + multiply(470 * unit - sx_q10, ph << 21) : sx_q10;
     place(frame, handle_a, at, sy(110 - 40), unit, fill5, fill_and_stroke);
     // Its line (the rig's one part in the line shade) runs with it: one handle.

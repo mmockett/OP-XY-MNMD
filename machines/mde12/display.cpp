@@ -23,7 +23,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet};
+    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet, md::view::amp_of(input)};
     i32 own[8];
     kit::controls(selected, input.slots, own);
     for (u32 m = 0; m < kit::models; ++m)

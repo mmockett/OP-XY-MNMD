@@ -10,7 +10,8 @@
 // a run of art nodes (instrument and panel parts, each one shade), drawn
 // relative to a pivot, parked off screen until placed. The machine's view
 // (voices/<machine>_view.hpp) places them, shapes the four paths and writes
-// the labels. Nothing here allocates, divides at run time or uses floats.
+// the labels. Nothing here allocates or uses floats, and only the amp
+// envelope's stages divide at run time (a few divisions a frame).
 #include <opxy/draw.hpp>
 #include "md_dsp.hpp"
 
@@ -42,11 +43,74 @@ enum Paths : u32 { contour, wave, comb, extra, path_count };
 enum Common : u32 { ring_first = path_count, ring_count = 3, handle_a = ring_first + ring_count, handle_b, cursor,
                     digit_first, digit_segments = 7, digits = 3, art_first = digit_first + digit_segments * digits };
 
+// The track's amp envelope (SDK 1.10's input.amp), as the times a note's motion
+// follows: it swells over the attack, falls over the decay to the sustain level
+// while notes are held, and fades over the release after the last one ends, so
+// the screen moves for as long as the sound does (docs/SCREEN.md). Zero, as a
+// Moment built without one has it, is unknown: the screen moves as it always did.
+struct Amp {
+    u32 known;
+    i32 attack, decay, release;   // Q10 seconds; the decay and release at least `least`
+    i32 sustain;                  // Q31
+};
+// Stock maps its envelope page's positions to times along curves it doesn't
+// document. Assumed here (docs/SCREEN.md): 2 ms at 0, rising as the cube of the
+// position to 10 s at the top, 1.25 s at the middle, for each stage alike.
+inline i32 seconds_of(i32 position) {
+    const i32 x = md::positive(position);
+    return 2 + multiply(multiply(multiply(x, x), x), 10240);
+}
+// A fall shorter than this would jump: motion eases out over at least 0.15 s.
+const i32 least = 154;
+// A template, so an engine that never reads the envelope builds on an SDK before 1.10.
+template <class In>
+inline Amp amp_of(const In& input) {
+    Amp a = {0, 0, 0, 0, 0};
+    if (!opxy::draw::envelope_known(input.amp)) return a;
+    a.known = 1;
+    a.attack = seconds_of(input.amp.attack);
+    a.decay = md::clamp(seconds_of(input.amp.decay), least, 1 << 20);
+    a.release = md::clamp(seconds_of(input.amp.release), least, 1 << 20);
+    // A sustain under 1/64 is none: such a note dies away while held, and its motion comes home.
+    a.sustain = input.amp.sustain < (1 << 25) ? 0 : input.amp.sustain;
+    return a;
+}
+// t / length, Q31, 0 .. 1: a division a stage a frame, as the stages' times vary.
+inline i32 through(i32 t, i32 length) {
+    if (t <= 0) return 0;
+    if (t >= length) return md::one;
+    return static_cast<i32>(((static_cast<u32>(t) << 16) / static_cast<u32>(length)) << 15);
+}
+const i32 third = 0x2aaaaaab;   // Q31
+// The level t (Q10 s) into a note still held, Q31: up the attack in a line,
+// then down the decay to the sustain level, easing in.
+inline i32 held_level(const Amp& a, i32 t) {
+    if (t < a.attack) return through(t, a.attack);
+    const i32 left = md::one - through(t - a.attack, a.decay);
+    return a.sustain + multiply(md::one - a.sustain, multiply(left, left));
+}
+// How far the level has carried a held note by t (Q10 s): its integral, Q10 s,
+// so t itself for a level that is full from the start.
+inline i32 held_travel(const Amp& a, i32 t) {
+    if (t <= 0) return 0;
+    if (t < a.attack) return multiply(through(t, a.attack), t) >> 1;            // t^2 / 2 A
+    const i32 left = md::one - through(t - a.attack, a.decay);
+    const i32 gone = md::one - multiply(multiply(left, left), left);
+    return (a.attack >> 1) + multiply(a.sustain, t - a.attack)
+         + multiply(multiply(multiply(md::one - a.sustain, a.decay), gone), third);  // (1 - S) D / 3 at the end
+}
+// What the release leaves, `quiet` Q10 s into it: 1 easing to 0, as the old tail did.
+inline i32 fall(const Amp& a, i32 quiet) {
+    const i32 left = md::one - through(quiet, a.release);
+    return multiply(left, left);
+}
+
 // The moment: how long since the hit, for the animations.
 struct Moment {
     i32 age;              // Q10 seconds since the note started; large when idle
     u32 reduced_motion;
     i32 quiet;            // Q10 seconds since a note was last held (Hit::quiet)
+    Amp amp;              // the track's amp envelope; zero, unknown, unless the engine reads it
     // 0 .. 1 (Q10 unit) through an animation of `length` Q10 seconds, or -1 when
     // done; `speed` is 2^20 / length, a constant, so there is no runtime division.
     i32 phase(i32 length, i32 speed) const {
@@ -55,10 +119,35 @@ struct Moment {
     }
     // Q10 seconds since the note started, while a note is held and for `tail`
     // after the last release, for motion that lasts as long as the note does;
-    // -1 when still.
+    // -1 when still. With the envelope known it lasts as long as the sound,
+    // whatever the tail, and runs at the envelope's level: the time the level
+    // has carried the note (travelled).
     i32 running(i32 tail) const {
+        if (amp.known) return level() ? travelled() : -1;
         if (reduced_motion || quiet >= tail) return -1;
         return age;
+    }
+    // With the envelope known: Q10 seconds the note was held, until now while it
+    // is, else until its release.
+    i32 held() const { const i32 h = age - quiet; return h > 0 ? h : 0; }
+    // The envelope's level now, Q31, in steps of 1/256 so that it reaches 0: 0 at
+    // rest, once the sound has died away, and under reduced motion.
+    i32 level() const {
+        if (reduced_motion || !amp.known || age >= (1 << 20)) return 0;
+        i32 at = held_level(amp, held());
+        if (quiet > 0) at = multiply(at, fall(amp, quiet));
+        return at & ~0x7fffff;
+    }
+    // The level's integral over the note, release included, Q10 s.
+    i32 travelled() const {
+        const i32 h = held();
+        i32 d = held_travel(amp, h);
+        if (quiet > 0) {
+            const i32 left = md::one - through(quiet, amp.release);
+            const i32 gone = md::one - multiply(multiply(left, left), left);
+            d += multiply(multiply(multiply(held_level(amp, h), amp.release), gone), third);
+        }
+        return d;
     }
 };
 

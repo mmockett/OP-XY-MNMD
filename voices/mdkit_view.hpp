@@ -1139,7 +1139,12 @@ enum Own { crease, second, stop, snap };
 template <class F>
 inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view::Moment& moment) {
     const Hit h(moment);
-    const i32 slide = -scaleq(26 * px, h.arc);   // the tape runs left through the block, and back
+    i32 slide = -scaleq(26 * px, h.arc);   // the tape runs left through the block, and back
+    // With the track's amp envelope the run follows the envelope's level: it goes
+    // no further than the level, and comes back as soon as the sound fades. An
+    // envelope can cut a sample short but not play it past its end, so the hit's
+    // own return still ends it. In whole pixels.
+    if (moment.amp.known) slide = -((26 * scaleq(h.arc, moment.level() >> 15) + 32768) >> 16) * px;
     const i32 cx = 362 * px, yc = 92 * px, half = 20 * px;
     const i32 lead = 242 * px + slide, cut = 306 * px + slide;
     i32 end = 490 * px;
