@@ -205,6 +205,14 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   note you play doesn't change it.
 - **Parameter locks:** hold a step and turn an encoder to lock that control on
   the step. While you hold the step, the screen shows the values it plays.
+- **Shift locks:** on MD KIT, hold a step, hold **Shift** and turn PAN or
+  LEVEL (first row) or FILTER or SRR (second row) to lock that step's hits to
+  the key's own setting plus an offset: pan up to 100 either way, level up to
+  30dB, FILTER and SRR across their whole range. Each hit keeps its offset
+  while it rings, and the hits before it don't move. While you hold the step,
+  the Shift row shows what it plays. A lock moves every key on its step, so
+  put keys on separate steps to lock them apart. MACHINE, CHOKE, FX I and FX II
+  don't lock. MD KIT has no M3 page: each key's FILTER takes its place.
 - **Saving:** each key's machine, controls, choke group, pan, level, FILTER
   and SRR are saved with the project; its machine, controls, pan and level in
   presets too.

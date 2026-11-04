@@ -70,9 +70,11 @@ def kit_regions(engine, kit=None):
             for k, (role, _name, model, controls) in enumerate(kit_keys(engine, kit))]
 
 
-def preset(entry, amp, params, regions):
+def preset(entry, amp, params, regions, pad_mix=False):
     """A preset in the device's version-4 structure, as the SDK's browser builder
-    writes its init presets (../open-xy/builder/core.mjs, defaultPreset)."""
+    writes its init presets (../open-xy/builder/core.mjs, defaultPreset). A padMix
+    kit's fx.params 0..3 are its step locks' stored words, neutral at 16384."""
+    fx = [16384] * 4 if pad_mix else [0] * 4
     return {
         "engine": {
             "bendrange": 8191, "highpass": 0,
@@ -85,7 +87,7 @@ def preset(entry, amp, params, regions):
             "amp": {"attack": 128, "decay": 8192, "release": 32767, "sustain": 32767, **amp},
             "filter": {"attack": 0, "decay": 0, "release": 0, "sustain": 32767},
         },
-        "fx": {"active": False, "params": [0, 0, 0, 0, 0, 32767, 0, 0], "type": "svf"},
+        "fx": {"active": False, "params": fx + [0, 32767, 0, 0], "type": "svf"},
         "lfo": {"active": False, "params": [0, 0, 0, 0, 0, 0, 0, 0], "type": "value"},
         "octave": 0, "platform": "OP-XY", "regions": regions, "type": entry["type"], "version": 4,
     }
@@ -109,6 +111,7 @@ def write_presets(out, engines):
             continue
         machine = json.loads((folder / "machine.json").read_text())
         definition = json.loads((folder / "definition.json").read_text())
+        pad_mix = bool(definition["resources"].get("padMix", 0))
         amp = machine.get("presetDefaults", {}).get("amp", {})
         target = out / "candidate" / "content" / "presets" / engine
         target.mkdir(parents=True, exist_ok=True)
@@ -121,13 +124,14 @@ def write_presets(out, engines):
         regions = kit_regions(engine) if kits else []
         for name, params in files.items():
             path = target / f"{name}.json"
-            path.write_text(json.dumps(preset(entries[engine], amp, params, regions), indent=2) + "\n")
+            path.write_text(json.dumps(preset(entries[engine], amp, params, regions, pad_mix), indent=2) + "\n")
             written.append(path)
         # An engine of several kits names each in a preset, its first too (trx, efm,
         # pi), so every family is in the list; default is the first.
         for kit in kits if len(kits) > 1 else []:
             path = target / f"{KIT_FAMILY[kit].lower()}.json"
-            path.write_text(json.dumps(preset(entries[engine], amp, files["default"], kit_regions(engine, kit)), indent=2) + "\n")
+            path.write_text(json.dumps(preset(entries[engine], amp, files["default"], kit_regions(engine, kit), pad_mix),
+                                       indent=2) + "\n")
             written.append(path)
     return written
 
