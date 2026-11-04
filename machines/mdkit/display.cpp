@@ -95,18 +95,24 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }
     if (input.shift) {
         const u32 row = input.shown[0] >= 4 ? 4 : 0;
-        // The key's own pan, -100..100 with 0 centred, and level in dB, as stock shows them.
-        char pan[8], level[8];
+        // The key's own pan, -100..100 with 0 centred, and level in dB; and
+        // its sends, 0 the track's (TRK).
+        char pan[8], level[8], sends[2][4];
         signed_text(pan, sizeof(pan), input.pan, "");
         signed_text(level, sizeof(level), input.level, "dB");
-        // The second row's Shift: the choke group; the rest free.
-        static const char* const shift_titles[2][4] = {{"KIT", "MACHINE", "PAN", "LEVEL"}, {"CHOKE", "", "", ""}};
+        for (u32 s = 0; s < 2; ++s) {
+            if (input.pad[2 + s] > 0) signed_text(sends[s], sizeof(sends[s]), input.pad[2 + s], "");
+            else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
+        }
+        // The second row's Shift: FILTER and SRR, then FX I and FX II.
+        static const char* const shift_titles[2][4] = {{"MACHINE", "CHOKE", "PAN", "LEVEL"}, {"FILTER", "SRR", "FX I", "FX II"}};
         const u32 line = row ? 1 : 0;
-        const char* const shift_values[2][4] = {{kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0], kit::model[selected].name, pan, level}, {chokes[input.choices[2] & 3u], "", "", ""}};
+        const char* const shift_values[2][4] = {{kit::model[selected].name, chokes[input.choices[2] & 3u], pan, level}, {kit::filter_text[md::clamp(input.pad[0], -16, 15) + 16], kit::srr_text[md::clamp(input.pad[1], 0, 15)], sends[0], sends[1]}};
         for (u32 c = 0; c < 4; ++c) {
             titles[row + c] = shift_titles[line][c];
             opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[line][c]);
         }
+        if (!line) titles[row] = kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0];
     }
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }

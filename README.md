@@ -59,8 +59,9 @@ its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The
 - The Open-XY SDK with drum-kit support. Upstream `staging` has it since
   pull requests [#121](https://github.com/etcetc000/open-xy/pull/121) and
   [#143](https://github.com/etcetc000/open-xy/pull/143) merged, with the
-  two-page synth controls (#125 and its follow-ups). MD KIT's pan and level
-  need SDK 1.10, whose drum kits turn a key's own pan and level on Shift. These tools build for
+  two-page synth controls (#125 and its follow-ups). MD KIT's pan, level,
+  filter and SRR need SDK 1.10, whose drum kits keep a key's own mixer
+  settings on Shift. These tools build for
   OS 1.2.0 on the fork's branch below.
 - To put the engines on a device: an OP-XY on **OS 1.2.0** exactly, a USB
   cable, and the Open-XY Blackfin toolchain.
@@ -175,21 +176,24 @@ snare or cowbell. MD KIT starts on the TRX kit, and its presets `trx`, `efm`
 and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/catalog.py`.
 
 - **Choose a key's machine:** select the key and hold **Shift**. On MD KIT,
-  **encoder 1** chooses the family (KIT: TRX, EFM, P-I or GND) and keeps the
-  machine's place in it, so BD stays BD, and **encoder 2** the machine
-  (MACHINE). On MD E12, **encoder 1** chooses the machine. Any key can hold
-  any of the engine's machines.
+  **encoder 1** steps through all 33 machines, family by family (the cell
+  shows the family over the machine: TRX over BD). On MD E12, **encoder 1**
+  chooses the machine. Any key can hold any of the engine's machines.
+- **Choke groups:** hold **Shift** and turn **encoder 2** to put the key in
+  choke group 1, 2 or 3, or none. Keys in the same group cut each other off. A
+  kit starts with CH, OH and RC in group 1 and the other keys in none.
 - **Pan and level:** on MD KIT, hold **Shift** and turn **encoder 3** to pan
   the key (PAN, -100 left to 100 right, 0 in the centre) and **encoder 4** to
   set its level (LEVEL, 0dB down to -30dB), as on the OP-XY's Drumline. A
-  fast turn moves the pan further. Each key keeps its own, in the project and
-  in presets.
-- **Choke groups:** on MD KIT, press an encoder to move to the second row,
-  then hold **Shift** and turn **encoder 1** (CHOKE); on MD E12, hold
-  **Shift** and turn **encoder 2**. That puts the key in choke group 1, 2 or
-  3, or none. Keys in the same group cut each other off. A kit starts with
-  CH, OH and RC in group 1 and the other keys in none. Every MD KIT key has
-  the second row, a machine with four or fewer controls too.
+  fast turn moves the pan further.
+- **Filter and SRR:** on MD KIT, press an encoder to move to the second row
+  and hold **Shift**. **Encoder 1** is the key's FILTER: turn left for a
+  low-pass, from L8.0k down to L150, right for a high-pass, from H50 up to
+  H4.0k, and back to the middle (OPEN) for none. **Encoder 2** is SRR, the
+  Machinedrum's sample-rate reduction, from OFF through 22k down to 689 Hz.
+  Every key has the second row, a machine with four or fewer controls too.
+  **Encoders 3 and 4** (FX I and FX II) show each key's sends; TRK means it
+  follows the track's.
 - **Eight controls a key:** the four encoders hold the machine's first four
   controls. **Press an encoder** to switch it to its alternate (controls 5
   to 8), and press it again to switch back. The labels and values follow the
@@ -199,8 +203,9 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   note you play doesn't change it.
 - **Parameter locks:** hold a step and turn an encoder to lock that control on
   the step. While you hold the step, the screen shows the values it plays.
-- **Saving:** each key's machine and controls are saved with the project, and
-  in presets.
+- **Saving:** each key's machine, controls, choke group, pan, level, FILTER
+  and SRR are saved with the project; its machine, controls, pan and level in
+  presets too.
 
 ### The Monomachine engines
 

@@ -250,9 +250,9 @@ def pad_mix_problems():
     within what its Shift row offers (pan -100..100, level -30..0 dB), and its
     Shift captions fit the header in the device font (OP-XY-Dev
     tools/caption_width.py, with XY_FONT naming the font; skipped without it).
-    A value has 53 px, 2 px clear of the next column's title; LEVEL sits in the
-    last column, whose room is the 55 px to the screen's edge, and its widest,
-    "-30dB", is 53.7 px."""
+    A value has the room to the next column's title, less 2 px, 58 px; the last
+    column's room is the 55 px to the screen's edge, with no neighbour to keep
+    clear of, and LEVEL's widest there, "-30dB", is 53.7 px."""
     import importlib.util
     import os
     import catalog
@@ -272,14 +272,21 @@ def pad_mix_problems():
     spec = importlib.util.spec_from_file_location("caption_width", tool)
     ruler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ruler)
-    pans = [str(v) for v in range(-100, 101)]
-    levels = [f"{v}dB" for v in range(-30, 1)]
-    columns = [(pans, ruler.VALUE_ROOM), (levels, ruler.VALUE_ROOM + 2), (["none", "1", "2", "3"], ruler.VALUE_ROOM)]
-    for texts, room in columns:
-        for text in texts:
-            if ruler.width(text, ruler.VALUE_PX) > room:
-                problems.append(f"caption {text!r}: {ruler.width(text, ruler.VALUE_PX):.1f} px, room {room}")
-    for title in ("kit", "machine", "pan", "level", "choke"):   # the two-page header writes titles in lower case
+    # MACHINE's value is the machine, its title the family ("trx" over "BD").
+    names = [n.split("-", 1)[1] for e in sorted(make_engine.PAD_MIX) for n in catalog.ENGINES[e]]
+    sends = ["TRK", *map(str, range(1, 8))]
+    middle, last = 58, 55
+    rows = [  # each Shift row's four columns: its captions and their room
+        [(names, middle), (["none", "1", "2", "3"], middle), ([str(v) for v in range(-100, 101)], middle),
+         ([f"{v}dB" for v in range(-30, 1)], last)],
+        [([t for _hz, t in make_engine.filter_steps()], middle), (make_engine.srr_captions(), middle), (sends, middle), (sends, last)]]
+    for row in rows:
+        for texts, room in row:
+            for text in texts:
+                if ruler.width(text, ruler.VALUE_PX) > room:
+                    problems.append(f"caption {text!r}: {ruler.width(text, ruler.VALUE_PX):.1f} px, room {room}")
+    # The two-page header writes titles in lower case.
+    for title in ("trx", "efm", "p-i", "gnd", "choke", "pan", "level", "filter", "srr", "fx i", "fx ii"):
         if ruler.width(title, ruler.TITLE_PX) > ruler.TITLE_ROOM:
             problems.append(f"title {title!r}: {ruler.width(title, ruler.TITLE_PX):.1f} px")
     return problems
