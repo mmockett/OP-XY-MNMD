@@ -6,8 +6,10 @@ on:
 permissions:
   contents: read
 env:
-  OPEN_XY_REPO: mmockett/open-xy
-  OPEN_XY_REF: mnmd/drum-sdk
+  # The screens follow the track's amp envelope (SDK 1.10), which only
+  # etcetc000's staging has; it has the drum kind too.
+  OPEN_XY_REPO: etcetc000/open-xy
+  OPEN_XY_REF: staging
 jobs:
   machines:
     runs-on: ubuntu-latest
