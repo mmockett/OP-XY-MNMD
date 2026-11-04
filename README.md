@@ -32,7 +32,7 @@ the Teenage Engineering OP-XY, on the
 | MNM FM DYN | `mmdyn` | M1 with pitch and depth envelopes, M2 with its decay and feedback |
 | MNM VO-6 | `mmvo6` | Vowels from two formants, with twenty consonants before them |
 | MNM GND-SIN | `mmsin` | A pure sine at the played key |
-| MNM GND-NOIS | `mmnois` | White noise turning red |
+| MNM GND-NOIS | `mmnois` | White noise turning red, and RES pitching it to the key |
 | MNM DPRO-WAVE | `mmwave` | Its own S-sets, captured from your ROM, moved along WP |
 | MNM DPRO-DDRW | `mmddrw` | Two D-waves, crossfaded, spread and bit-reduced |
 | MNM DPRO-DENS | `mmdens` | A chord of up to four D-waves, each with a chorus |
@@ -225,6 +225,33 @@ Load one on a synth track and play it chromatically.
   controls, such as WAVE or MOD, move one choice a detent.
 - **Presets:** each engine comes with a few presets of its own, in the preset
   browser: SID-6581 has saw, square, ring, sync and more.
+
+#### GND-NOIS (`mmnois`)
+
+Noise from white to red, as the Monomachine's, and with RES, noise pitched to
+the key you play: tuned wind, a whistle, a noise bass.
+
+| Page | Control | What it does |
+| --- | --- | --- |
+| 1 | ST | Lifts the level up to +2.9 dB while STON is off |
+| 1 | RED | White noise at 0, through pink, to red at 127; loudest near 64 |
+| 1 | STON | The original's stereo switch; with it on, ST does nothing (the OP-XY's synths are mono) |
+| 1 | TUNE | Moves the sound two semitones either way: a whole tone on the pitch RES plays |
+| 2 | RES | At 0, the original. Turned up, the noise narrows around the played note, from a breathy band to a whistle, at about the same level |
+
+The key moves the noise as it does on the original: the red part passes a
+high-pass at half the note, and white noise darkens as the key rises. RES
+moves that high-pass up to the note and sharpens it, so the key and TUNE play
+a pitch, in tune across the keyboard and at an even level. The presets are
+White, Pink, Red and Loud, the original's, and Wind, Whistle and Bass, which
+use RES.
+
+Saved sounds keep their controls, and RES reads 0 in a project saved before
+it, so it plays the original. Two things sound different from v1.2.3, both
+measured on the original: the key now moves the red part (above), and white
+noise is darker, most on high keys, at the same level (its centroid falls from
+5.1 kHz at C1 to 2.7 kHz at C7, where v1.2.3's stayed at 5.7 kHz). Sounds with
+RED up change most on low and high keys. No setting brings back the old sound.
 
 ### The screen
 

@@ -158,6 +158,16 @@ def with_includes(headers):
     return out
 
 
+# Released engines that gained controls. Projects save controls by index, so the
+# definition's first slots keep the order they were released in and the new
+# controls follow, each on its position's second page. Each definition slot:
+# (the machine slot it holds, or None for an empty one; its position on the
+# second page, from the fifth slot on). Every position has a second page, an
+# empty one blank (SDK 1.3 has no partly filled second page). GND-NOIS was
+# released with ST RED STON TUNE on one row (v1.1.1 to v1.2.3); RES joins it
+# under RED, the rest of the second row blank.
+GROWN = {"GND-NOIS": [(0, None), (1, None), (2, None), (7, None), (None, 0), (None, 2), (None, 3), (5, 1)]}
+
 # The stage's top under the two-page header (tools/art/build.mjs PAGED_STAGE_Y).
 PAGED_STAGE_Y = 46
 # Notes an engine sounds at once, shared by the tracks playing it. Each voice
@@ -241,17 +251,22 @@ def generate(engine, index):
     real = [i for i, label in enumerate(named) if label]
     # A machine with at most four controls has one row: no pages, on the stock
     # header. Each control keeps its column on the SYN page when no two share
-    # one (GND-NOIS's TUNE under its fourth), else they go left to right.
+    # one (GND-SIN's TUNE under its fourth), else they go left to right.
     # `layout` is the machine slot of each definition slot (None: empty), and
     # `own` rebuilds the machine's eight slots for the sound and the screen.
-    one_row = len(real) <= 4
-    if not one_row:
+    grown = GROWN.get(name)
+    one_row = len(real) <= 4 and not grown
+    if grown:
+        layout = [m for m, _ in grown]
+    elif not one_row:
         layout = [i if named[i] else None for i in range(max(real[-1] + 1, 4))]
     elif len({i % 4 for i in real}) == len(real):
         layout = [next((i for i in real if i % 4 == c), None) for c in range(4)]
     else:
         layout = real + [None] * (4 - len(real))
     remapped = any(m is not None and m != k for k, m in enumerate(layout))
+    # Each definition slot's position on the second page (None on the first).
+    position = [c for _, c in grown] if grown else [None if k < 4 else k - 4 for k in range(len(layout))]
     own = "".join(f"""
     own[{m}] = {{source}}[{k}];""" for k, m in enumerate(layout) if m is not None)
     if one_row:
@@ -269,15 +284,17 @@ def generate(engine, index):
         # row, page 2 its bottom row, under it. A slot the machine lacks is blank
         # on either row, and its encoder turns nothing. Each value reads 0..127,
         # or a stepped control's step name, as the original's does.
-        second = [4 + c for c in range(4)]
-        titles = ", ".join(f'"{control(label, 0)["label"].lower() if label else ""}"' for label in named)
+        # Titles and values by definition slot, as the header indexes them.
+        defined = ([named[m] if m is not None else "" for m in layout] + [""] * 8)[:8]
+        second = [next((k for k in range(4, len(layout)) if position[k] == c), c) for c in range(4)]
+        titles = ", ".join(f'"{control(label, 0)["label"].lower() if label else ""}"' for label in defined)
         captions = "".join(f"""
     static const char* const steps{i}[{len(enums[label])}] = {{{", ".join(f'"{CAPTIONS.get(name, {}).get(n, n)}"' for n in enums[label])}}};
     opxy::draw::copy(values[{i}], opxy::draw::header_capacity,
                      steps{i}[(static_cast<u32>(md::positive(input.slots[{i}])) >> 16) * {len(enums[label])}u >> 15]);"""
-                           for i, label in enumerate(named) if label in enums)
+                           for i, label in enumerate(defined) if label in enums)
         captions += "".join(f"""
-    values[{i}][0] = 0;""" for i, label in enumerate(named) if not label)
+    values[{i}][0] = 0;""" for i, label in enumerate(defined) if not label)
         header = f"""
     // The header last: both pages, the one the encoders edit on its bar.
     static const char* const titles[8] = {{{titles}}};
@@ -397,8 +414,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     # preset), so every control sits where the original has it; on the bottom
     # row of two it is its encoder's page 2, blank, rather than page 1 again.
     empty = lambda k: {"id": f"empty{k + 1}", "label": "", "default": 0, "mapping": {"kind": "linear", "minimum": 0, "maximum": 1},
-                       "display": "percent", "absent": True, **({"control": k - 4} if k >= 4 and not one_row else {})}
-    params = [control(named[m], enum_value(name, named[m], d[m]), None if k < 4 else k - 4, mapping(named[m])) if m is not None else
+                       "display": "percent", "absent": True, **({"control": position[k]} if k >= 4 and not one_row else {})}
+    params = [control(named[m], enum_value(name, named[m], d[m]), position[k], mapping(named[m])) if m is not None else
               empty(k) for k, m in enumerate(layout)]
     presets = {key: {p["id"]: round(enum_value(name, named[m], v[m]) / 127, 6) for p, m in zip(params, layout) if m is not None}
                for key, v in PRESETS.get(name, {}).get("presets", {}).items()}

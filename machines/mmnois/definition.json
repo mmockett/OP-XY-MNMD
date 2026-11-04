@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "mmnois",
   "name": "GND-NOIS",
+  "press": "page",
   "parameters": [
     {
       "id": "st",
@@ -48,6 +49,57 @@
         "maximum": 1
       },
       "display": "percent"
+    },
+    {
+      "id": "empty5",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true,
+      "control": 0
+    },
+    {
+      "id": "empty6",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true,
+      "control": 2
+    },
+    {
+      "id": "empty7",
+      "label": "",
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "absent": true,
+      "control": 3
+    },
+    {
+      "id": "res",
+      "label": "RES",
+      "default": 0.0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent",
+      "control": 1
     }
   ],
   "presets": {
@@ -55,25 +107,50 @@
       "st": 0.0,
       "red": 0.0,
       "ston": 0.25,
-      "tune": 0.503937
+      "tune": 0.503937,
+      "res": 0.0
     },
     "Pink": {
       "st": 0.0,
       "red": 0.377953,
       "ston": 0.25,
-      "tune": 0.503937
+      "tune": 0.503937,
+      "res": 0.0
     },
     "Red": {
       "st": 0.0,
       "red": 1.0,
       "ston": 0.25,
-      "tune": 0.503937
+      "tune": 0.503937,
+      "res": 0.0
     },
     "Loud": {
       "st": 1.0,
       "red": 0.503937,
       "ston": 0.25,
-      "tune": 0.503937
+      "tune": 0.503937,
+      "res": 0.0
+    },
+    "Wind": {
+      "st": 0.0,
+      "red": 0.314961,
+      "ston": 0.25,
+      "tune": 0.503937,
+      "res": 0.440945
+    },
+    "Whistle": {
+      "st": 0.0,
+      "red": 0.125984,
+      "ston": 0.25,
+      "tune": 0.503937,
+      "res": 0.88189
+    },
+    "Bass": {
+      "st": 0.0,
+      "red": 0.629921,
+      "ston": 0.25,
+      "tune": 0.503937,
+      "res": 0.88189
     }
   },
   "resources": {
@@ -83,12 +160,12 @@
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "display": {
-      "stateBytes": 20,
+      "stateBytes": 40,
       "stateAlignment": 4,
       "paths": 4,
       "points": 64,
-      "nodes": 31,
-      "texts": 0,
+      "nodes": 39,
+      "texts": 16,
       "palette": 16
     }
   }

@@ -201,15 +201,19 @@ PRESETS = {
         "defaults": [0, 0, 0, 0, 0, 0, 0, 64],
         "presets": {"Sine": [0, 0, 0, 0, 0, 0, 0, 64]},
     },
-    # ST RED STON - / - - - TUNE.
+    # ST RED STON - / - RES - TUNE. RES 0 is the original (White, Pink, Red and
+    # Loud as before); Wind, Whistle and Bass pitch the noise with RES.
     "GND-NOIS": {
-        "description": "The Monomachine's GND-NOIS: white noise turning red, fitted to the original.",
+        "description": "The Monomachine's GND-NOIS: white noise turning red, fitted to the original, with RES pitching it to the key.",
         "defaults": [0, 0, 0, 0, 0, 0, 0, 64],
         "presets": {
             "White": [0, 0, 0, 0, 0, 0, 0, 64],
             "Pink": [0, 48, 0, 0, 0, 0, 0, 64],
             "Red": [0, 127, 0, 0, 0, 0, 0, 64],
             "Loud": [127, 64, 0, 0, 0, 0, 0, 64],
+            "Wind": [0, 40, 0, 0, 0, 56, 0, 64],
+            "Whistle": [0, 16, 0, 0, 0, 112, 0, 64],
+            "Bass": [0, 80, 0, 0, 0, 112, 0, 64],
         },
     },
     # The Monomachine's FM+ machines (voices/fmp.hpp, reference/README.md). FRQ
