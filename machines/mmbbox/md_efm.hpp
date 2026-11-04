@@ -19,6 +19,7 @@
 //   start at a zero crossing, one sample in, and rise over the first quarter
 //   cycle (first sample / peak 0.06 on EFM-CB, 0.09 on EFM-CP, 0.07 on EFM-SD,
 //   0.05 on EFM-HH): they pass from_zero or fed_start to reset().
+#include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
 namespace md_mmbbox {} namespace md = md_mmbbox; namespace md_mmbbox {
@@ -104,9 +105,9 @@ inline i32 ratio(i32 control) {
 // Each runs in a straight line across the block; the envelopes step on.
 struct Sweep {
     Ramp carrier, modulator, deviation;
-    void plan(u32 base, i32 ramp_from, i32& ramp, i32 ramp_step, i32 ratio, i32 depth, i32& envelope, i32 depth_step) {
-        const i32 ramp_next = multiply(ramp, per_block(ramp_step));
-        const i32 envelope_next = multiply(envelope, per_block(depth_step));
+    void plan(u32 base, i32 ramp_from, i32& ramp, i32 ramp_block, i32 ratio, i32 depth, i32& envelope, i32 depth_block) {
+        const i32 ramp_next = multiply(ramp, ramp_block);
+        const i32 envelope_next = multiply(envelope, depth_block);
         const u32 now = scale(base, 0x10000000 + multiply(ramp_from, ramp));
         const u32 next = scale(base, 0x10000000 + multiply(ramp_from, ramp_next));
         carrier.plan(now, next);
@@ -116,5 +117,100 @@ struct Sweep {
         envelope = envelope_next;
     }
 };
+
+// A machine with no sweep: its pitches hold, worked out when a control moves, and only
+// the deviation's line is left for each block.
+struct Flat {
+    u32 carrier, modulator;
+    i32 depth_block;
+    void prepare(u32 base, i32 ratio, i32 depth_step) {
+        carrier = scale(base, 0x10000000);
+        modulator = scale(carrier, ratio);
+        depth_block = per_block(depth_step);
+    }
+    Ramp deviation(i32 depth, i32& envelope) const {
+        const i32 next = multiply(envelope, depth_block);
+        Ramp line;
+        line.plan(scale(carrier, multiply(depth, envelope)), scale(carrier, multiply(depth, next)));
+        envelope = next;
+        return line;
+    }
+};
+
+// Pair::run and Fed::run over a block, a stage at a time: out of line, so each has a hardware
+// loop and all the registers to itself, and on locals, as the buffer might otherwise be the voice.
+// The modulator's output into y, then the carrier's over it.
+__attribute__((noinline)) inline void run_modulator(Pair& pair, u32 modulation, i32 fb, i32* y) {
+    u32 phase = pair.modulator;
+    i32 last = pair.last;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        last = sine(phase + (static_cast<u32>(multiply(fb, last)) << 3));
+        y[i] = last;
+        phase += modulation;
+    }
+    pair.modulator = phase;
+    pair.last = last;
+}
+__attribute__((noinline)) inline void run_carrier(Pair& pair, u32 increment, Ramp deviation, i32* y) {
+    u32 phase = pair.carrier, swing = deviation.value;
+    const u32 slope = static_cast<u32>(deviation.slope);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 moved = multiply(static_cast<i32>(swing), y[i]);
+        y[i] = sine(phase);
+        phase += increment + static_cast<u32>(moved);
+        swing += slope;
+    }
+    pair.carrier = phase;
+}
+// The same, for a sweep: the increments move in lines too.
+__attribute__((noinline)) inline void run_modulator_swept(Pair& pair, Ramp modulation, i32 fb, i32* y) {
+    u32 phase = pair.modulator, increment = modulation.value;
+    const u32 slope = static_cast<u32>(modulation.slope);
+    i32 last = pair.last;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        last = sine(phase + (static_cast<u32>(multiply(fb, last)) << 3));
+        y[i] = last;
+        phase += increment;
+        increment += slope;
+    }
+    pair.modulator = phase;
+    pair.last = last;
+}
+__attribute__((noinline)) inline void run_carrier_swept(Pair& pair, Ramp carrier, Ramp deviation, i32* y) {
+    u32 phase = pair.carrier, increment = carrier.value, swing = deviation.value;
+    const u32 slope = static_cast<u32>(carrier.slope), swing_slope = static_cast<u32>(deviation.slope);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 moved = multiply(static_cast<i32>(swing), y[i]);
+        y[i] = sine(phase);
+        phase += increment + static_cast<u32>(moved);
+        increment += slope;
+        swing += swing_slope;
+    }
+    pair.carrier = phase;
+}
+// The plain modulator, as what each sample adds to the fed carrier's phase...
+__attribute__((noinline)) inline void run_fed_modulator(Fed& fed, u32 increment, Ramp deviation, u32 modulation, i32* y) {
+    u32 phase = fed.modulator, swing = deviation.value;
+    const u32 slope = static_cast<u32>(deviation.slope);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        y[i] = static_cast<i32>(increment + static_cast<u32>(multiply(static_cast<i32>(swing), sine(phase))));
+        phase += modulation;
+        swing += slope;
+    }
+    fed.modulator = phase;
+}
+// ...and the carrier over it.
+__attribute__((noinline)) inline void run_fed_carrier(Fed& fed, i32 fb, i32* y, unsigned count) {
+    u32 phase = fed.carrier;
+    i32 last = fed.last;
+    for (unsigned i = 0; i != count; ++i) {
+        const u32 step = static_cast<u32>(y[i]);
+        last = sine(phase + (static_cast<u32>(multiply(fb, last)) << 3));
+        y[i] = last;
+        phase += step;
+    }
+    fed.carrier = phase;
+    fed.last = last;
+}
 }
 }
