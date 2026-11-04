@@ -205,14 +205,25 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   note you play doesn't change it.
 - **Parameter locks:** hold a step and turn an encoder to lock that control on
   the step. While you hold the step, the screen shows the values it plays.
+- **Track filter:** on MD KIT, **M3** is the OP-XY's own filter, as on a synth
+  track: switch it on, pick the type (svf, ladder, z lowpass, z hipass and the
+  rest) and set cutoff, resonance, envelope amount and key tracking. Each hit
+  gets its own filter and its own filter envelope (**M2** with **Shift**), after
+  the key's own FILTER, so a dark key gets darker still. With M3 off the kit
+  sounds exactly as it does without it. M3's second row has the track's FX I
+  and FX II.
+- **M3 locks:** hold a step and turn M3's encoders to lock the filter on that
+  step, as on a synth. FX I and FX II lock from M3's second row or the mixer.
 - **Shift locks:** on MD KIT, hold a step, hold **Shift** and turn PAN or
-  LEVEL (first row) or FILTER or SRR (second row) to lock that step's hits to
-  the key's own setting plus an offset: pan up to 100 either way, level up to
-  30dB, FILTER and SRR across their whole range. Each hit keeps its offset
-  while it rings, and the hits before it don't move. While you hold the step,
-  the Shift row shows what it plays. A lock moves every key on its step, so
-  put keys on separate steps to lock them apart. MACHINE, CHOKE, FX I and FX II
-  don't lock. MD KIT has no M3 page: each key's FILTER takes its place.
+  LEVEL (first row), or FILTER, SRR, FX I or FX II (second row), to lock that
+  step's hits. LEVEL, FILTER and SRR lock the key's own setting plus an
+  offset: level up to 30dB either way, FILTER and SRR across their whole range.
+  PAN pushes the key's pan towards the left or the right, all the way at either
+  end. FX I and FX II lock the hit's send itself, TRK or 0 to 100, whatever the
+  key sends. Each hit keeps its locks while it rings, and the hits before it
+  don't move. While you hold the step, the Shift row shows what it plays. A
+  lock moves every key on its step, so put keys on separate steps to lock them
+  apart. MACHINE and CHOKE don't lock.
 - **Saving:** each key's machine, controls, choke group, pan, level, FILTER
   and SRR are saved with the project; its machine, controls, pan and level in
   presets too.
