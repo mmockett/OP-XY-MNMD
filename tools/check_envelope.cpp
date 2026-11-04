@@ -6,10 +6,14 @@
 //   every frame hashed. tools/check_envelope.py compares the hash with the one
 //   recorded from the screens before they read the envelope: unknown must draw
 //   exactly what it always did.
-// - A short envelope (a pluck: no attack, a short decay to silence, no release)
-//   against a long one (slow attack, a long decay to a held level, a long
-//   release): when each goes still, held and after the release, and how many
-//   nodes each frame changes while the note is held and while it releases.
+// - A short envelope (a pluck: no attack, a short decay to silence, stock's
+//   shortest release) against a long one (slow attack, a long decay to a held
+//   level, a long release): when each goes still, held and after the release,
+//   and how many nodes each frame changes while the note is held and while it
+//   releases. Stock's words (amp_curve.h): a larger release word is SHORTER.
+// - Stock's directions, for an engine that follows the envelope: a larger
+//   release word ends the motion sooner, and a larger attack word swells the
+//   level slower.
 //
 // Use tools/check_envelope.py, which compiles it once per engine:
 //   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<e> -DENGINE=<e> [-DKIT] tools/check_envelope.cpp
@@ -162,9 +166,12 @@ int main() {
         }
     std::printf("unknown %016llx\n", hash);
 
-    // A pluck: no attack, the shortest decay to nothing, no release. A pad: a
-    // slow attack, a long decay to 0.7, a long release.
-    const Envelope pluck = envelope(0, 0.1, 0, 0), pad = envelope(0.45, 0.5, 0.7, 0.6);
+    // A pluck: no attack, a short decay to nothing (word 0.1, about 0.3 s),
+    // stock's shortest release (word 0x7f000000, about 6 ms). A pad: a slow
+    // attack (word 0.45, about 0.9 s), a long decay to 0.7 and a long release
+    // (word 0.4, about 3.8 s to -66 dB).
+    Envelope pluck = envelope(0, 0.1, 0, 0), pad = envelope(0.45, 0.5, 0.7, 0.4);
+    pluck.release = 0x7f000000;
     int failures = 0;
     double worst_mean = 0;
     int worst_peak = 0, rest = 0;
@@ -198,6 +205,37 @@ int main() {
     if (short_held > 0.4 || short_end > 0.4) { std::puts("  FAIL: a pluck's motion outlasts its sound"); ++failures; }
 #else
     std::puts("  doesn't read the envelope: its motion is the same under any");
+#endif
+#ifdef FOLLOWS
+    // Stock's directions, at the middle setting: the motion after the release
+    // (release words 0.25, 0.5 and 0x7f000000: about 7.9 s, 3 s and 6 ms to
+    // -66 dB), and the envelope's level 0.1 s into a held note (attack words 0,
+    // 0.375 and 0.5: one block, about 0.33 s and 1.45 s).
+    {
+        i32 s[8];
+        setting(0, s);
+        const i32 releases[3] = {q(0.25), q(0.5), 0x7f000000}, attacks[3] = {0, q(0.375), q(0.5)};
+        double lasted[3];
+        i32 swell[3];
+        for (int k = 0; k < 3; ++k) {
+            Envelope e = pad;
+            e.release = releases[k];
+            lasted[k] = life(s, 0, e, 2.0).last_released;
+            Envelope r = pad;
+            r.attack = attacks[k];
+            input.amp = r;
+            const md::view::Moment m = {102, 0, 0, md::view::amp_of(input)};   // 0.1 s, Q10
+            swell[k] = m.level();
+        }
+        std::printf("  directions: release 0.25, 0.5, 0x7f still after %.2f, %.2f and %.2f s; attack 0, 0.375, 0.5 at %.2f, %.2f and %.2f 0.1 s in\n",
+                    lasted[0] < 0 ? 0 : lasted[0], lasted[1] < 0 ? 0 : lasted[1], lasted[2] < 0 ? 0 : lasted[2],
+                    swell[0] / 2147483648.0, swell[1] / 2147483648.0, swell[2] / 2147483648.0);
+        // An engine still after the release under any is still under all: nothing to order.
+        if (lasted[0] > 0 && !(lasted[0] > lasted[1] && lasted[1] > lasted[2])) {
+            std::puts("  FAIL: a larger release word doesn't end the motion sooner"); ++failures;
+        }
+        if (!(swell[0] > swell[1] && swell[1] > swell[2])) { std::puts("  FAIL: a larger attack word doesn't swell slower"); ++failures; }
+    }
 #endif
     std::printf("RESULT %s\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;

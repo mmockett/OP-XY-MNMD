@@ -189,7 +189,7 @@ labels such as "gap 40".
 From SDK 1.10 a screen reads the track's stock amp envelope, the one M2 edits
 (`input.amp`, etcetc000/open-xy#193): attack, decay, sustain and release as
 the envelope page's positions, not times. Every synth whose screen moves with a
-note, and MD E12, times that motion by it, so the screen moves for as long as
+note times that motion by it, so the screen moves for as long as
 the sound does: it swells over the attack, holds at the sustain level while
 notes are held, and fades over the release after the last note-off. A pluck's
 screen goes still with its sound, even with the key held; a pad's keeps moving
@@ -203,10 +203,11 @@ and adds nothing to the drawing. All of it is in `md::view::Moment`
 | A turn (`live::turning`) | SID-6581 (its scroll and PW sweep), VO-6, GND-SIN | it turns as far as the level has carried the note, so it gathers speed over the attack and slows with the decay; a note with no sustain brings its turn home as it dies away; from the release it turns home as the release falls |
 | The noise running (`Moment::running`) | GND-NOIS | it runs at the level's speed, for as long as the sound lasts |
 | BBOX's playhead | DPRO-BBOX | goes back once the sound has faded; an envelope can cut a sample short, not play it past its end |
-| E12's tape run | MD E12 | runs no further than the level and comes back as the sound fades, within the hit's own 0.52 s |
 
-DPRO-WAVE and DPRO-DDRW don't move with a note, so they don't read it. MD
-KIT doesn't read it yet. DPRO-DENS doesn't either, for now: its firmware fails
+DPRO-WAVE and DPRO-DDRW don't move with a note, so they don't read it. The
+kits, MD KIT and MD E12, don't follow it: stock's drum voices never apply the
+amp envelope to the sound (its drum renderer reads none of the four words), so
+a kit's screen keeps its own timing, and MD E12 stays on SDK 1.8. DPRO-DENS doesn't either, for now: its firmware fails
 to link on the SDK's `staging` ("multiple definition" of the DPRO wave tables,
 the COMDAT issue), so it stays on SDK 1.3 and builds on the fork. Its view
 already knows the envelope (the chorus copy comes down to the wave as far as
@@ -217,25 +218,21 @@ builder's preview, a non-instrument track) every screen draws exactly what it
 drew before: `tools/check_envelope.py` hashes a fixed run of frames against
 `tools/envelope_frames.json`, recorded from the screens before they read it.
 
-**Timing.** Stock maps the envelope page's positions to times along curves it
-doesn't document. `md::view::seconds_of` assumes the same curve for every
-stage: 2 ms at 0, rising as the cube of the position to 10 s at the top (1.25 s
-at the middle, 0.16 s at a quarter). A decay or release under 0.15 s is drawn
-as 0.15 s, so motion eases out rather than jumping; a sustain under 1/64 is
-none. The attack rises in a line; the decay and release fall as the square of
-what is left, as the old 0.2 s tail did. Fit `seconds_of` again if the device
-shows stock's curve is otherwise.
-
-**On the device.** Nothing here has run on an OP-XY. The platform reads `amp`
-for every screen, drum kits included, though the SDK's docs name only synths
-and samplers: MD E12's use of it is unverified on the device.
+**Timing.** The times and shapes are stock OS 1.2.1's (`lib/amp_curve.h`,
+copied beside every engine): a larger attack or decay is a longer stage, but a
+larger release is a shorter one, so a release of 127 is stock's shortest. The
+attack rises quickly and rounds off at the top, the decay and release fade
+exponentially (the decay stops at the sustain plus 1%, the release at -66 dB),
+and the sustain is a plain level. Decay and release are held to at least
+stock's fourth-fastest step, so motion eases out over about 0.1 to 0.2 s
+rather than jumping; a sustain under 1/64 is none.
 
 **Churn.** Under a pluck and a pad, held and released, at the defaults, at all
 0, 64 and 127 and at random settings, no engine averages more than 6 changed
 nodes a frame or peaks above 8, and nothing changes at rest
 (`tools/check_envelope.py`). Motion that only follows the level moves in whole
-pixels (E12's tape, and DENS's copy once it reads it) and the level in 1/256 steps, so a slow
-release redraws only when something visibly moves.
+pixels (DENS's copy, once it reads it) and the level in 1/2048 steps, down to
+stock's -66 dB, so a slow release redraws only when something visibly moves.
 
 ## Checking a screen
 
@@ -246,8 +243,9 @@ release redraws only when something visibly moves.
   `--amp pluck` or `--amp pad` sweeps it under that amp envelope.
 - `python3 tools/check_envelope.py --sdk <open-xy checkout>` checks each screen
   against the amp envelope: unchanged frames when it is unknown, a pluck still
-  once its sound has gone, churn while held and through the release.
-- `XY_FONT=<UniversNextPro-Light.ttf> python3 tools/envelope_sheet.py --out <folder outside the checkout> mmsaw mde12:0,8`
+  once its sound has gone, churn while held and through the release, and that a
+  larger release word ends the motion sooner and a larger attack word swells slower.
+- `XY_FONT=<UniversNextPro-Light.ttf> python3 tools/envelope_sheet.py --out <folder outside the checkout> mmsaw mmsin`
   draws contact sheets of a pluck against a pad at 1:1 in the device's font.
 - `python3 tools/serve_bench.py`, then http://127.0.0.1:8930/?track=N. With
   `&flash=1` the screen shows a hit without audio, for screenshots.

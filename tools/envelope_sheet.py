@@ -2,11 +2,13 @@
 """Contact sheets of a screen under a short amp envelope against a long one
 (docs/SCREEN.md "Following the amp envelope"), at 1:1 in the device's font.
 
-    XY_FONT=<UniversNextPro-Light.ttf> python3 tools/envelope_sheet.py --out <folder> mmsaw mde12:0,8
+    XY_FONT=<UniversNextPro-Light.ttf> python3 tools/envelope_sheet.py --out <folder> mmsaw mmsin
 
-Each engine gets one PNG: a row for a pluck (no attack, the shortest decay to
-nothing, no release) and one for a pad (a slow attack, a long decay to 0.7, a
-long release), the note held for a second, frames at the times on top. A drum
+Each engine gets one PNG: a row for a pluck (no attack, a short decay to
+nothing, release word 0x7f000000: stock's shortest, about 6 ms) and one for a
+pad (a slow attack, a long decay to 0.7, release word 0: stock's longest, about
+55 s to -66 dB; a larger release word is a SHORTER release), the note held for
+a second, frames at the times on top. A drum
 kit takes its keys' machines after a colon. It builds each engine's preview
 with the SDK (tools/sdk_path.py), renders the frames in headless Chrome with
 the SDK's own browser display, and writes the sheets and their staging into
@@ -27,7 +29,7 @@ from sdk_path import SDK  # noqa: E402
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 TIMES = [0.1, 0.4, 0.9, 1.15, 1.6, 2.4, 3.2]   # seconds from the note; released at 1.0
 RELEASE = 1.0
-ENVELOPES = {"short": [0, 0.1, 0, 0], "long": [0.45, 0.5, 0.7, 0.6]}   # attack, decay, sustain, release positions
+ENVELOPES = {"short": [0, 0.1, 0, 0x7f000000 / 2 ** 31], "long": [0.45, 0.5, 0.7, 0]}   # attack, decay, sustain, release words / 2^31
 
 PAGE = """<!doctype html><meta charset="utf-8">
 <style>

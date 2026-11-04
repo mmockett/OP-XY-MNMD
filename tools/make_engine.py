@@ -39,10 +39,11 @@ def slug(name):
 
 # The engines whose screens move with a note follow the track's amp envelope
 # (SDK 1.10's input.amp, docs/SCREEN.md). DPRO-WAVE's and DPRO-DDRW's screens
-# don't move with a note; MD KIT doesn't read it yet; DPRO-DENS waits for the
-# DPRO link fix, as only SDKs before 1.10 build its firmware.
+# don't move with a note; DPRO-DENS waits for the DPRO link fix, as only SDKs
+# before 1.10 build its firmware. The kits, MD KIT and MD E12, don't follow it:
+# stock's drum voices never apply the amp envelope to the sound.
 AMP_ENVELOPE = {"mmsaw", "mmpulse", "mmens", "mmsid", "mmstat", "mmpar", "mmdyn", "mmvo6", "mmsin", "mmnois",
-                "mmbbox", "mde12"}
+                "mmbbox"}
 
 
 def moment(engine):
@@ -177,6 +178,8 @@ def copy_scoped(source, folder, engine, paged=False):
         stage = re.search(r"const i32 stage_y = 30;.*", text)
         text = text.replace(stage.group(0), f"const i32 stage_y = {PAGED_STAGE_Y};   // under the two-page header")
     (folder / source.name).write_text(text)
+    if source.name == "md_view.hpp":   # md_view.hpp includes it, unscoped and byte-identical
+        shutil.copyfile(source.parent / "amp_curve.h", folder / "amp_curve.h")
 
 
 def copy_private(headers, folder, engine):
