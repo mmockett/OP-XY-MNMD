@@ -271,6 +271,14 @@ __attribute__((noinline)) void sound30(Voice& voice, Shared& shared, opxy::Outpu
 __attribute__((noinline)) void sound31(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::gnd_ns::render(voice.u.m31, shared.common, output, own, tuned); }
 __attribute__((noinline)) void sound32(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::gnd_im::render(voice.u.m32, shared.common, output, own, tuned); }
 
+// A machine's output level (kit::level): out * gain, held at the SDK's ceiling.
+inline void level(u32 machine, opxy::Output output) {
+    const i32 gain = kit::level[machine < kit::models ? machine : 0];
+    if (gain == kit::unity) return;
+    for (unsigned i = 0; i < opxy::block_frames; ++i)
+        output[i] = md::clamp(md::multiply(output[i], gain), -(md::half_scale >> 1), md::half_scale >> 1) * 2;
+}
+
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {
@@ -323,6 +331,7 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     case 32: sound32(voice, shared, output, own); break;
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }
+    level(voice.machine, output);
     pad_fx(voice.fx, output);
     // Stops at the first loud sample: nearly every block of a sounding voice has one early.
     unsigned under = 0;

@@ -226,6 +226,7 @@ int main() {
                 case 32: md::gnd_im::render(alone.u.m32, b.common, y, own, tuned); break;
                 default: break;
                 }
+                mdkit::level(m, y);
                 for (unsigned i = 0; i < opxy::block_frames; ++i)
                     cut = cut || (ended ? y[i] >= mdkit::quiet_floor || y[i] <= -mdkit::quiet_floor : x[i] != y[i]);
                 ended = ended || mdkit::finished(engine_voice, a);

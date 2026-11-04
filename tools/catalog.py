@@ -101,6 +101,24 @@ MACHINES = {
 
 # The OP-XY packaging.
 
+# Output level of each machine in the drum kits, as a gain on its voice (1 when
+# absent), so the quieter machines sit near the louder ones. Each was measured
+# at its default keys and at the 90th percentile of 150 random control settings
+# (one note, 2 s): the gain brings the larger of the two peaks to -1 dB of the
+# SDK's half-scale output ceiling, at most +6 dB. Machines whose peaks already
+# reach the ceiling at common settings keep 1. The stage saturates at the
+# ceiling, so the rare setting that was already near it clips there. TRX-XT is
+# held to 1.21 instead, so its loudest key (LT) is no louder over 100 ms than
+# the kit's loudest unchanged key (BD2): the toms ring, and at 1.72 they would
+# have stood 3 dB over the kicks.
+LEVELS = {
+    "TRX-XT": 1.21, "TRX-CB": 1.12, "TRX-CY": 1.69, "TRX-XC": 1.85,
+    "EFM-BD": 2.0, "EFM-SD": 1.72, "EFM-XT": 2.0, "EFM-CP": 2.0, "EFM-RS": 1.72, "EFM-CB": 2.0,
+    "EFM-HH": 1.53, "EFM-CY": 2.0,
+    "PI-BD": 1.18, "PI-ML": 1.31, "PI-MA": 1.05, "PI-RC": 1.14,
+    "GND-SN": 2.0, "GND-NS": 1.89, "GND-IM": 1.51,
+}
+
 # The kits: 24 keys from C, as the OP-XY's keyboard. The first 16 follow the
 # Machinedrum's default kit (docs/design/HANDOFF.md): BD SD HT MT LT CP RS CB
 # CH OH RC CC M1..M4; the last 8 are variations. Each key: (role, machine,
@@ -214,6 +232,7 @@ def controls(name):
 
 assert len(ENGINES) <= 27, len(ENGINES)
 assert all(len(keys) == 24 for keys in KITS.values())
+assert all(name in MACHINES and 1 <= level <= 2 for name, level in LEVELS.items())
 assert all(set(key[1] for kit in kits for key in KITS[kit]) <= set(ENGINES[engine]) for engine, kits in ENGINE_KITS.items())
 assert {m for ms in ENGINES.values() for m in ms} == set(MACHINES), "every machine in an engine"
 for _kit, _keys in KITS.items():

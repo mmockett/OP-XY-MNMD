@@ -66,6 +66,10 @@ const unsigned char key_values[keys][8] = {
 };
 // The key each machine is first on (0 when no key starts on it).
 const unsigned char shown[models] = {0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 20, 14, 15};
+// Each machine's output level (tools/catalog.py LEVELS): half its gain in Q31,
+// so 0x40000000 is unity and leaves the voice untouched.
+const i32 level[models] = {0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000};
+const i32 unity = 0x40000000;
 
 // A machine's eight slots (Q31) from the drum kind's eight controls (Q31,
 // 0..127 << 24), on the scale the voice modules are voiced on.
