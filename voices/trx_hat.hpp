@@ -94,8 +94,13 @@ struct State {
 __attribute__((noinline)) inline void start_lines(const u32* phase, const u32* increment, i32 lines, i32* band) {
     u32 pulse = phase[squares], a = phase[0], c = phase[1];
     const u32 step_pulse = increment[squares], step_a = increment[0], step_c = increment[1];
+    const i32 twice = lines * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        band[i] = (pulse < pulse_duty ? lines : -lines) + (1 - static_cast<i32>(a >> 31) - static_cast<i32>(c >> 31)) * 2 * lines;
+        // (pulse < pulse_duty ? lines : -lines) + (1 - sign a - sign c) * 2 * lines, without the
+        // multiply or a branch: each set sign takes twice the lines away.
+        const i32 high = -static_cast<i32>(pulse < pulse_duty);
+        const i32 off_a = twice & -static_cast<i32>(a >> 31), off_c = twice & -static_cast<i32>(c >> 31);
+        band[i] = ((lines ^ ~high) - ~high) + twice - off_a - off_c;
         pulse += step_pulse;
         a += step_a;
         c += step_c;
