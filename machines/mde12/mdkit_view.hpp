@@ -25,7 +25,7 @@ using opxy::u16;
 // the change it makes to the sound (the root of its share of 24 dB of band energy, at least 0.5).
 static const opxy::u16 travel[33][8] = {
     {128, 184, 183, 137, 132, 180, 128, 170},   // TRX-BD: PTCH 5.6, DEC 12.4, RAMP 12.2, RDEC 6.9, STRT 6.4, NOIS 11.8, HARM 1.1, CLIP 10.6
-    {128, 239, 128, 128, 142, 128, 128, 203},   // TRX-SD: PTCH 0.7, DEC 21.0, BUMP 0.8, BENV 0.5, SNAP 7.4, TONE 5.9, TUNE 4.8, CLIP 15.0
+    {157, 239, 128, 128, 142, 128, 128, 203},   // TRX-SD: PTCH 9.0, DEC 21.0, BUMP 0.8, BENV 0.3, SNAP 7.4, TONE 5.8, TUNE 4.7, CLIP 15.1
     {208, 256, 128, 137, 128, 160, 128, 0},   // TRX-XT: PTCH 15.8, DEC 27.9, RAMP 5.7, RDEC 6.8, DAMP 3.8, DIST 9.3, DTYP 1.5
     {128, 128, 128, 227, 256, 128, 163, 128},   // TRX-CP: CLPY 3.1, TONE 2.6, HARD 4.0, RICH 18.9, RATE 24.9, ROOM 3.6, RSIZ 9.7, RTUN 5.8
     {196, 256, 220, 0, 0, 0, 0, 0},   // TRX-RS: PTCH 14.1, DEC 33.5, DIST 17.7
@@ -138,6 +138,23 @@ inline i32 reach(i32 x, i32 y) {
     return (ax > ay ? ax + ay * 3 / 8 : ay + ax * 3 / 8) | 1;
 }
 
+// A path's own palette entry for a shade. The paths draw at scale 2, where an
+// entry's stroke width doubles, and the fixed parts at about 1, so the paths
+// take entries of their own: the same grey at half the width, in entries the
+// kits leave unused (tools/art/build.mjs, KIT_PATH_SHADES). Both then draw
+// lines about 1 px wide, as thin as stock Drumline's.
+inline u32 path_tone(u32 tone) {
+    switch (tone) {
+    case thin: return line;
+    case mid: return outline0;
+    case dim: return outline1;
+    case faint: return fill2;
+    case dash: return fill3;
+    case label: return fill5;
+    default: return tone;
+    }
+}
+
 // Draws points as a closed outline (or, `ribbon`, a line out and back) on a
 // path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it.
 // The key is the points' own hash, so an unchanged shape costs nothing.
@@ -182,7 +199,7 @@ inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ri
         } else outline(f.paths[path], local, n, key);
         f.paths[path].key = key;
     }
-    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, tone, stroke);
+    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, path_tone(tone), stroke);
     if (tenths) opxy::draw::turn(f, path, rotation(tenths));
 }
 // A fixed part at (x, y) on the stage (Q10), scaled and turned, in its own shade or another.
