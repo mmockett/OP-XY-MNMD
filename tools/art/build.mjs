@@ -234,6 +234,20 @@ function liftStrikes(parts) {
 // A kit drawn as the sounding part in section (tools/art/fig.mjs), full screen:
 // the design's instrument and panel give way to the parts the view places.
 const FIG_KITS = Object.keys(FIGS);
+// Their sections draw on the four paths at scale 2, where a palette entry's
+// stroke width doubles, and their fixed parts at about scale 1. So the paths
+// take entries of their own (voices/mdkit_view.hpp, fig::path_tone), in the
+// ones the kits leave unused: each path shade's grey, at a width that draws
+// 1 px on the screen. The parts' lines are 1 px too, so the kits draw one line
+// weight, as thin as stock Drumline's.
+export const KIT_PATH_SHADES = { line: 'thin', o0: 'mid', o1: 'dim', f2: 'faint', f3: 'dash', f5: 'label' };
+const KIT_PATH_WIDTH = 0.5;
+const KIT_PART_WIDTH = { mid: 1, o2: 1 };
+const KIT_PALETTE = PALETTE.map(([fill, stroke, width], i) => {
+  const style = Object.keys(SHADE).find(s => SHADE[s] === i && s in { ...KIT_PATH_SHADES, ...KIT_PART_WIDTH });
+  if (style in KIT_PATH_SHADES) return ['none', PALETTE[SHADE[KIT_PATH_SHADES[style]]][1], KIT_PATH_WIDTH];
+  return style ? [fill, stroke, KIT_PART_WIDTH[style]] : [fill, stroke, width];
+});
 
 export function build(engine, members, pads = false, withFig = false) {
   const nodes = [], machines = [], texts = [];
@@ -456,7 +470,7 @@ function panel(engine, art, paged, compact = false) {
     const x = ring ? ring.cx - width(t.t, fs) / 2 : t.x, baseline = ring ? ring.cy + fs * CAP_HEIGHT / 2 : t.y + t.fs * 0.83;
     out.push(`  <g><text transform="matrix(1 0 0 1 ${num(x)} ${num(stageY + baseline)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(fs)}px">${esc(t.t)}</text></g>`);
   }
-  PALETTE.forEach(([fill, stroke, width], i) =>
+  (art.fig ? KIT_PALETTE : PALETTE).forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
   return (compact ? out.map(line => line.replace(/^  /, '')) : out).join('\n') + '\n';
