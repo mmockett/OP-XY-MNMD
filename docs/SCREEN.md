@@ -145,6 +145,13 @@ Lessons from the device (build 039), for any view on a reshaping path:
   edges a quarter of a local pixel apart. A line traced out and back over itself
   (`polyline`), most of all one that turns sharply, broke up on the device even
   when every host check passed.
+- **Lines are 1 px.** The paths draw at scale 2, which doubles a palette entry's
+  stroke width, so they take entries of their own at half the width
+  (`fig::path_tone`; `KIT_PATH_SHADES` in `tools/art/build.mjs`), in palette places
+  the kits leave unused. A closed outline is then 1 px wide and a ribbon 1.5 px
+  across; the fixed parts' entries are 1 px at their scale of about 1. Up to
+  v1.2.3 the paths drew 2 to 2.4 px, and players asked for stock Drumline's
+  thinner look.
 - **Never draw several separate strokes on one path.** TRX-BD's NOIS spray broke
   up that way: the strokes and the joins between them doubled back at every tip.
   Use fixed nodes (`spark0`..), which cannot change shape.

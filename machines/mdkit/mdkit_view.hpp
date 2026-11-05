@@ -138,6 +138,23 @@ inline i32 reach(i32 x, i32 y) {
     return (ax > ay ? ax + ay * 3 / 8 : ay + ax * 3 / 8) | 1;
 }
 
+// A path's own palette entry for a shade. The paths draw at scale 2, where an
+// entry's stroke width doubles, and the fixed parts at about 1, so the paths
+// take entries of their own: the same grey at half the width, in entries the
+// kits leave unused (tools/art/build.mjs, KIT_PATH_SHADES). Both then draw
+// lines about 1 px wide, as thin as stock Drumline's.
+inline u32 path_tone(u32 tone) {
+    switch (tone) {
+    case thin: return line;
+    case mid: return outline0;
+    case dim: return outline1;
+    case faint: return fill2;
+    case dash: return fill3;
+    case label: return fill5;
+    default: return tone;
+    }
+}
+
 // Draws points as a closed outline (or, `ribbon`, a line out and back) on a
 // path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it.
 // The key is the points' own hash, so an unchanged shape costs nothing.
@@ -182,7 +199,7 @@ inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ri
         } else outline(f.paths[path], local, n, key);
         f.paths[path].key = key;
     }
-    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, tone, stroke);
+    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, path_tone(tone), stroke);
     if (tenths) opxy::draw::turn(f, path, rotation(tenths));
 }
 // A fixed part at (x, y) on the stage (Q10), scaled and turned, in its own shade or another.

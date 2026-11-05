@@ -88,20 +88,20 @@
 <path id="mdkit_node_60" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_61" d="M16 -18 L23 -13 L30 -6.5 L37 0 L30 6.5 L23 13 L16 18" fill="none" stroke="#a8a9ad" stroke-width="1.2" stroke-linejoin="round"/>
 <path id="mdkit_node_62" d="M-1 -30 L1 -30 L1 0 L-1 0 Z" fill="none" stroke="#606166" stroke-width="1" stroke-linejoin="round"/>
-<circle id="mdkit_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.6"/>
+<circle id="mdkit_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="0.5"/>
 <circle id="mdkit_palette_1" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1"/>
-<circle id="mdkit_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1.2"/>
+<circle id="mdkit_palette_2" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="1"/>
 <circle id="mdkit_palette_3" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#606166" stroke-width="1"/>
 <circle id="mdkit_palette_4" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#3a3b3f" stroke-width="1"/>
 <circle id="mdkit_palette_5" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#7a7b80" stroke-width="1"/>
 <circle id="mdkit_palette_6" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#8c8d92" stroke-width="0.9"/>
 <circle id="mdkit_palette_7" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#1c1d20" stroke="#1c1d20" stroke-width="0.1"/>
-<circle id="mdkit_palette_8" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#3a3b40" stroke="#3a3b40" stroke-width="0.1"/>
-<circle id="mdkit_palette_9" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#66676c" stroke="#66676c" stroke-width="0.1"/>
+<circle id="mdkit_palette_8" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#3a3b3f" stroke-width="0.5"/>
+<circle id="mdkit_palette_9" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#7a7b80" stroke-width="0.5"/>
 <circle id="mdkit_palette_10" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#a8a9ad" stroke="#a8a9ad" stroke-width="0.1"/>
-<circle id="mdkit_palette_11" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#f7f5f5" stroke="#f7f5f5" stroke-width="0.1"/>
-<circle id="mdkit_palette_12" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#f7f5f5" stroke-width="1.4"/>
-<circle id="mdkit_palette_13" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#1c1d20" stroke="#f7f5f5" stroke-width="1.2"/>
-<circle id="mdkit_palette_14" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#3a3b40" stroke="#c9cacd" stroke-width="1.1"/>
+<circle id="mdkit_palette_11" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#8c8d92" stroke-width="0.5"/>
+<circle id="mdkit_palette_12" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#a8a9ad" stroke-width="0.5"/>
+<circle id="mdkit_palette_13" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#606166" stroke-width="0.5"/>
+<circle id="mdkit_palette_14" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#3a3b40" stroke="#c9cacd" stroke-width="1"/>
 <circle id="mdkit_palette_15" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#818287" stroke="#f7f5f5" stroke-width="1.1"/>
 </g>
