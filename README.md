@@ -55,6 +55,21 @@ either way, finely around its default, so a project that saved it away from the 
 its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The track menu's scramble doesn't change a kit yet
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
 
+**The screens follow the amp envelope, once SDK 1.10 is out.** Every
+Monomachine engine whose screen moves with a note now times that motion by the
+track's own amp envelope (M2), with the OP-XY's own times and curves: it swells with the attack, holds
+while the note is held and fades over the release, so it stops when the sound
+does ([docs/SCREEN.md](docs/SCREEN.md#following-the-amp-envelope)). These
+engines therefore target SDK 1.10, which is only on the SDK's `staging` so far:
+they can't be built with a released SDK, or go into the open-xy.com builder,
+until 1.10 is released. The builder keeps installing the versions it pins
+([docs/CATALOG.md](docs/CATALOG.md)). Nothing in the sound changed, so saved
+sounds and projects play as before. A larger release setting is a shorter
+release on the OP-XY, and the screens follow it that way. DPRO-WAVE and
+DPRO-DDRW don't move with a note, the kits (MD KIT and MD E12) don't follow
+the envelope because the OP-XY doesn't apply it to drum sounds, and DPRO-DENS
+waits until its firmware links on SDK 1.10; they are unchanged.
+
 ## What you need
 
 - macOS (the tools are written for it, though most of them run elsewhere).

@@ -10,7 +10,7 @@
 // a still one stays still, and walks each control for what it does on screen.
 //
 // Use tools/check_synth_frames.py, which passes the definition's defaults:
-//   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<e> -DENGINE=<e> -DCONTROLS=... -DPAGED tools/check_synth_frames.cpp
+//   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<e> -DENGINE=<e> -DCONTROLS=... -DPAGED [-DAMP=a,d,s,r] tools/check_synth_frames.cpp
 #include "display.cpp"
 #include <cmath>
 #include <cstdio>
@@ -31,6 +31,13 @@ const opxy::u32 first_header = ENGINE::header_node;
 const opxy::u32 first_header = EngineFrame::node_count;
 #endif
 const int frame_q10 = 17;   // 60 fps
+// The track's amp envelope the run plays under: -DAMP=attack,decay,sustain,release
+// (Q31 positions), or unknown, as a host before SDK 1.10 reports it.
+#ifdef AMP
+const Envelope amp_under_test = {AMP};
+#else
+const Envelope amp_under_test = {envelope_unavailable, envelope_unavailable, envelope_unavailable, envelope_unavailable};
+#endif
 
 ENGINE::DisplayState state, fresh_state;
 EngineFrame frame, previous, fresh;
@@ -125,6 +132,7 @@ void begin_run(const i32* slots) {
     frame = EngineFrame();
     input.track = 1;
     input.elapsed = frame_q10;
+    input.amp = amp_under_test;
     set(slots);
     ENGINE::display(state, input, frame);
 }

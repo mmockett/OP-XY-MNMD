@@ -11,7 +11,7 @@
 // and it walks each control through its range, failing one whose drawing stands
 // still for more than a fifth of the walk (a dead span or a two-state switch).
 //
-//   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<kit> -DENGINE=<kit> tools/check_kit_frames.cpp -o local/check
+//   c++ -std=c++11 -I<sdk>/sdk/include -Imachines/<kit> -DENGINE=<kit> [-DAMP=a,d,s,r] tools/check_kit_frames.cpp -o local/check
 #include "display.cpp"
 #include <cmath>
 #include <cstdio>
@@ -21,6 +21,13 @@ namespace {
 using namespace opxy::draw;
 typedef ENGINE::Frame EngineFrame;
 int failures = 0;
+// The track's amp envelope the run plays under: -DAMP=attack,decay,sustain,release
+// (Q31 positions), or unknown, as a host before SDK 1.10 reports it.
+#ifdef AMP
+const Envelope amp_under_test = {AMP};
+#else
+const Envelope amp_under_test = {envelope_unavailable, envelope_unavailable, envelope_unavailable, envelope_unavailable};
+#endif
 unsigned worst = 0, worst_switch = 0;
 char worst_when[96], worst_switch_when[96];
 bool switching = false;
@@ -109,6 +116,7 @@ EngineFrame frame, previous;
 // machine counts its first frame as the switch.
 bool run(opxy::u32 model, const opxy::i32* slots, const char* setting, int from) {
     Input input = Input();
+    input.amp = amp_under_test;
     for (int i = 0; i < 8; ++i) input.slots[i] = slots[i];
     for (int i = 0; i < 4; ++i) { input.parameters[i] = slots[i]; input.shown[i] = static_cast<opxy::u8>(i); }
     input.track = 1;
@@ -159,6 +167,7 @@ void walk(opxy::u32 model, int control) {
     unsigned steps = 0, still = 0;
     for (int v = 0; v <= 127; v += 8) {
         Input input = Input();
+        input.amp = amp_under_test;
         for (int i = 0; i < 8; ++i) input.slots[i] = 64 << 24;
         input.slots[control] = v << 24;
         for (int i = 0; i < 4; ++i) { input.parameters[i] = input.slots[i]; input.shown[i] = static_cast<opxy::u8>(i); }
@@ -207,6 +216,7 @@ int main() {
                             slots[c] = v >= 127 ? 0x7fffffff : static_cast<opxy::i32>(v << 24);
                             slots[d] = w >= 127 ? 0x7fffffff : static_cast<opxy::i32>(w << 24);
                             Input input = Input();
+                            input.amp = amp_under_test;
                             for (int i = 0; i < 8; ++i) input.slots[i] = slots[i];
                             for (int i = 0; i < 4; ++i) { input.parameters[i] = slots[i]; input.shown[i] = static_cast<opxy::u8>(i); }
                             input.track = 1;
