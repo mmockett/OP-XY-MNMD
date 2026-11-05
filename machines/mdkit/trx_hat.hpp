@@ -129,9 +129,9 @@ __attribute__((noinline)) inline void add_noise_through_highpass(State& voice, i
 __attribute__((noinline)) inline void run_broad(State& voice, i32 broad, i32* band) {
     i32 low = voice.top1.low, mid = voice.top1.band, high = voice.top1.high;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        low += multiply(broad_at, mid) * 2;
+        low = opxy::q31::add(low, multiply(broad_at, mid) * 2);   // md::Svf::step's sums
         high = band[i] - low - multiply(broad, mid) * 2;
-        mid += multiply(broad_at, high) * 2;
+        mid = opxy::q31::add(mid, multiply(broad_at, high) * 2);
         band[i] = low;
     }
     voice.top1.low = low;
@@ -141,7 +141,7 @@ __attribute__((noinline)) inline void run_broad(State& voice, i32 broad, i32* ba
 __attribute__((noinline)) inline void finish_block(State& voice, i32 resonant, i32 level, i32 slope, const i32* band, opxy::Output output) {
     md::Svf top2 = voice.top2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        top2.run(band[i], resonant, resonant_damping);
+        top2.step(band[i], resonant, resonant_damping);
         output[i] = md::clamp(multiply(top2.low, level), -ceiling, ceiling) * after_gain;
         level += slope;
     }

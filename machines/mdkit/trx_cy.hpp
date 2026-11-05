@@ -429,9 +429,9 @@ __attribute__((noinline)) void run_size(i32* poles, i32 coefficient, const i32* 
 __attribute__((noinline)) void run_knee(md::Svf& knee, i32 frequency, i32* body) {
     i32 low = knee.low, band = knee.band, high = knee.high;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        low += multiply(frequency, band) * 2;
+        low = opxy::q31::add(low, multiply(frequency, band) * 2);   // md::Svf::step's sums
         high = body[i] - low - multiply(body_damping, band) * 2;
-        band += multiply(frequency, high) * 2;
+        band = opxy::q31::add(band, multiply(frequency, high) * 2);
         body[i] = high;
     }
     knee.low = low;
