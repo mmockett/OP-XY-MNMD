@@ -374,27 +374,43 @@ inline Biquad between(const Biquad* t, i32 parameter) {
 
 // The block's stages, one loop each: out of line, so each has a hardware loop and all the
 // registers to itself.
-// Two squares a turn, a load and a store shared.
+// Two squares a turn, a load and a store shared. Each reads the word whose address the sample
+// before worked out, so the Blackfin moves an index to an address register well ahead of its load.
 __attribute__((noinline)) void start_lines(u32 a, u32 c, u32 step_a, u32 step_c, i32* out) {
+    const i32* at_a = square_table + (a >> 22);
+    const i32* at_c = square_table + (c >> 22);
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] = square_table[a >> 22] + square_table[c >> 22];
+        const i32 x = *at_a, y = *at_c;
         a += step_a;
         c += step_c;
+        at_a = square_table + (a >> 22);
+        at_c = square_table + (c >> 22);
+        out[i] = x + y;
     }
 }
 __attribute__((noinline)) void add_lines(u32 a, u32 c, u32 step_a, u32 step_c, i32* out) {
+    const i32* at_a = square_table + (a >> 22);
+    const i32* at_c = square_table + (c >> 22);
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += square_table[a >> 22] + square_table[c >> 22];
+        const i32 x = *at_a, y = *at_c;
         a += step_a;
         c += step_c;
+        at_a = square_table + (a >> 22);
+        at_c = square_table + (c >> 22);
+        out[i] += x + y;
     }
 }
 // The last square, the squares' sum weighed, the pulse added: the metal, at most 1/16 of full scale.
 __attribute__((noinline)) void weigh_with_pulse(u32 last, u32 step_last, u32 phase, u32 increment, i32 weight, i32* metal) {
+    const i32* at_square = square_table + (last >> 22);
+    const i32* at_pulse = pulse_table + (phase >> 22);
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        metal[i] = pulse_table[phase >> 22] + multiply(metal[i] + square_table[last >> 22], weight);
+        const i32 square = *at_square, pulse = *at_pulse;
         last += step_last;
         phase += increment;
+        at_square = square_table + (last >> 22);
+        at_pulse = pulse_table + (phase >> 22);
+        metal[i] = pulse + multiply(metal[i] + square, weight);
     }
 }
 // The body: two high-pass poles at SIZE, its resonant stage, two low-pass poles and its gain.
