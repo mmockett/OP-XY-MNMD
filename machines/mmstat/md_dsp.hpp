@@ -125,6 +125,15 @@ struct Svf {
         high = input - low - multiply(damping, band) * 2;
         band += multiply(frequency, high) * 2;
     }
+    // run's arithmetic with its two sums saturating (opxy::q31::add): the same results while
+    // run's stay in range, as they do fed as above. On the Blackfin the sums then stay in data
+    // registers; as plain sums GCC keeps the states in address registers, where each waits
+    // 4 cycles on the multiply moved to it. For sample loops.
+    void step(i32 input, i32 frequency, i32 damping) {
+        low = opxy::q31::add(low, multiply(frequency, band) * 2);
+        high = input - low - multiply(damping, band) * 2;
+        band = opxy::q31::add(band, multiply(frequency, high) * 2);
+    }
 };
 
 // A multiplier raised to the 64th power: one block's worth of a per-sample decay.
