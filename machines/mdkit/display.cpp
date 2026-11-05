@@ -83,8 +83,11 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }
     // The header last: both rows, the one the encoders edit on its bar, as the
     // Monomachine engines show their two pages. A slot the machine lacks is
-    // blank on either row. While Shift is held the edited row names Shift's
-    // controls and their choices instead, as the stock header does.
+    // blank on either row. While Shift is held both rows name Shift's controls
+    // and their choices instead, stacked as the pages are: the first row's
+    // (MACHINE, CHOKE, PAN, LEVEL) on top, the second's (FILTER, SRR, FX I,
+    // FX II) under it, the one the encoders edit bright on the bar. Shift swaps
+    // all eight names and values at once.
     static const char* const chokes[4] = {"none", "1", "2", "3"};
     const char* titles[8];
     char values[8][opxy::draw::header_capacity];
@@ -104,16 +107,14 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
             if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 6, "");
             else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
         }
-        const u32 row = input.shown[0] >= 4 ? 4 : 0;
-        // The second row's Shift: FILTER and SRR, then FX I and FX II.
         static const char* const shift_titles[2][4] = {{"MACHINE", "CHOKE", "PAN", "LEVEL"}, {"FILTER", "SRR", "FX I", "FX II"}};
-        const u32 line = row ? 1 : 0;
         const char* const shift_values[2][4] = {{kit::model[selected].name, chokes[input.choices[2] & 3u], pan, level}, {kit::filter_text[md::clamp(input.pad[0], -16, 15) + 16], kit::srr_text[md::clamp(input.pad[1], 0, 15)], sends[0], sends[1]}};
-        for (u32 c = 0; c < 4; ++c) {
-            titles[row + c] = shift_titles[line][c];
-            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[line][c]);
-        }
-        if (!line) titles[row] = kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0];
+        for (u32 line = 0; line < 2; ++line)
+            for (u32 c = 0; c < 4; ++c) {
+                titles[4 * line + c] = shift_titles[line][c];
+                opxy::draw::copy(values[4 * line + c], opxy::draw::header_capacity, shift_values[line][c]);
+            }
+        titles[0] = kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0];
     }
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }

@@ -105,6 +105,20 @@ int main() {
     show(31, 1, true, 0, 0, 2);
     const char* const second[4] = {"filter", "srr", "fx i", "fx ii"};
     for (opxy::u32 c = 0; c < 4; ++c) expect("a second-row Shift title", frame.texts[c].chars, second[c]);
+    // Both Shift rows at once, stacked as the pages: the edited row bright
+    // (title slots 0..3, values 4..7), the other grey (titles 8..11, values
+    // 12..15). On the first row the second's FILTER, SRR, FX I, FX II sit grey
+    // under it; on the second, the first's MACHINE, CHOKE, PAN, LEVEL.
+    show(0, 0, true, -40, -6, 2, Pads{-16, 15, 7, 0});
+    for (opxy::u32 c = 0; c < 4; ++c) expect("the grey second-row Shift title", frame.texts[8 + c].chars, second[c]);
+    const char* const grey_second[4] = {"L150", "689", "100", "TRK"};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a grey second-row Shift value", frame.texts[12 + c].chars, grey_second[c]);
+    show(0, 1, true, -40, -6, 2, Pads{-16, 15, 7, 0});
+    for (opxy::u32 c = 0; c < 4; ++c) expect("the grey first-row Shift title", frame.texts[8 + c].chars, first[c]);
+    const char* const grey_first[4] = {"BD", "2", "-40", "-6dB"};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a grey first-row Shift value", frame.texts[12 + c].chars, grey_first[c]);
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a bright second-row Shift title", frame.texts[c].chars, second[c]);
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a bright second-row Shift value", frame.texts[4 + c].chars, grey_second[c]);
     // Without Shift the header shows the key's own controls, as before, on
     // either row, whatever its pad settings.
     for (opxy::u32 line = 0; line < 2; ++line) {
