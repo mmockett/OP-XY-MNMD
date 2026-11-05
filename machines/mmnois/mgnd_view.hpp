@@ -133,7 +133,12 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
             const u32 at = i * pack, n = (at >> 16) + seed + shift;
             const i32 between = static_cast<i32>((at & 0xffffu) << 15);
             const i32 mixed = multiply(noise_at(n), md::one - between) + multiply(noise_at(n + 1), between);
-            a += multiply(k, multiply(mixed, md::table9(spread_of, between)) - a);
+            // a moves k of the way to the noise, in two halves: the noise less a can
+            // pass 2^31, and must not wrap (g++ and the OP-XY wrap it where clang
+            // does not; 4dde5da).
+            const i32 half = multiply(k, (multiply(mixed, md::table9(spread_of, between)) >> 1) - (a >> 1));
+            a += half;
+            a += half;
             const i32 smooth = md::gain(multiply(a, back), 5);
             // The noise swells and shrinks the wave as a narrow band's does.
             const i32 sine = multiply(md::sine(i * per_step + drift + (trace ? 0xd0000000u : 0x30000000u)), 0x30000000 + multiply(smooth, 0x20000000));
