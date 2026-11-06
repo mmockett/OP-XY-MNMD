@@ -523,9 +523,10 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
     if (m.fan >= 0) {
         const i32 on = c.a(m.fan);
         const u32 n = static_cast<u32>((on * 8 + 32768) >> 16);
+        const i32 spread = lerp(32768, 65536, on);
         for (u32 k = 0; k < n; ++k) {
-            const i32 out = 12 * px + scaleq(26 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 1)));
-            const i32 y = mid_y + scaleq(40 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 2))) - 20 * px;
+            const i32 out = 10 * px + scaleq(scaleq(30 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 1))), spread);
+            const i32 y = mid_y + scaleq(scaleq(40 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 2))) - 20 * px, spread);
             put(f, grain0 + k, k & 1 ? x1 + 8 * px + out : x0 - 8 * px - out, y);
         }
     }
@@ -690,7 +691,7 @@ struct Room { int count, spacing, jitter, scale, aim, size, ceiling, rays, cone,
 template <class F>
 inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& moment) {
     const Hit h(moment);
-    const i32 vx = 362 * px, vy = 84 * px, fx0 = 212 * px, fx1 = 512 * px, fy0 = 20 * px, fy1 = 162 * px;
+    const i32 vx = 362 * px, vy = 84 * px, fx0 = 212 * px, fx1 = 512 * px, fy0 = 20 * px, fy1 = 158 * px;
     // The room: deeper as it grows (RSIZ, or DEC), its ceiling lower for a higher tuning (RTUN).
     const i32 w = lerp(170 * px, 60 * px, c.v(r.size));
     const i32 by1 = vy + scaleq(w, 23600);
@@ -701,8 +702,8 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
     lw.add(fx0, fy0); lw.add(bx0, by0); lw.add(bx0, by1); lw.add(fx0, fy1);
     rw.add(fx1, fy0); rw.add(bx1, by0); rw.add(bx1, by1); rw.add(fx1, fy1);
     back.add(bx0, by0); back.add(bx1, by0); back.add(bx1, by1); back.add(bx0, by1);
-    kdraw(f, md::view::contour, lw, (fx0 + bx0) / 2, 91 * px, kp_neutral);
-    kdraw(f, md::view::wave, rw, (fx1 + bx1) / 2, 91 * px, kp_neutral);
+    kdraw(f, md::view::contour, lw, (fx0 + bx0) / 2, 89 * px, kp_neutral);
+    kdraw(f, md::view::wave, rw, (fx1 + bx1) / 2, 89 * px, kp_neutral);
     kdraw(f, md::view::comb, back, vx, (by0 + by1) / 2, kp_neutral);
     const i32 sx = 240 * px, sy = 104 * px, mx = 484 * px, my = 94 * px;
     // The loudspeaker: its size (HARD, or EFM's PTCH), and TONE (HPF) tips it up.
@@ -941,7 +942,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
     }
     if (s.att >= 0) {
         // The shake's stroke over the gourd: out (ATT), held (SUS), back (REV).
-        const i32 r = rx + 16 * px;
+        const i32 r = rx + 10 * px;
         const i32 a1 = lerp(100, 600, c.v(s.att)), hold = lerp(0, 300, c.v(s.sus)), a3 = lerp(100, 600, c.v(s.rev));
         Pts q;
         for (u32 i = 0; i <= 8; ++i) {
@@ -968,8 +969,8 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
     const Hit h(moment);
     // PTCH: shorter tines; RAMP: their tips splayed (the pitch's drop); RDEC: how
     // far down the bend reaches; DEC: the rings at the tips. A hit swings them apart.
-    const i32 cx = 362 * px, yy = 120 * px;
-    const i32 Lt = lerp(96 * px, 44 * px, c.v(0));
+    const i32 cx = 362 * px, yy = 104 * px;
+    const i32 Lt = lerp(84 * px, 44 * px, c.v(0));   // the tips at most 28 px under the header
     i32 splay = lerp(0, 13 * px, c.v(2));
     splay += scaleq(splay * 2 / 5 + 4 * px, h.pose);
     const i32 from = 65536 - lerp(10000, 62000, c.v(3));   // where the bend starts, Q16 along the tine
@@ -984,7 +985,7 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
         }
         // The yoke's half below, and for the left the stem down to the box.
         Pts all;
-        if (side < 0) { all.add(cx - 2 * px, 132 * px); all.add(cx - 2 * px, yy + 9 * px); }
+        if (side < 0) { all.add(cx - 2 * px, 116 * px); all.add(cx - 2 * px, yy + 9 * px); }
         for (u32 k = 0; k < 4; ++k) {
             const Turn a = rotation(900 + side * static_cast<i32>(k) * 300);
             all.add(cx + ((a.cos * 86) >> 10) * 1 * 0 + side * (8 * px - ((900 - static_cast<i32>(k) * 300) * 0)) * 0 + ((-side * a.sin + 0) * 0) + (side * ((1024 - a.sin) * 7 >> 10) * px / 1) * 0 + cx * 0 + side * static_cast<i32>(k) * 2 * px - side * 0, yy + 8 * px - static_cast<i32>(k) * 2 * px);
@@ -992,19 +993,19 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
         for (u32 i = 0; i < 26; ++i) all.add(q.p[i].x, q.p[i].y);
         for (u32 i = 26; i-- > 0;) all.add(back.p[i].x, back.p[i].y);
         all.add(cx + side * 9 * px, yy + 4 * px);
-        if (side < 0) { all.add(cx + 2 * px, yy + 9 * px); all.add(cx + 2 * px, 132 * px); }
+        if (side < 0) { all.add(cx + 2 * px, yy + 9 * px); all.add(cx + 2 * px, 116 * px); }
         kdraw(f, side < 0 ? md::view::contour : md::view::wave, all, cx + side * 8 * px, yy - Lt / 2, kp_light);
     }
     // The resonator box, open at the right, and a mallet resting beside it.
     Pts box;
-    const i32 bp[9][2] = {{298, 132}, {356, 132}, {356, 136}, {434, 136}, {434, 140}, {440, 140}, {440, 162}, {434, 162}, {434, 166}};
+    const i32 bp[9][2] = {{298, 116}, {356, 116}, {356, 120}, {434, 120}, {434, 124}, {440, 124}, {440, 146}, {434, 146}, {434, 150}};
     for (u32 i = 0; i < 9; ++i) box.add(bp[i][0] * px, bp[i][1] * px);
-    box.add(298 * px, 166 * px);
-    kdraw(f, md::view::comb, box, 368 * px, 149 * px, kp_neutral);
+    box.add(298 * px, 150 * px);
+    kdraw(f, md::view::comb, box, 368 * px, 133 * px, kp_neutral);
     Pts mallet;
-    const i32 mp[6][2] = {{262, 170}, {292, 158}, {296, 152}, {302, 156}, {297, 162}, {263, 172}};
+    const i32 mp[6][2] = {{262, 158}, {292, 146}, {296, 140}, {302, 144}, {297, 150}, {263, 160}};
     for (u32 i = 0; i < 6; ++i) mallet.add(mp[i][0] * px, mp[i][1] * px);
-    kdraw(f, md::view::extra, mallet, 282 * px, 162 * px, kp_mid);
+    kdraw(f, md::view::extra, mallet, 282 * px, 150 * px, kp_mid);
     const i32 tip = yy - Lt + 4 * px;
     const i32 dec = c.v(1);
     rings(f, cx - 12 * px - splay, cx + 12 * px + splay, tip, dec, scaleq(7 * px, h.pose), 0, lerp(760, 1500, dec));
