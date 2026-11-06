@@ -103,8 +103,9 @@ inline i32 distance(const Row& r, u32 f) { return static_cast<i32>(((static_cast
 inline void row(Pen& pen, const Row& r, i32 xs, i32 xe) {
     u32 u = r.phase + static_cast<u32>(xs) * r.per_px;
     if (r.shape == sine_wave) {
-        // Six points a cycle.
-        const i32 step = r.period / 6;
+        // Eight points a cycle: the subs' slow sines stay round across the screen,
+        // and every row still fits its path's 64 points (W1).
+        const i32 step = r.period / 8;
         for (i32 x = xs;; x += step) {
             const i32 last = x >= xe;
             const i32 xx = last ? xe : x;

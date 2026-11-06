@@ -191,6 +191,48 @@ paths. `voices/trx_view.hpp` is the worked example: contours, waves and
 partials from the controls, at stage scale, with the readout for numbers in
 labels such as "gap 40".
 
+## The stock look
+
+MD KIT, SWAVE-SAW, SWAVE-PULSE, SID-6581, FM+STAT, FM+PAR, FM+DYN, GND-SIN and
+GND-NOIS are drawn in the stock look (OP-XY-Dev `media/stock-look-2026-11-06`,
+the audit in `media/stock-look-audit/mnmd`): **the grey is the knob**. A part's
+grey says which encoder moves it, dark to light: hollow (black with a `CDCDCD`
+edge) for encoder 1, then `4B4B4B`, `969696` and `CDCDCD`; `7D7D7D`, `646464`
+and `323232` belong to no encoder (axes, carriers, shells, lugs). Lines are 1 to
+1.2 px, and no grey stands for an amount. Everything starts about 28 px under
+the header, and signals cross the whole screen.
+
+Their views draw the whole screen, as MD KIT's always did: `tools/art/build.mjs`
+gives these engines none of the design's parts or labels, and their fixed parts
+come from `tools/art/stock.mjs` (the synths) and `tools/art/fig.mjs` (MD KIT),
+each engine with its own palette (`stock::Tone` in `md_view.hpp`, `fig::Tone` in
+`voices/mdkit_view.hpp`). The other engines keep the design's palette.
+
+| Engine | The drawing | The code |
+| --- | --- | --- |
+| MD KIT (K3) | each machine in section; a drum's shell one flat `323232` solid with its seam knocked out, the head a thin hollow band | by the kit's slots: the body hollow, the rings dark (DEC: 1 to 4), the striker mid (a beater's ball solid, its eye knocked out), the hardware light (hoops, clamps, felt); another control's part in its encoder's grey |
+| SWAVE-SAW, -PULSE (W1) | the rows across the screen, the main row `CDCDCD` at 1.2 px, the rest `7D7D7D` | handles at the rows' ends: UNIL's and SUBX's hollow, UNIX's and SUB2's mid, SUB1's dark; UNIW's dark ones come in from the right edge where a row has drifted half a cycle; PWRS's bar mid |
+| SID-6581 (S1) | thin steps edge to edge on a `323232` axis | PW's hollow handle at the pulse's fall, PWAD's dark bar and handle to the sweep's reach, PWRS's mid bar |
+| FM+ (F1) | the operator diagram without letters or arrowheads, the carrier a `323232` disc, the wave to the edge | M1 hollow, 1FIN its dark pointer, M1's bundle mid, 1FB its light loop (STAT); PAR's pairs and DYN's envelopes in their encoders' greys |
+| GND-SIN, -NOIS (G1) | the orb hollow in `646464`, the sine `CDCDCD` to the edge; the noise across the screen | TUNE's handle on the tip; STON's second trace mid |
+
+What the device's limits change from the sketches:
+
+- **SuperWave's rows.** A path spans 256 px and has one shade, so a row is drawn
+  in two halves and the rows of one shade run as serpentines; black masks hide
+  their turns at the screen's edges and down the middle, leaving a hairline gap
+  at x 240. The main row has a pair of paths to itself, so every other row shares
+  one grey, and to fit their 64 points TUNE's cycles run from 2.5 to 5 across the
+  screen.
+- **MD KIT's shells** are fixed solids, so a shell that deepens (HPF, now 20 px)
+  or widens (SIZE) is built of 16 px segments placed down its walls. TRX-BD takes
+  the sketch's controls: RDEC the hoops, STRT the band thicker where struck, NOIS
+  grains among the rings, HARM a second ball; RDEC moves the hoops on every model
+  that has it. A beater or mallet nothing lifts rests in the dent.
+
+`tools/frame_svg.py` (CI's screens job, as an artifact) draws the real frames as
+SVG; it builds and runs host code, so run it where that is allowed.
+
 ## Following the amp envelope
 
 From SDK 1.10 a screen reads the track's stock amp envelope, the one M2 edits
