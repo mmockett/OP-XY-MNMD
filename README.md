@@ -46,25 +46,27 @@ samples and waves from the ROM. You capture those from your own ROM into a
 folder outside the checkout, and without them those engines build silent.
 
 **Status:** experimental. Every engine passes its tests, and MD KIT and the published
-synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice measures 3.085% of the stock
-block budget on the device (`opxy-drum-callback-v1`, one capture), under the SDK's
-recommended 3.5%, its own keys at its full 16 voices, saved as a project's are, 24.662%, and that heaviest voice on all 16 48.991%. Those figures time
+synths have been played on an OP-XY on OS 1.2.1. MD KIT's heaviest single voice measures 2.667% of the stock
+block budget on the device (`opxy-drum-callback-v1`, three captures of v1.3.0's sound code), under the SDK's
+recommended 3.5%, its own keys at its full 16 voices, saved as a project's are, 23.754%, and that heaviest voice on all 16 42.232%.
+A single voice's worst block reaches 7.57% (PI-MT). In v1.3.0 the modal, cymbal and hat voices cost less, with the
+same output: in the same firmware v1.2.2 measured 3.130%, 24.364% and 48.705%. Those figures time
 its voices through the SDK's drum adapter, not stock's drum renderer, envelope or
-mixing. TRX-SD's PTCH goes further than the original's, which barely moves: five semitones
+mixing, and leave out the screen. TRX-SD's PTCH goes further than the original's, which barely moves: five semitones
 either way, finely around its default, so a project that saved it away from the default 48 plays at
 its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The track menu's scramble doesn't change a kit yet
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
 
-**The screens follow the amp envelope, once SDK 1.10 is out.** Every
+**The screens follow the amp envelope (SDK 1.10).** Every
 Monomachine engine whose screen moves with a note now times that motion by the
 track's own amp envelope (M2), with the OP-XY's own times and curves: it swells with the attack, holds
 while the note is held and fades over the release, so it stops when the sound
 does ([docs/SCREEN.md](docs/SCREEN.md#following-the-amp-envelope)). These
-engines therefore target SDK 1.10, which is only on the SDK's `staging` so far:
-they can't be built with a released SDK, or go into the open-xy.com builder,
-until 1.10 is released. The builder keeps installing the versions it pins
-([docs/CATALOG.md](docs/CATALOG.md)). Nothing in the sound changed, so saved
-sounds and projects play as before. A larger release setting is a shorter
+engines therefore target SDK 1.10, on the SDK's `staging` branch, and reach
+the open-xy.com builder with its next release. Until then the builder keeps
+installing the versions it pins ([docs/CATALOG.md](docs/CATALOG.md)).
+Following the envelope changes nothing in the sound, so saved sounds and
+projects play as before. A larger release setting is a shorter
 release on the OP-XY, and the screens follow it that way. DPRO-WAVE and
 DPRO-DDRW don't move with a note, the kits (MD KIT and MD E12) don't follow
 the envelope because the OP-XY doesn't apply it to drum sounds, and DPRO-DENS

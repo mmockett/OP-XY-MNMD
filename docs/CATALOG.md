@@ -28,13 +28,17 @@ MD KIT.
 | `mmsaw` | [Live](https://open-xy.com/#preview/machines/mmsaw) | `v1.1.9` | `opxy-synth-c8-sweep-v1` | 2.48% |
 | `mmsin` | [Live](https://open-xy.com/#preview/machines/mmsin) | `v1.1.9` | `opxy-synth-c8-sweep-v1`, from `v1.1.6` | 1.75% |
 
-A pinned tag can be older than this repository's latest, `v1.2.3`.
+A pinned tag can be older than this repository's latest, `v1.3.0`.
 
 Since their screens follow the track's amp envelope, every engine above except
 `mdkit` targets SDK 1.10 (`"sdk": "1.10"`, with no `identity`: from SDK 1.5 a
-build's layout gives the numbers). A tag with that change can't go into the
-catalog until SDK 1.10 is released; until then the catalog keeps the tags
-above.
+build's layout gives the numbers), on the SDK's `staging` branch. Their
+entries are moving to `v1.3.0` there, and reach the builder with the SDK's
+next release. GND-NOIS's carries a new record from `v1.3.0`, with RES: 2.69%
+at its heaviest setting (RES at 62.5%), and 2.84% in its worst single block.
+The other nine keep their records, as only their screens changed, and screens
+run outside the audio block. MD KIT stays at `v1.2.2` in the catalog until a
+capture at the `v1.3.0` tag gives its record.
 
 `mde12`, `mmbbox`, `mmddrw`, `mmdens` and `mmwave` are never in the catalog:
 they play samples and waves captured from the owner's ROM, which can't be
