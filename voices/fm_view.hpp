@@ -1,13 +1,19 @@
 #pragma once
-// FM+'s screens, after the design's operator diagrams (docs/design/Main.dc.html,
-// mnmView's FM+ branch): modulators on the left, the carrier, arrows as thick as
-// each modulator's depth, and the output wave on the right. The operators,
-// arrowheads, feedback loops and labels come from the rig (md_rig.hpp), the
-// loops brightened by FB; these
-// draw what changes shape on the four paths: the arrows, DYN's two envelope
-// curves and the output wave. The wave uses the real ratios (fmp.hpp), so it
-// shows the sound's own steps; the design's ratio labels are left to the
-// header, which shows each FRQ step by name.
+// FM+'s screens in the stock look (F1, OP-XY-Dev media/stock-look-audit/mnmd):
+// the design's operator diagram (docs/design/Main.dc.html, mnmView's FM+ branch)
+// without letters or arrowheads. Modulators on the left as plain circles, a
+// bundle of parallel lines as deep as each one's depth into the carrier, a plain
+// 323232 disc, and the output wave leaving the carrier and running to the right
+// edge over a 323232 axis. Each part holds its encoder's grey (md_view.hpp,
+// namespace stock): on STAT and DYN page 1 is all M1, so M1's four controls are
+// four parts of M1. Nothing brightens with an amount.
+//
+// The bundles' lines and the operators are fixed parts (tools/art/stock.mjs):
+// each line runs from its modulator's centre to the carrier's, its ends hidden
+// under the operators drawn over it, so it never reshapes as an operator
+// resizes. The paths draw what does reshape: the output wave, the feedback loop,
+// DYN's two envelope sketches. The wave uses the real ratios (fmp.hpp), so it
+// shows the sound's own steps; the header names each FRQ step.
 #include "md_view.hpp"
 #include "md_rig.hpp"
 #include "fmp.hpp"
@@ -18,67 +24,68 @@ namespace fm_panel {
 using namespace md::view;
 
 inline i32 get(const i32* s, int slot) { return md::positive(s[slot]); }
-inline i32 q(i32 fraction_q31, i32 pixels) { return multiply(fraction_q31, pixels * unit); }   // Q10 pixels
+inline u32 v127(i32 slot) { return static_cast<u32>(md::positive(slot)) >> 24; }
 const i32 half = 0x40000000;
+// A control 0..127 between two stage pixel values, Q10.
+inline i32 between(i32 slot, i32 at0, i32 at127) { return at0 * unit + static_cast<i32>(v127(slot)) * (at127 - at0) * unit / 127; }
 
-// Writes a polyline of up to 32 points (stage Q10) into a path, about its
-// origin (ox, oy), at scale 2, and shows it.
-template <class F>
-inline void draw(F& frame, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, u32 key, u32 tone) {
-    typename F::path_type& p = frame.paths[path];
-    if (p.key != key) {
-        Point points[32];
-        for (u32 i = 0; i < n && i < 32; ++i) {
-            points[i].x = (stage[i].x - ox * unit) / 2;
-            points[i].y = (stage[i].y - oy * unit) / 2;
-        }
-        polyline(p, points, n, key);
-        md::live::unfold(p);
-    }
-    show_path(frame, path, ox, oy, tone, 2 * unit);
-}
-
-// The design's arrow: 1 + round(4 depth) parallel lines 3.5 px apart, from the
-// modulator to 8 px short of the carrier, drawn as one line that runs out
-// along each and back along the next, and ends at the tip.
-struct Arrow { i32 x1, y1, x2, y2, cos, sin; };   // stage pixels; direction Q31
+// A bundle: 1 + round(4 depth) lines 3.5 px apart, from (x0, y0) to (x1, y1)
+// (stage pixels), drawn by the fixed parts first .. first + 4 at `tenths`; the rest hidden.
 inline u32 lines_of(i32 depth) { return 1 + ((static_cast<u32>(md::positive(depth)) + 0x10000000u) >> 29); }
-
-inline u32 bundle(Point* out, u32 n, const Arrow& a, i32 depth) {
-    const u32 lines = lines_of(depth);
-    const i32 tip_x = a.x2 * unit - multiply(a.cos, 8 * unit), tip_y = a.y2 * unit - multiply(a.sin, 8 * unit);
-    for (u32 i = 0; i < lines; ++i) {
-        // Offset (i - (lines - 1) / 2) 3.5 px along the normal (-sin, cos).
-        const i32 o = (2 * static_cast<i32>(i) - static_cast<i32>(lines) + 1) * (unit * 7 / 4);
-        const i32 nx = -multiply(a.sin, o), ny = multiply(a.cos, o);
-        const Point base = {a.x1 * unit + nx, a.y1 * unit + ny}, tip = {tip_x + nx, tip_y + ny};
-        // Odd lines run base to tip, even ones back: the bundle is one stroke.
-        const bool out_bound = (i & 1u) == ((lines - 1) & 1u);
-        out[n++] = out_bound ? base : tip;
-        out[n++] = out_bound ? tip : base;
+template <class F>
+inline void bundle(F& f, u32 first, i32 x0, i32 y0, i32 x1, i32 y1, i32 tenths, i32 depth, u32 tone) {
+    const u32 n = lines_of(depth);
+    const Turn t = rotation(tenths);
+    for (u32 k = 0; k < 5; ++k) {
+        if (k >= n) { hide(f, first + k); continue; }
+        // Offset (k - (n - 1) / 2) 3.5 px along the normal (-sin, cos): 1.75 px a step of 2k - n + 1.
+        const i32 off = (2 * static_cast<i32>(k) - static_cast<i32>(n) + 1) * 1792;
+        const i32 mx = (x0 + x1) * unit / 2 - ((t.sin * off) >> 10), my = (y0 + y1) * unit / 2 + ((t.cos * off) >> 10);
+        stock::put(f, first + k, mx, my, tone, unit, tenths);
     }
-    return n;
+}
+// An operator's circle, authored at radius `authored`, scaled to `radius` (both Q10).
+template <class F>
+inline void op(F& f, u32 node, i32 x, i32 y, i32 radius, i32 authored, u32 tone) {
+    stock::put(f, node, x * unit, y * unit, tone, radius * unit / authored);
+}
+// A feedback loop: an arc `r` (Q10) about (x, y) from `from` tenths, clockwise, as
+// far round as `amount` (0..300 degrees), on a path, with a handle at its end; none at 0.
+template <class F>
+inline void loop(F& f, u32 path, u32 handle, i32 x, i32 y, i32 r, i32 from, i32 amount, u32 line_tone, u32 handle_tone) {
+    const i32 sweep = multiply(md::positive(amount), 3000);
+    if (sweep < 60) return;                                  // under 6 degrees: none
+    const u32 n = 2 + static_cast<u32>(sweep / 120);         // a point every 12 degrees, at most 27
+    Point pts[32];
+    for (u32 i = 0; i < n; ++i) {
+        const Turn t = rotation(from + sweep * static_cast<i32>(i) / static_cast<i32>(n - 1));
+        pts[i].x = x * unit + ((t.cos * (r >> 4)) >> 6);
+        pts[i].y = y * unit + ((t.sin * (r >> 4)) >> 6);
+    }
+    const u32 key = md::live::sealed(md::live::mix(md::live::mix(0x4c4f4f50u + path, r), sweep));
+    stock::trace(f, path, pts, n, x, y, key, line_tone);
+    stock::put(f, handle, pts[n - 1].x, pts[n - 1].y, handle_tone);
 }
 
-// The output wave from x 282 to 472, y = 80 - 46 s: three cycles over two
-// paths of 32 points, as the design draws it, or two over one path, which
-// keeps a single path's wave legible, half as many to half as many again across
-// TUNE. `wave(u)` gives s (Q31) for the carrier's phase u (Q32 cycles) and that
-// phase in Q16 cycles, for the ratios.
+// The output wave from x0 to x1 (stage px) about y cy, 40 px high, over `paths`
+// paths of 32 points from `first_path`: 1.5 + 2 TUNE cycles, swung by `spin`
+// (Q16 cycles). `wave(u, u16)` gives the value (Q31) for the carrier's phase u
+// (Q32 cycles) and that phase in Q16 cycles, for the ratios.
 template <class F, class W>
-inline void output(F& frame, u32 first_path, u32 paths, i32 spin, i32 tune, u32 key, const W& wave) {
-    // 3 cycles over 62 steps or 2 over 31, and 190 px, as constants: no runtime division.
-    const u32 step16 = ((paths > 1 ? 3171u : 4228u) * md::live::stretch(tune)) >> 7;   // (cycles << 16) / steps
-    const i32 dx = paths > 1 ? 3138 : 6276;                // 190 px / steps, Q10
+inline void output(F& frame, u32 first_path, u32 paths, i32 x0, i32 x1, i32 cy, i32 spin, i32 tune, u32 key, const W& wave) {
+    const u32 steps = 31 * paths;
+    const u32 step16 = (98304u + v127(tune) * 1032u) / steps;               // (cycles << 16) / steps
+    const i32 dx = (x1 - x0) * unit / static_cast<i32>(steps);
     for (u32 side = 0; side < paths; ++side) {
         Point pts[32];
         for (u32 i = 0; i < 32; ++i) {
             const u32 k = side * 31 + i;
-            const u32 u16 = k * step16 + static_cast<u32>(spin);   // Q16 cycles
-            pts[i].x = 282 * unit + static_cast<i32>(k) * dx;
-            pts[i].y = 80 * unit - multiply(md::clamp(wave(u16 << 16, u16), -md::one, md::one), 46 * unit);
+            const u32 u16 = k * step16 + static_cast<u32>(spin);              // Q16 cycles
+            pts[i].x = x0 * unit + static_cast<i32>(k) * dx;
+            pts[i].y = cy * unit - multiply(md::clamp(wave(u16 << 16, u16), -md::one, md::one), 40 * unit);
         }
-        draw(frame, first_path + side, pts, 32, paths < 2 ? 377 : side ? 424 : 330, 80, key + side, line);
+        const i32 ox = (pts[0].x + pts[31].x) / 2 / unit;
+        stock::trace(frame, first_path + side, pts, 32, ox, cy, key + side, stock::line4);
     }
 }
 
@@ -135,83 +142,73 @@ inline u32 wave_key(const i32* s, const Live& l) {
     return md::live::mix(md::live::mix(key, l.spin), l.ease ^ l.swell) & ~1u;   // key + side: two paths
 }
 
-// The feedback loop (the rig's one dashed part) brightens with its amount, up
-// the greys from dim when off.
+// DYN's envelope sketches, x 116..160: 1FEN's pitch envelope falls 4 + 20 FEN
+// px from y 26, 1VEN's level envelope rises 4 + 18 VEN px to y 52 (stage), each
+// 1 - e^(-4 t) across.
 template <class F>
-inline void feedback(F& frame, i32 amount) {
-    static const u32 tones[5] = {dim, dash, label, mid, line};
-    const u32 v = static_cast<u32>(md::positive(amount)) >> 24;
-    restyle(frame, dash, tones[v == 0 ? 0 : 1 + (v >> 5)]);
-}
-
-// DYN's two envelope sketches, x 96..150: 1fen falls from the top in
-// 4 + 30 FEN px, 1ven rises in 4 + 30 VEN px (the design's curves).
-static const opxy::u16 step_over_width[128] = {
-    29491, 27847, 26376, 25053, 23856, 22768, 21775, 20866, 20029, 19256, 18541, 17878, 17260, 16683, 16144, 15638,
-    15163, 14717, 14295, 13898, 13521, 13165, 12827, 12505, 12200, 11909, 11632, 11367, 11114, 10872, 10640, 10418,
-    10205, 10001, 9805, 9616, 9434, 9259, 9091, 8928, 8771, 8620, 8474, 8332, 8196, 8063, 7935, 7811,
-    7691, 7574, 7461, 7351, 7244, 7141, 7040, 6942, 6847, 6755, 6664, 6577, 6491, 6408, 6327, 6248,
-    6170, 6095, 6022, 5950, 5880, 5811, 5744, 5679, 5615, 5553, 5492, 5432, 5374, 5316, 5260, 5206,
-    5152, 5099, 5048, 4997, 4948, 4899, 4852, 4805, 4759, 4714, 4670, 4627, 4584, 4543, 4502, 4461,
-    4422, 4383, 4345, 4308, 4271, 4234, 4199, 4164, 4129, 4096, 4062, 4029, 3997, 3965, 3934, 3903,
-    3873, 3843, 3814, 3785, 3757, 3729, 3701, 3674, 3647, 3620, 3594, 3569, 3543, 3518, 3494, 3470,
-};
-
-template <class F>
-inline void curve(F& frame, u32 path, i32 control, i32 top, i32 depth_px, bool scaled, u32 key, u32 tone) {
-    const u32 r = static_cast<u32>(md::positive(control)) >> 24;
-    Point pts[31];
-    for (u32 i = 0; i < 31; ++i) {
-        const i32 rise = md::one - md::exp_neg(static_cast<i32>(step_over_width[r]) * static_cast<i32>(i));
-        // 1fen: 6 + 20 (1 - e) F + 20 (1 - F); 1ven: 30 + 20 (1 - e).
-        const i32 y = scaled ? (6 * unit + multiply(multiply(rise, control), depth_px * unit) + q(md::one - control, depth_px))
-                             : top * unit + multiply(rise, depth_px * unit);
-        pts[i].x = 96 * unit + static_cast<i32>(i) * 1843;   // 54 px / 30, Q10
-        pts[i].y = y;
+inline void sketch(F& f, u32 path, i32 control, i32 y0, i32 dir, i32 most, u32 tone) {
+    Point pts[21];
+    const i32 depth = 4 * unit + multiply(md::positive(control), most * unit);
+    for (u32 i = 0; i < 21; ++i) {
+        const i32 rise = md::one - md::exp_neg(13107 * static_cast<i32>(i));   // 1 - e^(-4 i / 20)
+        pts[i].x = 116 * unit + static_cast<i32>(i) * 2253;                     // 44 px / 20, Q10
+        pts[i].y = y0 * unit + dir * multiply(rise, depth);
     }
-    draw(frame, path, pts, 31, 123, top + 10, key, tone);
+    stock::trace(f, path, pts, 21, 138, y0 + dir * 12, md::live::sealed(md::live::mix(0x454e5600u + path, control)), tone);
 }
 }
 
-// FM+STAT: M1 and M2 into the carrier, M1 with its feedback loop.
+// FM+STAT: 1FRQ 1FIN 1ENV 1FB / 2FRQ 2VOL TONE TUNE. M1 hollow, smaller as its
+// ratio rises (encoder 1); 1FIN a dark pointer inside it, like a dial (2); 1ENV
+// its bundle, mid (3); 1FB its loop, light, as far round as the feedback (4).
+// Page 2: M2 hollow (2FRQ), its bundle dark (2VOL); TONE shows in the wave; TUNE
+// the wave's cycles, CDCDCD.
 namespace fmpstat {
+enum Part : u32 { b1 = 4, b2 = b1 + 5, m1 = b2 + 5, pointer, m2, carrier, axis, loop_end };
 template <class F>
 inline void view(F& f, const i32* s, const view::Moment& m) {
     using namespace fm_panel;
-    using view::Point;
-    static const Arrow a1 = {72, 46, 176, 74, 2073644052, 558288783}, a2 = {72, 114, 176, 86, 2073644052, -558288783};
-    Point pts[32];
-    draw(f, view::contour, pts, bundle(pts, 0, a1, s[2]), 124, 60, lines_of(s[2]) + 16, lines_of(s[2]) > 1 ? view::line : view::dim);
-    draw(f, view::wave, pts, bundle(pts, 0, a2, s[5]), 124, 100, lines_of(s[5]) + 32, lines_of(s[5]) > 1 ? view::line : view::dim);
-    feedback(f, s[3]);
+    const i32 r1 = between(s[0], 20, 11), r2 = between(s[4], 16, 9);
+    bundle(f, b1, 84, 58, 198, 98, 193, s[2], stock::solid3);
+    bundle(f, b2, 84, 138, 198, 98, -193, s[5], stock::solid2);
+    op(f, m1, 84, 58, r1, 15872, stock::hollow);   // authored 15.5 px
+    stock::put(f, pointer, 84 * unit, 58 * unit, stock::solid2, unit, static_cast<i32>(v127(s[1])) * 2700 / 127 - 1350);
+    op(f, m2, 84, 138, r2, 12800, stock::hollow);   // 12.5 px
+    stock::put(f, carrier, 198 * unit, 98 * unit, stock::solid_a);
+    stock::put(f, axis, 350 * unit, 98 * unit, stock::solid_a);
+    loop(f, view::contour, loop_end, 84, 58, r1 + 8 * unit, -1500, s[3], stock::line4, stock::solid4);
     const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));                       // 0.5 + TONE
     const i32 i1 = cycles(multiply(multiply(get(s, 2), tone), l.ease), 3 * 2 * radian);   // 1env 3 tone live
     const i32 i2 = cycles(multiply(get(s, 5), tone), 5 * radian);                     // 2vol 2.5 tone
     // M1 as the sound has it: its listed ratio moved by 1FIN, with 1FB's feedback.
-    const u32 r1 = static_cast<u32>(md::positive(fmp::ratio(s[0]) + fine(s[1]))) >> 12, r2 = static_cast<u32>(fmp::ratio(s[4])) >> 12;
+    const u32 r1q = static_cast<u32>(md::positive(fmp::ratio(s[0]) + fine(s[1]))) >> 12, r2q = static_cast<u32>(fmp::ratio(s[4])) >> 12;
     const i32 fb = fmp::feedback(s[3]);
-    output(f, view::comb, 2, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
-        const u32 offset = (static_cast<u32>(multiply(fed_back(u16 * r1, fb), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2), i2))) << 4;
+    output(f, view::comb, 2, 220, 479, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+        const u32 offset = (static_cast<u32>(multiply(fed_back(u16 * r1q, fb), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2q), i2))) << 4;
         return md::sine(u + offset);
     });
 }
 }
 
-// FM+PAR: three modulator and carrier pairs, each carrier as bright as its envelope.
+// FM+PAR: 1FRQ 1ENV 2FRQ 2ENV / 3FRQ 3ENV TONE TUNE. Three modulator and carrier
+// pairs: M1 hollow (1FRQ) with a dark bundle (1ENV), M2 mid (2FRQ) with a light
+// bundle (2ENV), and page 2's M3 hollow (3FRQ) with a dark bundle (3ENV). The
+// carriers stay one neutral grey; their leads join at the wave.
 namespace fmppar {
+enum Part : u32 { b1 = 4, b2 = b1 + 5, b3 = b2 + 5, m1 = b3 + 5, m2, m3, c1, c2, c3, lead1, lead2, lead3, axis };
 template <class F>
 inline void view(F& f, const i32* s, const view::Moment& m) {
     using namespace fm_panel;
-    using view::Point;
-    Point pts[32];
+    static const u32 tones[3] = {stock::solid2, stock::solid4, stock::solid2}, ops[3] = {stock::hollow, stock::solid3, stock::hollow};
     for (u32 k = 0; k < 3; ++k) {
-        const i32 ev = get(s, 2 * k + 1), y = 26 + 52 * static_cast<i32>(k);
-        const i32 tip = 170 - static_cast<i32>(static_cast<u32>(multiply(ev, 6 * unit) + unit / 2) >> 10);
-        const Arrow a = {68, y, tip, y, md::one, 0};
-        draw(f, k, pts, bundle(pts, 0, a, ev), 115, y, lines_of(ev) + 16 * (k + 1) + (static_cast<u32>(tip) << 8),
-             lines_of(ev) > 1 ? view::line : view::dim);
+        const i32 y = 40 + 56 * static_cast<i32>(k);
+        bundle(f, b1 + 5 * k, 70, y, 168, y, 0, s[2 * k + 1], tones[k]);
+        op(f, m1 + k, 70, y, between(s[2 * k], 13, 7), 10 * unit, ops[k]);
+        stock::put(f, c1 + k, 168 * unit, y * unit, stock::solid_a);
+        stock::put(f, lead1 + k, 0, 0, stock::solid_a);
     }
+    stock::put(f, axis, 351 * unit, 96 * unit, stock::solid_a);
     const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));
     i32 index[3], weight[3];
@@ -227,7 +224,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     // s = sum(sin_k env_k) / max(0.3, sum env_k), the division read off a table.
     const i32 floor = 0x0999999a;                                                // 0.3, quartered
     const i32 norm = inverse(total > floor ? total : floor);
-    output(f, view::extra, 1, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+    output(f, view::comb, 2, 222, 479, 96, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
         i32 sum = 0;
         for (u32 k = 0; k < 3; ++k) sum += multiply(modulated(u, u16, index[k], ratio[k]), weight[k]);
         return md::gain(multiply(sum, norm), 4);
@@ -235,39 +232,34 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
 }
 }
 
-// FM+DYN: M1 with its pitch and level envelopes, M2 with its feedback loop.
+// FM+DYN: 1FRQ 1FEN 1VOL 1VEN / 2FRQ 2ENV 2FB TUNE. M1 hollow (encoder 1), its
+// pitch envelope's fall dark (1FEN, 2), its bundle mid (1VOL, 3), its level
+// envelope's rise light (1VEN, 4). Page 2: M2 hollow (2FRQ), its bundle dark
+// (2ENV), its loop mid (2FB); TUNE the wave's cycles.
 namespace fmpdyn {
+enum Part : u32 { b1 = 4, b2 = b1 + 5, m1 = b2 + 5, m2, carrier, axis, loop_end };
 template <class F>
 inline void view(F& f, const i32* s, const view::Moment& m) {
     using namespace fm_panel;
-    using view::Point;
-    static const Arrow a1 = {72, 46, 176, 74, 2073644052, 558288783}, a2 = {72, 114, 176, 86, 2073644052, -558288783};
-    Point pts[32];
-    u32 n = bundle(pts, 0, a1, s[2]);
-    if (!(lines_of(s[2]) & 1u)) { pts[n] = pts[n - 2]; pts[n + 1] = pts[n - 1]; n += 2; }   // end at the tip
-    // The hop to M2's tip runs under the arrowheads and through the carrier,
-    // whose filled node is drawn over the paths.
-    const Point hop[3] = {{a1.x2 * unit, a1.y2 * unit}, {190 * unit, 80 * unit}, {a2.x2 * unit, a2.y2 * unit}};
-    for (u32 i = 0; i < 3; ++i) pts[n++] = hop[i];
-    // M2's bundle from its tip: reversed.
-    Point second[10];
-    const u32 m2 = bundle(second, 0, a2, s[5]);
-    for (u32 i = 0; i < m2; ++i) pts[n + i] = second[(lines_of(s[5]) & 1u) ? m2 - 1 - i : i];
-    n += m2;
-    const bool either = lines_of(s[2]) > 1 || lines_of(s[5]) > 1;
-    draw(f, view::contour, pts, n, 124, 80, lines_of(s[2]) * 8 + lines_of(s[5]) + 64, either ? view::line : view::dim);
-    curve(f, view::wave, get(s, 1), 6, 20, true, md::live::sealed(md::live::mix(1u, s[1])), view::mid);
-    curve(f, view::comb, get(s, 3), 30, 20, false, md::live::sealed(md::live::mix(2u, s[3])), view::dim);
-    feedback(f, s[6]);
+    const i32 r1 = between(s[0], 18, 10), r2 = between(s[4], 15, 8);
+    bundle(f, b1, 78, 58, 204, 98, 176, s[2], stock::solid3);
+    bundle(f, b2, 78, 138, 204, 98, -176, s[5], stock::solid2);
+    op(f, m1, 78, 58, r1, 14 * unit, stock::hollow);
+    op(f, m2, 78, 138, r2, 11776, stock::hollow);   // 11.5 px
+    stock::put(f, carrier, 204 * unit, 98 * unit, stock::solid_a);
+    stock::put(f, axis, 353 * unit, 98 * unit, stock::solid_a);
+    sketch(f, view::wave, s[1], 26, 1, 20, stock::line2);
+    sketch(f, view::comb, s[3], 52, -1, 18, stock::line4);
+    loop(f, view::contour, loop_end, 78, 138, r2 + 8 * unit, 600, s[6], stock::line3, stock::solid3);
     const Live l = moving(m);
     // I1 = 1vol 3 (1 + 1ven (0.5 at rest, more with the note's swell)), I2 = 2env 2.5.
     const i32 lift = multiply(get(s, 3), half + opxy::q31::half(md::clamp(l.swell, 0, md::one)));
     const i32 i1 = cycles(get(s, 2), 3 * radian) + multiply(cycles(get(s, 2), 3 * radian), lift);
     const i32 i2 = cycles(get(s, 5), 5 * radian / 2);
-    const u32 r1 = static_cast<u32>(fmp::dyn_ratio1(s[0])) >> 12, r2 = static_cast<u32>(fmp::dyn_ratio2(s[4])) >> 12;
+    const u32 r1q = static_cast<u32>(fmp::dyn_ratio1(s[0])) >> 12, r2q = static_cast<u32>(fmp::dyn_ratio2(s[4])) >> 12;
     const i32 fb = fmp::feedback(s[6]);
-    output(f, view::extra, 1, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
-        const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1), i1)) + static_cast<u32>(multiply(fed_back(u16 * r2, fb), i2))) << 4;
+    output(f, view::extra, 1, 226, 479, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+        const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1q), i1)) + static_cast<u32>(multiply(fed_back(u16 * r2q, fb), i2))) << 4;
         return md::sine(u + offset);
     });
 }

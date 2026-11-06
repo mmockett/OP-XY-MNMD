@@ -16,6 +16,15 @@ namespace md {
 // changes the sound (travel, measured by tools/art/travel.py). The sections are
 // drawn on the four paths; the fixed parts (tools/art/fig.mjs) sit in the
 // common nodes' places, which md_view.hpp's begin hides every frame.
+//
+// In the stock look (K3, OP-XY-Dev media/stock-look-audit/mnmd): the grey says
+// which encoder moves a part, by the drum kit's slots: the body hollow (its
+// outline CDCDCD; encoder 1), the rings dark (4B4B4B; 2), the striker mid
+// (969696; 3), the hardware light (CDCDCD, solid; 4). A part another control
+// moves takes that control's encoder's grey. The shell and lugs belong to no
+// encoder: a drum's shell is one flat 323232 solid, its seam knocked out in
+// black, the head a thin hollow band over it. Everything starts about 28 px
+// under the header, and nothing's grey stands for an amount.
 namespace fig {
 using namespace md::view;
 using opxy::u16;
@@ -60,16 +69,38 @@ static const opxy::u16 travel[33][8] = {
 };
 // travel:end
 
+// MD KIT's palette (tools/art/fig.mjs, MDKIT_PALETTE): the paths' entries at half
+// width (they draw at scale 2), then the fixed parts' lines, solids, the shell,
+// black, hollow (black with a CDCDCD edge: encoder 1's solid) and a lug's slot.
+enum Tone : u32 { kp_light, kp_dark, kp_mid, kp_neutral, k_light, k_dark, k_mid, k_neutral,
+                  kf_light, kf_dark, kf_mid, kf_neutral, kf_shell, k_black, k_hollow, k_lug };
+// The grey of the encoder a slot is on (slot & 3): for a line on a path, and for a solid part.
+inline u32 line_of(int slot) { static const u8 t[4] = {kp_light, kp_dark, kp_mid, kp_light}; return slot < 0 ? kp_light : t[slot & 3]; }
+inline u32 solid_of(int slot) { static const u8 t[4] = {k_hollow, kf_dark, kf_mid, kf_light}; return slot < 0 ? kf_light : t[slot & 3]; }
+
 // tools/art/fig.mjs's parts, in its order, in the common nodes' places.
-enum Part : u32 { ring_r0 = 4, ring_l0, ring_r1, ring_l1, ring_r2, ring_l2, rod, clutch, hand, clamp_t, clamp_b, felt,
+enum Part : u32 { ring_r0 = 4, ring_l0, ring_r1, ring_l1, ring_r2, ring_l2, ring_r3, ring_l3, rod, clutch, hand, felt,
                   speaker, mic, stand, front0, front1, front2, front3, bead0,
                   // after the instruments' place: each family's and machine's hardware
                   lug_l = bead0 + 8, lug_r, coil, magnet, rope_l, rope_r, mount, leg_l, leg_r, pillow, felt2,
-                  spark0, echo0 = spark0 + 8, frontb0 = echo0 + 4, frontc0 = frontb0 + 4, hanger = frontc0 + 4, part_end };
-static const u8 part_shade[part_end - ring_r0] = {mid, mid, mid, mid, dim, dim, dim, outline2, outline2, outline2, outline2,
-    outline2, outline2, outline2, mid, thin, mid, mid, mid, fill4, fill4, fill4, fill4, fill4, fill4, fill4, fill4,
-    outline2, outline2, mid, outline2, mid, mid, outline2, mid, mid, outline2, outline2,
-    mid, mid, mid, mid, mid, mid, mid, mid, dim, dim, dim, dim, thin, mid, mid, mid, thin, mid, mid, mid, dim};
+                  spark0, echo0 = spark0 + 8, frontb0 = echo0 + 4, frontc0 = frontb0 + 4, hanger = frontc0 + 4,
+                  clamp_tl, clamp_tr, clamp_bl, clamp_br, hoop_l, hoop_r, post_l, post_r, ball, eye, ball2, pivot,
+                  grain0, wall0 = grain0 + 8, cap_l = wall0 + 24, cap_r, floor_o0, floor_o1, floor_i0, floor_i1, part_end };
+static const u8 part_shade[part_end - ring_r0] = {
+    k_dark, k_dark, k_dark, k_dark, k_dark, k_dark, k_dark, k_dark,                 // rings
+    kf_neutral, kf_light, kf_light, kf_light, kf_mid, kf_neutral, kf_neutral,      // rod, clutch, hand, felt, speaker, mic, stand
+    k_light, k_light, k_light, k_light,                                             // fronts
+    k_hollow, k_hollow, k_hollow, k_hollow, k_hollow, k_hollow, k_hollow, k_hollow, // beads
+    k_lug, k_lug, k_neutral, kf_neutral, k_neutral, k_neutral, kf_neutral, kf_neutral, kf_neutral, kf_neutral, kf_light,
+    k_dark, k_dark, k_dark, k_dark, k_dark, k_dark, k_dark, k_dark,                 // sparks
+    k_light, k_light, k_light, k_light, k_light, k_light, k_light, k_light, k_light, k_light, k_light, k_light,   // echoes, fronts
+    kf_neutral,                                                                     // hanger
+    k_light, k_light, k_light, k_light, kf_light, kf_light, kf_light, kf_light,    // clamps, hoops, posts
+    kf_mid, k_black, kf_mid, kf_neutral,                                            // ball, eye, second ball, pivot
+    kf_dark, kf_dark, kf_dark, kf_dark, kf_dark, kf_dark, kf_dark, kf_dark,         // grains
+    kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell,
+    kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell,
+    kf_shell, kf_shell, kf_shell, kf_shell, kf_shell, kf_shell};                     // walls, caps, floors
 // The hardware parts sit after the common nodes, which begin() does not hide: each view hides them first.
 template <class F>
 inline void begin(F& f) { for (u32 n = lug_l; n < part_end; ++n) hide(f, n); }
@@ -111,13 +142,6 @@ struct Ctl {
 // From a to b (Q10 pixels, or any value within 2^21) by t (Q16).
 inline i32 lerp(i32 a, i32 b, i32 t) { return a + (((b - a) * (t >> 4)) >> 12); }
 inline i32 scaleq(i32 a, i32 t) { return (a * (t >> 4)) >> 12; }   // a t, t Q16, a within 2^19
-// A shade between dark and bright (Q16), a palette grey at a time: a control drawn
-// as a shade fades up through them, never jumping from dark to white.
-inline u32 grey(i32 t) {
-    static const u8 ramp[6] = {faint, dim, dash, label, mid, thin};
-    const i32 i = (md::clamp(t, 0, 65536) * 5 + 32768) >> 16;
-    return ramp[i];
-}
 
 // A run of stage points (Q10) for one path.
 struct Pts {
@@ -156,10 +180,11 @@ inline u32 path_tone(u32 tone) {
 }
 
 // Draws points as a closed outline (or, `ribbon`, a line out and back) on a
-// path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it.
-// The key is the points' own hash, so an unchanged shape costs nothing.
+// path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it, in
+// palette entry `entry`. The key is the points' own hash, so an unchanged shape
+// costs nothing. MD KIT passes its own entries (Tone); MD E12 a shade (draw).
 template <class F>
-inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ribbon = false, i32 tenths = 0) {
+inline void kdraw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 entry, bool ribbon = false, i32 tenths = 0) {
     Point local[64];
     u32 key = ribbon ? 2166136261u : 84696351u;
     const u32 n = ribbon && q.n > 32 ? 32 : q.n;
@@ -199,27 +224,29 @@ inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ri
         } else outline(f.paths[path], local, n, key);
         f.paths[path].key = key;
     }
-    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, path_tone(tone), stroke);
+    place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, entry, stroke);
     if (tenths) opxy::draw::turn(f, path, rotation(tenths));
+}
+template <class F>
+inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ribbon = false, i32 tenths = 0) {
+    kdraw(f, path, q, ox, oy, path_tone(tone), ribbon, tenths);
 }
 // A fixed part at (x, y) on the stage (Q10), scaled and turned, in its own shade or another.
 template <class F>
-inline void put(F& f, u32 part, i32 x, i32 y, i32 scale = unit, i32 tenths = 0) {
-    place(f, part, x + shift, stage_y * unit + y, scale, part_shade[part - ring_r0],
-          part_shade[part - ring_r0] >= fill1 ? fill_and_stroke : stroke);
+inline void put_in(F& f, u32 part, i32 x, i32 y, i32 scale, i32 tenths, u32 tone) {
+    place(f, part, x + shift, stage_y * unit + y, scale, tone, tone >= kf_light ? fill_and_stroke : stroke);
     if (tenths) opxy::draw::turn(f, part, rotation(tenths));
 }
 template <class F>
-inline void put_in(F& f, u32 part, i32 x, i32 y, i32 scale, i32 tenths, u32 tone) {
-    place(f, part, x + shift, stage_y * unit + y, scale, tone, stroke);
-    if (tenths) opxy::draw::turn(f, part, rotation(tenths));
+inline void put(F& f, u32 part, i32 x, i32 y, i32 scale = unit, i32 tenths = 0) {
+    put_in(f, part, x, y, scale, tenths, part_shade[part - ring_r0]);
 }
-// Rings of sound at an edge: 1 to 3 as DEC (or a ring count) rises, pushed out
+// Rings of sound at an edge: 1 to 4 as DEC (or a ring count) rises, pushed out
 // `out` by a hit. side: -1 left, 1 right, 0 both, at xl and xr.
 template <class F>
 inline void rings(F& f, i32 xl, i32 xr, i32 y, i32 count16, i32 out, int side = 0, i32 scale = unit) {
-    const u32 n = 1 + static_cast<u32>((count16 * 2 + 32768) >> 16);
-    for (u32 k = 0; k < n && k < 3; ++k) {
+    const u32 n = 1 + static_cast<u32>((count16 * 3 + 32768) >> 16);
+    for (u32 k = 0; k < n && k < 4; ++k) {
         if (side >= 0) put(f, ring_r0 + 2 * k, xr + out, y, scale);
         if (side <= 0) put(f, ring_l0 + 2 * k, xl - out, y, scale);
     }
@@ -249,6 +276,9 @@ struct Hit {
 enum Striker { beater, stick, mallet, rimstick };
 struct Mem {
     int ptch, dec, dent, dentw, lift, ball, hold, clip, clipk, felt, harm, hfrq, hreach, kink, wires, wtune, wlift, wkink, fan, pos, size, hpf;
+    int hoops;        // the hoops pull down and tighten (RDEC)
+    int band;         // the head's band thickens where it is struck (TRX-BD's STRT)
+    int ball2;        // a second, smaller ball on the beater's stick (TRX-BD's HARM)
     Striker striker;
     int depth;        // the shell's depth: where its bottom head is, stage y
     bool spring;      // an FM drum's exciter under the head
@@ -259,6 +289,7 @@ inline Mem mem(Striker s, int depth) {
     Mem c;
     c.ptch = c.dec = c.dent = c.dentw = c.lift = c.ball = c.hold = c.clip = c.clipk = c.felt = c.harm = c.hfrq = c.hreach = c.kink = -1;
     c.wires = c.wtune = c.wlift = c.wkink = c.fan = c.pos = c.size = c.hpf = -1;
+    c.hoops = c.band = c.ball2 = -1;
     c.striker = s; c.depth = depth; c.spring = false;
     c.trait = 0; c.rack = c.floor = c.pillow = c.slack = false;
     return c;
@@ -266,44 +297,42 @@ inline Mem mem(Striker s, int depth) {
 
 // A striker: a beater or mallet swinging from a pivot above, a stick from a
 // fulcrum at its butt, or a stick lying across the rim. Its tip lands at (tx, ty).
+// In the striker's grey, 969696: a beater's or mallet's ball solid with its eye
+// knocked out, on a stick to a neutral pivot 40 px up and 36 px aside (right of a
+// beater, left of a mallet); `ball2` (Q16, 0: none) a second, smaller ball up its stick.
 template <class F>
 // style: a family's striker, 0 TRX's (a felt ball, a round tip), 1 EFM's (a square
 // head, a flat nylon tip), 2 P-I's (a big felt head, a mallet stick's ball).
-inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i32 ball, i32 pose, i32 x0, int style = 0) {
+inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i32 ball, i32 pose, i32 x0, int style = 0, i32 ball2 = 0) {
     if (style == 2) ball = ball * 13 / 10;
     Pts q;
     if (kind == beater || kind == mallet) {
-        // Hung from (px, 4): the ball's centre is the tip less its radius.
-        const i32 len = ty - ball - 4 * px;
-        const i32 tenths = lerp(lerp(60, 450, raise16), 0, pose) * (kind == beater ? 1 : -1);
-        const Turn t = rotation(tenths);
-        const i32 pivx = tx, pivy = 4 * px;
-        const i32 w = (kind == beater ? 11 : 10) * px / 10;
-        // Down the shaft's left edge, around the ball, up its right edge, turned about the pivot.
-        i32 xs[24], ys[24];
-        u32 n = 0;
-        xs[n] = -w; ys[n++] = 0;
-        xs[n] = -w; ys[n++] = len - ball + px;
-        if (style == 1) {
-            // A square head, corner on.
-            for (u32 k = 0; k < 4; ++k) {
-                const Turn a = rotation(static_cast<i32>(1350 + k * 900));
-                xs[n] = (a.cos * ball) >> 10; ys[n++] = len + ((-a.sin * ball) >> 10);
-            }
-        } else
-            for (u32 k = 0; k <= 16; ++k) {
-                const Turn a = rotation(static_cast<i32>(1060 + k * 3280 / 16));   // round the ball from the shaft's left: the outline must not cross itself
-                xs[n] = (a.cos * ball) >> 10; ys[n++] = len + ((-a.sin * ball) >> 10);
-            }
-        xs[n] = w; ys[n++] = len - ball + px;
-        xs[n] = w; ys[n++] = 0;
-        for (u32 i = 0; i < n; ++i) { i32 x = xs[i], y = ys[i]; spin(x, y, t); q.add(pivx + x, pivy + y); }
-        draw(f, path, q, pivx, pivy + len / 2, thin);
+        // The ball's centre at rest, on the tip less its radius; the pivot above and aside.
+        const i32 side = kind == beater ? 1 : -1;
+        const i32 bx0 = tx, by0 = ty - ball;
+        const i32 pivx = tx + side * 36 * px, pivy = ty - 40 * px;
+        // Lifted about the pivot, `raise16` of the way to 45 degrees (a little at its least), a
+        // hit landing it; or, with no control to lift it (raise16 < 0), resting in the dent.
+        const i32 tenths = raise16 < 0 ? 0 : lerp(lerp(60, 450, raise16), 0, pose) * side;
+        i32 vx = bx0 - pivx, vy = by0 - pivy;
+        spin(vx, vy, rotation(tenths));
+        const i32 bx = pivx + vx, by = pivy + vy;
+        // The stick: a line from the pivot to the ball's centre, under the ball.
+        q.add(pivx, pivy); q.add(bx, by);
+        kdraw(f, path, q, (pivx + bx) / 2, (pivy + by) / 2, kp_mid, true);
+        const i32 sc = ball * unit / (8 * px);
+        put(f, fig::ball, bx, by, sc);
+        put(f, fig::eye, bx, by, sc);
+        put(f, fig::pivot, pivx, pivy);
+        if (ball2 > 1000) {
+            const i32 t = lerp(49152, 22938, ball2);   // 0.75 .. 0.35 of the way from the ball to the pivot
+            put(f, fig::ball2, bx + scaleq(pivx - bx, t), by + scaleq(pivy - by, t), lerp(500, unit, ball2));
+        }
         return;
     }
-    // A stick, 84 px from butt to tip, its tip at (tx, ty): from the upper left at
+    // A stick, 76 px from butt to tip, its tip at (tx, ty): from the upper left at
     // 33 degrees, or lying nearly flat across the rim. `raise` lifts the tip about the butt.
-    const i32 len = 84 * px;
+    const i32 len = 76 * px;
     const i32 slope = kind == stick ? 330 : 60;
     const Turn t0 = rotation(slope);
     const i32 bx = tx - ((t0.cos * (len >> 10))), by = ty - ((t0.sin * (len >> 10)));
@@ -325,8 +354,38 @@ inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i
     for (u32 i = 0; i < n; ++i) { i32 x = xs[i], y = ys[i]; spin(x, y, t); q.add(bx + x, by + y); }
     i32 mx = len / 2, my = 0;
     spin(mx, my, t);
-    draw(f, path, q, bx + mx, by + my, thin);
+    kdraw(f, path, q, bx + mx, by + my, kp_mid);
     (void)x0;
+}
+
+// A drum's shell in section: one flat 323232 solid, its seam knocked out in
+// black, from the head's top at `top` down to the bottom head at `yb`, walls
+// 8 px thick outside x0 and x1. Each wall's outer and inner strips are fixed
+// segments 16 px long, as many as the depth needs, spread down it; the floor's
+// strips two 125 px pieces from their ends. None reshapes; a control that
+// deepens (HPF) or widens (SIZE) the shell moves them.
+template <class F>
+inline void shell(F& f, i32 x0, i32 x1, i32 top, i32 yb) {
+    const i32 strip = 3379;                  // 3.3 px, Q10: the seam 1.4 px between strips
+    const i32 centres[2] = {6 * px + 358, 1690};   // 6.35 and 1.65 px outside x0 (inside x1)
+    const i32 bottoms[2] = {yb + 4 * px, yb - 717};   // the outer strip to the floor's bottom, the inner to its top
+    for (u32 s = 0; s < 4; ++s) {
+        const bool right = s >= 2, inner = s & 1;
+        const i32 x = right ? x1 + centres[inner] : x0 - centres[inner];
+        const i32 h = bottoms[inner] - top;
+        const u32 n = static_cast<u32>((h + 16 * px - 1) / (16 * px));
+        for (u32 k = 0; k < 6; ++k) {
+            const u32 part = wall0 + 6 * s + k;
+            if (k >= n) { hide(f, part); continue; }
+            put(f, part, x, n > 1 ? top + (h - 16 * px) * static_cast<i32>(k) / static_cast<i32>(n - 1) : top);
+        }
+    }
+    put(f, cap_l, x0 - 4 * px, top);
+    put(f, cap_r, x1 + 4 * px, top);
+    put(f, floor_o0, x0 - 8 * px, yb + 4 * px - strip / 2);
+    put(f, floor_o1, x1 + 8 * px, yb + 4 * px - strip / 2);
+    put(f, floor_i0, x0 - strip, yb - 717 - strip / 2);
+    put(f, floor_i1, x1 + strip, yb - 717 - strip / 2);
 }
 
 template <class F>
@@ -335,15 +394,15 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
     const i32 w = m.size >= 0 ? lerp(88 * px, 116 * px, c.v(m.size)) : 116 * px;   // a bigger drum is lower
     const i32 cx = 362 * px, x0 = cx - w, x1 = cx + w, L = x1 - x0, yh = 64 * px;
     i32 yb = m.depth * px;
-    if (m.hpf >= 0) yb -= scaleq(26 * px, c.v(m.hpf));   // a high-pass thins the shell
+    if (m.hpf >= 0) yb -= scaleq(20 * px, c.v(m.hpf));   // a high-pass thins the shell
     // Where it is struck, and how deep the dent (RAMP, BUMP, TENS) and how wide.
     const i32 xs = m.pos >= 0 ? x0 + scaleq(L, lerp(4000, 32000, c.v(m.pos))) : x0 + L / 5;
     i32 depth = m.dent >= 0 ? lerp(2 * px, 24 * px, c.v(m.dent)) : 3 * px;
     depth = lerp(depth * 7 / 8, depth, h.pose);
     const u32 wj = m.dentw >= 0 ? static_cast<u32>(c.v(m.dentw)) >> 10 : 20;
-    // The clamps: closer as distortion rises, shown only when it is up.
+    // The clamps: closer as distortion rises, shown only when it is up; they hold the head flatter.
     const bool clamped = m.clip >= 0 && c.raw(m.clip, 0) > 0;
-    const i32 gap = clamped ? lerp(46 * px, 8 * px, c.a(m.clip)) : 64 * px;
+    const i32 jaw = clamped ? lerp(10 * px, 3 * px, c.a(m.clip)) : 64 * px;
     // The head's waves: PTCH half-waves, carried DEC's reach from the strike, an
     // overtone riding them, a hit's swell falling back in sixteen steps.
     const i32 amp = 9 * px + scaleq(8 * px, h.pose);
@@ -356,7 +415,11 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
     if ((half * hmul >> 8) > 24 * 256) hmul = (24 * 256 << 8) / (half >> 4) >> 4;
     const i32 hinv = m.hreach >= 0 ? per_reach[static_cast<u32>(c.v(m.hreach)) >> 10] : inv;
     const i32 jag = m.kink >= 0 ? scaleq(9 * px, c.a(m.kink)) : 0;
+    // The head: a thin hollow band 3 px deep (encoder 1's part), thicker where it is
+    // struck as `band` rises (TRX-BD's STRT): its top edge left to right, its bottom back.
+    const i32 thick = m.band >= 0 ? scaleq(5 * px, c.a(m.band)) : 0;
     Pts head;
+    i32 ys[32], ts[32];
     for (u32 i = 0; i < 32; ++i) {
         const i32 x = x0 + L * static_cast<i32>(i) / 31;
         const i32 d = x > xs ? x - xs : xs - x;
@@ -370,51 +433,60 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
         }
         if (jag) y += scaleq(jag, static_cast<i32>(trx_panel::rnd(i * 7 + 3))) - jag / 2;
         y = scaleq(y, taper);
-        const i32 lim = gap - 3 * px / 2;
+        const i32 lim = jaw - 3 * px / 2;
         y = md::clamp(y, -lim, lim);
         const i32 g = (d >> 4) * static_cast<i32>(per_width[wj]) >> 12;             // (d / width), Q12 ... squared below
         const i32 gq = (g * g) >> 8;                                                 // Q16
-        y += multiply(depth, md::exp_neg(gq));
-        head.add(x, yh + md::clamp(y, -lim, lim + depth));
+        const i32 near_strike = md::exp_neg(gq);
+        y += multiply(depth, near_strike);
+        ys[i] = yh + md::clamp(y, -lim, lim + depth);
+        ts[i] = 3 * px + multiply(thick, near_strike);
     }
-    draw(f, md::view::contour, head, cx, yh, thin, true);
-    // The shell: hoops capping its walls, the bottom head and its hoop as a band.
-    Pts shell;
-    const i32 t4 = 9 * px / 2;
-    const i32 sp[16][2] = {{x0 - 9 * px, yh - t4}, {x0 - px, yh - t4}, {x0 - px, yh + t4}, {x0 - 3 * px, yh + t4}, {x0 - 3 * px, yb - px},
-                           {x1 + 3 * px, yb - px}, {x1 + 3 * px, yh + t4}, {x1 + px, yh + t4}, {x1 + px, yh - t4}, {x1 + 9 * px, yh - t4},
-                           {x1 + 9 * px, yh + t4}, {x1 + 7 * px, yh + t4}, {x1 + 7 * px, yb + 4 * px}, {x0 - 7 * px, yb + 4 * px},
-                           {x0 - 7 * px, yh + t4}, {x0 - 9 * px, yh + t4}};
-    for (u32 i = 0; i < 16; ++i) shell.add(sp[i][0], sp[i][1]);
-    draw(f, md::view::wave, shell, cx, (yh + yb) / 2, mid);
-    // The striker, lifted by its control (STRT, SNAP, HAMR); HOLD rests it in the dent.
-    i32 raise = c.v(m.lift);
-    if (m.hold >= 0) raise = lerp(raise, 0, c.a(m.hold));
+    for (u32 i = 0; i < 32; ++i) head.add(x0 + L * static_cast<i32>(i) / 31, ys[i] - ts[i] / 2);
+    for (u32 i = 32; i-- > 0;) head.add(x0 + L * static_cast<i32>(i) / 31, ys[i] + ts[i] / 2);
+    kdraw(f, md::view::contour, head, cx, yh, kp_light);
+    // The shell: one solid, the head's top down to the bottom head.
+    shell(f, x0, x1, yh - 3 * px / 2, yb);
+    // The hoops on their posts: lower and tighter as RDEC rises (encoder 4's part).
+    const i32 hop = m.hoops >= 0 ? lerp(7 * px, px, c.v(m.hoops)) : 4 * px;
+    put(f, hoop_l, x0, yh - 3 * px / 2 - hop - 3 * px);
+    put(f, hoop_r, x1, yh - 3 * px / 2 - hop - 3 * px);
+    put(f, post_l, x0, yh - 10 * px);
+    put(f, post_r, x1, yh - 10 * px);
+    // The striker, lifted by its control (STRT, SNAP, HAMR); HOLD rests it in the dent. A
+    // beater or mallet nothing lifts rests in the dent, as the stock look's kick has it.
+    const bool rests = (m.striker == beater || m.striker == mallet) && m.lift < 0;
+    i32 raise = rests ? -1 : c.v(m.lift);
+    if (m.hold >= 0 && !rests) raise = lerp(raise, 0, c.a(m.hold));
     const i32 ball = m.ball >= 0 ? lerp(m.striker == stick || m.striker == rimstick ? 4 * px : 10 * px,
                                         m.striker == stick || m.striker == rimstick ? 2 * px : 5 * px, c.v(m.ball))
                                  : (m.striker == stick || m.striker == rimstick ? 5 * px / 2 : 8 * px);
-    const i32 press = m.hold >= 0 && c.a(m.hold) > h.pose ? c.a(m.hold) : h.pose;   // HOLD rests it in the dent
+    const i32 press = rests ? 65536 : m.hold >= 0 && c.a(m.hold) > h.pose ? c.a(m.hold) : h.pose;   // HOLD rests it in the dent
     const i32 contact = yh + scaleq(depth, press);
     if (m.striker == rimstick) striker(f, md::view::comb, rimstick, x0 + 80 * px, yh - 2 * px, 0, ball, h.pose, x0, m.trait);
-    else striker(f, md::view::comb, m.striker, xs, contact - 2 * px, raise, ball, h.pose, x0, m.trait);
-    // The family's hardware on the shell, and the machine's own.
+    else striker(f, md::view::comb, m.striker, xs, contact - 2 * px, raise, ball, h.pose, x0, m.trait, c.a(m.ball2));
+    // The family's hardware on the shell, and the machine's own: TRX's lugs knocked
+    // out of the shell, P-I's rope beside it, EFM's exciter inside.
     const i32 mid_y = (yh + yb) / 2;
-    if (m.trait == 0) { put(f, lug_l, x0 - 13 * px, mid_y); put(f, lug_r, x1 + 13 * px, mid_y); }
-    else if (m.trait == 2) { put(f, rope_l, x0 - 13 * px, mid_y); put(f, rope_r, x1 + 13 * px, mid_y); }
+    if (m.trait == 0) { put(f, lug_l, x0 - 8 * px, mid_y); put(f, lug_r, x1 + 8 * px, mid_y); }
+    else if (m.trait == 2) { put(f, rope_l, x0 - 14 * px, mid_y); put(f, rope_r, x1 + 14 * px, mid_y); }
     else if (!m.spring) { put(f, coil, cx + 44 * px, yb - 32 * px); put(f, magnet, cx + 44 * px, yb - 9 * px); }
     if (m.rack) put(f, mount, x0 - 24 * px, yh + 30 * px);
     if (m.floor) { put(f, leg_l, x0 - 7 * px, yb + 4 * px); put(f, leg_r, x1 + 7 * px, yb + 4 * px); }
-    if (m.pillow) put(f, pillow, cx + 30 * px, yb - px);
-    // The clamps, their tilt the distortion's character (DTYP).
+    if (m.pillow) put(f, pillow, cx + 30 * px, yb - 4 * px);
+    // The clamps: brackets closing on the head's ends from above and below, their
+    // tilt the distortion's character (DTYP), in CLIP's grey.
     if (clamped) {
         const i32 tilt = m.clipk >= 0 ? lerp(-40, 40, c.v(m.clipk)) : 0;
-        const i32 sc = (w * 1024) / (116 * px);   // their length follows the drum's
-        put(f, clamp_t, cx, yh - gap - 3 * px / 2, sc < unit ? sc : unit, tilt);
-        put(f, clamp_b, cx, yh + gap + 3 * px / 2, sc < unit ? sc : unit, -tilt);
+        const u32 tone = m.clip & 3 ? (m.clip & 3) == 1 ? k_dark : (m.clip & 3) == 2 ? k_mid : k_light : k_light;
+        put_in(f, clamp_tl, x0 + 8 * px, yh - jaw, unit, tilt, tone);
+        put_in(f, clamp_tr, x1 - 8 * px, yh - jaw, unit, -tilt, tone);
+        put_in(f, clamp_bl, x0 + 8 * px, yh + jaw, unit, -tilt, tone);
+        put_in(f, clamp_br, x1 - 8 * px, yh + jaw, unit, tilt, tone);
     }
-    // A felt damper inside the shell, wider as DAMP rises.
-    if (m.felt >= 0) put(f, felt, x1 - 34 * px, yh + 8 * px, lerp(420, 1900, c.a(m.felt)));
-    // Under the head: snare wires on their strainer, or an FM drum's exciter, or NOIS's spray.
+    // A felt damper inside the shell, wider as DAMP rises, in DAMP's grey.
+    if (m.felt >= 0) put_in(f, felt, x1 - 34 * px, yh + 8 * px, lerp(420, 1900, c.a(m.felt)), 0, solid_of(m.felt));
+    // Under the head: snare wires on their strainer, or an FM drum's exciter.
     Pts x;
     if (m.wires >= 0) {
         const i32 on = c.a(m.wires);
@@ -432,7 +504,7 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
             x.add(xx, y + (k & 1 ? a : -a) + (jig ? scaleq(jig, static_cast<i32>(trx_panel::rnd(k + 5))) - jig / 2 : 0));
         x.add(wx1, y - 3 * px); x.add(wx1 + 7 * px, y - 3 * px);
         x.add(wx1 + 7 * px, y + a + 3 * px); x.add(wx0 - 7 * px, y + a + 3 * px);
-        draw(f, md::view::extra, x, cx, y, grey(on));   // TONE fades them up, a grey at a time
+        kdraw(f, md::view::extra, x, cx, y, line_of(m.wires));   // pressed on or hanging clear, in their control's grey
     } else if (m.spring) {
         // The exciter: a magnet on the shell's floor, its spring up to the head;
         // the modulation (MOD) stretches it, its ratio (MFRQ) winds more coils.
@@ -443,18 +515,18 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
         const i32 n = coils * 2;
         for (i32 k = 1; k < n && x.n < 30; ++k) x.add(cx + (k & 1 ? a : -a), my - 4 * px - (my - 4 * px - top) * k / n);
         x.add(cx, top);
-        draw(f, md::view::extra, x, cx, (my + top) / 2, mid, true);
+        kdraw(f, md::view::extra, x, cx, (my + top) / 2, line_of(m.harm), true);
     }
-    // NOIS: a spray of fixed strokes off the head beside the strike, more and longer as it rises.
+    // DEC: rings leaving the shell's sides, 1 to 4, pushed out by a hit (encoder 2's part).
+    rings(f, x0 - 10 * px, x1 + 10 * px, mid_y, c.v(m.dec), scaleq(7 * px, h.pose));
+    // NOIS: dark grains among the rings, more as it rises.
     if (m.fan >= 0) {
         const i32 on = c.a(m.fan);
         const u32 n = static_cast<u32>((on * 8 + 32768) >> 16);
-        const i32 sc = lerp(800, 1500, on);
-        const i32 r0 = (12 + ((8 * h.pose) >> 16)) * px;
         for (u32 k = 0; k < n; ++k) {
-            const i32 tenths = -150 - static_cast<i32>(k) * 1150 / 7;
-            const Turn a = rotation(tenths);
-            put(f, spark0 + k, xs + a.cos * (r0 >> 10), yh - 2 * px + (a.sin * (r0 >> 10)) * 4 / 5, sc, tenths);
+            const i32 out = 12 * px + scaleq(26 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 1)));
+            const i32 y = mid_y + scaleq(40 * px, static_cast<i32>(trx_panel::rnd(k * 3 + 2))) - 20 * px;
+            put(f, grain0 + k, k & 1 ? x1 + 8 * px + out : x0 - 8 * px - out, y);
         }
     }
 }
@@ -547,12 +619,12 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
         Pts a, b, z;
         section(a, cx, ct, p, -1, false);
         section(b, cx, ct, p, 1, false);
-        draw(f, md::view::contour, a, cx, ct, thin, false, tilt);
-        draw(f, md::view::wave, b, cx, ct, thin, false, tilt);
+        kdraw(f, md::view::contour, a, cx, ct, kp_light, false, tilt);
+        kdraw(f, md::view::wave, b, cx, ct, kp_light, false, tilt);
         Profile pb = p;
         pb.teeth = 0; pb.marks = 0; pb.rag = 0;
         section(z, cx, cb, pb, 0, true);
-        draw(f, md::view::comb, z, cx, cb, thin);
+        kdraw(f, md::view::comb, z, cx, cb, kp_light);
         put(f, rod, cx, 84 * px);
         put(f, clutch, cx, ct - p.bellh - 4 * px);
         if (m.trait == 2) { put(f, felt, cx, ct - p.bellh - 11 * px); put(f, felt2, cx, cb + p.bellh + 5 * px); }   // P-I's felt washers
@@ -561,7 +633,7 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
             // EFM-HH's tremolo: a spring on the rod above the clutch, stretched by
             // TREM, wound by TFRQ.
             Pts s;
-            const i32 top = 8 * px, bottom = ct - p.bellh - 8 * px;
+            const i32 top = 22 * px, bottom = ct - p.bellh - 8 * px;   // 28 px under the header
             const i32 coils = m.coils >= 0 ? lerp(3 * 256, 10 * 256, c.v(m.coils)) : 5 * 256;   // Q8
             const i32 a = lerp(2 * px, 8 * px, c.v(m.spring));
             const i32 pitch = ((bottom - top) * 128) / coils;                                // a half turn's height
@@ -569,7 +641,7 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
             i32 k = 1;
             for (i32 y = bottom - pitch; y > top + pitch / 2 && s.n < 30; y -= pitch, ++k) s.add(cx + (k & 1 ? a : -a), y);
             s.add(cx, top);
-            draw(f, md::view::extra, s, cx, (top + bottom) / 2, mid, true);
+            kdraw(f, md::view::extra, s, cx, (top + bottom) / 2, line_of(m.spring), true);
         }
     } else {
         // A ride or crash on its tilter, tilting as it is struck.
@@ -578,8 +650,8 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
         Pts a, b;
         section(a, cx, cy, p, -1, false);
         section(b, cx, cy, p, 1, false);
-        draw(f, md::view::contour, a, cx, cy, thin, false, tenths);
-        draw(f, md::view::wave, b, cx, cy, thin, false, tenths);
+        kdraw(f, md::view::contour, a, cx, cy, kp_light, false, tenths);
+        kdraw(f, md::view::wave, b, cx, cy, kp_light, false, tenths);
         put(f, rod, cx, cy + p.bellh + 84 * px + 2 * px - p.bellh);
         put(f, clutch, cx, cy - p.bellh - 4 * px);
         if (m.trait == 2) { put(f, felt, cx, cy - p.bellh - 11 * px); put(f, felt2, cx, cy + p.thick + 4 * px); }   // P-I's felt washers
@@ -597,7 +669,7 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
                     s.add(cx + ((t.cos * (r >> 4)) >> 6), cy - p.bellh - 2 * px + ((t.sin * (r >> 4)) >> 6));
                 }
             }
-            if (n) draw(f, md::view::comb, s, cx, cy - p.bellh - 14 * px, mid, true);
+            if (n) kdraw(f, md::view::comb, s, cx, cy - p.bellh - 14 * px, line_of(m.ping), true);
         }
         if (m.lift >= 0) {
             // HARD: the stick over the bow, higher for a harder stroke.
@@ -618,7 +690,7 @@ struct Room { int count, spacing, jitter, scale, aim, size, ceiling, rays, cone,
 template <class F>
 inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& moment) {
     const Hit h(moment);
-    const i32 vx = 362 * px, vy = 76 * px, fx0 = 212 * px, fx1 = 512 * px, fy0 = 4 * px, fy1 = 158 * px;
+    const i32 vx = 362 * px, vy = 84 * px, fx0 = 212 * px, fx1 = 512 * px, fy0 = 20 * px, fy1 = 162 * px;
     // The room: deeper as it grows (RSIZ, or DEC), its ceiling lower for a higher tuning (RTUN).
     const i32 w = lerp(170 * px, 60 * px, c.v(r.size));
     const i32 by1 = vy + scaleq(w, 23600);
@@ -629,13 +701,13 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
     lw.add(fx0, fy0); lw.add(bx0, by0); lw.add(bx0, by1); lw.add(fx0, fy1);
     rw.add(fx1, fy0); rw.add(bx1, by0); rw.add(bx1, by1); rw.add(fx1, fy1);
     back.add(bx0, by0); back.add(bx1, by0); back.add(bx1, by1); back.add(bx0, by1);
-    draw(f, md::view::contour, lw, (fx0 + bx0) / 2, 84 * px, dim);
-    draw(f, md::view::wave, rw, (fx1 + bx1) / 2, 84 * px, dim);
-    draw(f, md::view::comb, back, vx, (by0 + by1) / 2, mid);
+    kdraw(f, md::view::contour, lw, (fx0 + bx0) / 2, 91 * px, kp_neutral);
+    kdraw(f, md::view::wave, rw, (fx1 + bx1) / 2, 91 * px, kp_neutral);
+    kdraw(f, md::view::comb, back, vx, (by0 + by1) / 2, kp_neutral);
     const i32 sx = 240 * px, sy = 104 * px, mx = 484 * px, my = 94 * px;
-    // The loudspeaker: its size (HARD, or EFM's PTCH), and TONE (HPF) tips it up and thins the fronts' shade.
-    put(f, speaker, sx, sy, r.cone >= 0 ? lerp(r.pitched ? 1500 : 650, r.pitched ? 650 : 1500, c.v(r.cone)) : unit,
-        r.aim >= 0 ? lerp(220, -220, c.v(r.aim)) : 0);
+    // The loudspeaker: its size (HARD, or EFM's PTCH), and TONE (HPF) tips it up.
+    put_in(f, speaker, sx, sy, r.cone >= 0 ? lerp(r.pitched ? 1500 : 650, r.pitched ? 650 : 1500, c.v(r.cone)) : unit,
+           r.aim >= 0 ? lerp(220, -220, c.v(r.aim)) : 0, solid_of(r.cone >= 0 ? r.cone : 2));
     put(f, mic, mx, my);
     put(f, stand, mx, my);
     if (r.pitched) { put(f, coil, sx - 30 * px, sy); put(f, magnet, sx - 30 * px, sy + 22 * px); }   // EFM's exciter behind the cone
@@ -649,7 +721,6 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
     const i32 sc = r.scale >= 0 ? lerp(700, 1500, c.v(r.scale)) : unit;
     const i32 jit = c.a(r.jitter);
     const u32 shape = r.cone >= 0 && !r.pitched ? static_cast<u32>((c.v(r.cone) * 2 + 32768) >> 16) : 0;
-    const u32 tone = grey(r.aim >= 0 ? lerp(20000, 65536, c.v(r.aim)) : 65536);
     const u32 first = shape == 0 ? static_cast<u32>(front0) : shape == 1 ? static_cast<u32>(frontb0) : static_cast<u32>(frontc0);
     const i32 ring_a = c.a(r.scale);
     for (u32 k = 0; k < n && k < 4; ++k) {
@@ -657,8 +728,8 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
         const i32 x = sx - 10 * px + travel_out + static_cast<i32>(k) * spacing + scaleq(scaleq(spacing * 2, jit), r1 * 2);
         const i32 y = sy + scaleq(scaleq(70 * px, jit), r2);
         const i32 tenths = scaleq(scaleq(700, jit), r3);
-        put_in(f, first + k, x, y, sc, tenths, tone);
-        if (ring_a > 8000) put_in(f, echo0 + k, x - lerp(3 * px, 14 * px, ring_a), y, sc, tenths, grey(ring_a));
+        put_in(f, first + k, x, y, sc, tenths, k_light);
+        if (ring_a > 8000) put_in(f, echo0 + k, x - lerp(3 * px, 14 * px, ring_a), y, sc, tenths, r.scale >= 0 ? (r.scale & 3) == 1 ? k_dark : (r.scale & 3) == 2 ? k_mid : k_light : k_light);
     }
     // ROOM: reflections off the walls into the microphone.
     if (r.rays >= 0) {
@@ -675,7 +746,7 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
             if (k + 1 == rays) break;
         }
         if (rays) {
-            draw(f, md::view::extra, q, vx, 84 * px, grey(lerp(on / 2, on, h.pose) + 16000), true);
+            kdraw(f, md::view::extra, q, vx, 84 * px, line_of(r.rays), true);
         }
     }
     // FM: the leading front rippled (MOD deep, MFRQ often, MDEC along it).
@@ -693,7 +764,7 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
             const i32 rad = rr + multiply(e, md::sine(static_cast<u32>(waves) * i * 11673000u));
             q.add(sx + 2 * px + (t.cos * (rad >> 10)), sy + (t.sin * (rad >> 10)));
         }
-        draw(f, md::view::extra, q, sx + rr, sy, thin, true);
+        kdraw(f, md::view::extra, q, sx + rr, sy, line_of(r.ripple), true);
     }
 }
 
@@ -703,7 +774,7 @@ template <class F>
 inline void cowbell(F& f, const Ctl& c, const Bell& b, const view::Moment& moment) {
     const Hit h(moment);
     const i32 k = lerp(81920, 49152, c.v(b.size));   // Q16 1.25 .. 0.75: a bigger bell is lower
-    const i32 cx = (b.second >= 0 ? 382 : 362) * px, yt = (b.trait == 1 ? 44 : 32) * px;
+    const i32 cx = (b.second >= 0 ? 382 : 362) * px, yt = (b.trait == 1 ? 58 : 50) * px;
     const i32 H = scaleq(76 * px, k), wt = scaleq(20 * px, k), wm = scaleq(38 * px, k), yb = yt + H;
     const i32 t = b.thick >= 0 ? lerp(3 * px, 14 * px, c.v(b.thick)) : 7 * px / 2;
     const i32 dent = b.dent >= 0 ? scaleq(24 * px, c.a(b.dent)) : 0;
@@ -733,17 +804,17 @@ inline void cowbell(F& f, const Ctl& c, const Bell& b, const view::Moment& momen
         q.add(cx + ((a.cos * (wm >> 10))), yb + ((a.sin * 5) ));
     }
     const i32 swing = (70 * (h.pose >> 4)) >> 12;
-    draw(f, md::view::contour, q, cx, yt, thin, false, swing);
+    kdraw(f, md::view::contour, q, cx, yt, kp_light, false, swing);
     // The mouth's back lip, seen through it: TONE's thicker wall stands it further in.
     Pts lip;
     for (u32 i = 0; i <= 8; ++i) {
         const Turn a = rotation(1800 + static_cast<i32>(i) * 1800 / 8);
         lip.add(cx + ((a.cos * ((wm - t / 2) >> 10))), yb + a.sin * (4 + (t >> 10)) - t / 2);
     }
-    draw(f, md::view::wave, lip, cx, yt, mid, true, swing);
+    kdraw(f, md::view::wave, lip, cx, yt, line_of(b.thick), true, swing);
     put(f, clutch, cx, yt - 3 * px);
     // It hangs from a short strap (EFM: from its exciter), all of it under the header.
-    if (b.trait == 1) put(f, coil, cx, yt - 24 * px);
+    if (b.trait == 1) put(f, coil, cx, yt - 20 * px);
     else put(f, hanger, cx, yt - 4 * px);
     if (b.second >= 0 && c.a(b.second) > 2000) {
         // ENH: a second bell behind, growing the whole way up.
@@ -751,11 +822,11 @@ inline void cowbell(F& f, const Ctl& c, const Bell& b, const view::Moment& momen
         const i32 H2 = scaleq(76 * px, k2), wt2 = scaleq(20 * px, k2), wm2 = scaleq(38 * px, k2), yt2 = yt + 14 * px;
         Pts s2;
         s2.add(c2 - wm2, yt2 + H2); s2.add(c2 - wt2, yt2); s2.add(c2 + wt2, yt2); s2.add(c2 + wm2, yt2 + H2);
-        draw(f, md::view::extra, s2, c2, yt2, mid);
+        kdraw(f, md::view::extra, s2, c2, yt2, line_of(b.second));
     }
     // The stick, low on the left wall; SNAP lifts it.
     striker(f, md::view::comb, stick, cx - wm + (wm - wt) * 3 / 12 - 2 * px + dent, yb - H * 3 / 12, b.lift >= 0 ? c.v(b.lift) : 16384, 5 * px / 2, h.pose, 0, b.trait);
-    if (b.damp >= 0) put(f, hand, cx + wm + lerp(44 * px, -8 * px, c.a(b.damp)), yb - 4 * px);
+    if (b.damp >= 0) put_in(f, hand, cx + wm + lerp(44 * px, -8 * px, c.a(b.damp)), yb - 4 * px, unit, 0, solid_of(b.damp));
     const i32 dec = c.v(b.dec);
     rings(f, cx - wm - 3 * px, cx + wm + 3 * px, yb + 2 * px, dec, scaleq(7 * px, h.pose), 0, lerp(760, 1500, dec));
 }
@@ -766,7 +837,7 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     const Hit h(moment);
     // PTCH: the struck clave shorter; DUAL: the second longer, struck with it;
     // TUNE: the second's angle; ENH: its grain; CLIC: the spark where they meet.
-    const i32 L1 = lerp(200 * px, 110 * px, c.v(0)), cx = 352 * px, cy = 118 * px;
+    const i32 L1 = lerp(200 * px, 110 * px, c.v(0)), cx = 352 * px, cy = 132 * px;
     const i32 L2 = lerp(40 * px, 124 * px, c.a(2)), ang2 = lerp(-200, -480, c.v(4));
     const i32 lift = lerp(12 * px, 0, h.pose);
     struct Rod { static void make(Pts& q, i32 x, i32 y, i32 len, i32 tenths) {
@@ -785,12 +856,12 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     } };
     Pts a, b;
     Rod::make(a, cx, cy, L1, -120);
-    draw(f, md::view::contour, a, cx, cy, thin);
+    kdraw(f, md::view::contour, a, cx, cy, kp_light);
     const i32 hx = cx + L1 / 8, hy = cy - 10 * px;   // where the second strikes
     i32 dx = 0, dy = -(L2 / 2 + lift);
     spin(dx, dy, rotation(ang2 + 900));
     Rod::make(b, hx + dx, hy + dy, L2, ang2);
-    draw(f, md::view::wave, b, hx + dx, hy + dy, thin);
+    kdraw(f, md::view::wave, b, hx + dx, hy + dy, line_of(2));
     // ENH: the struck clave's grain, a line along it.
     Pts g;
     const i32 gl = lerp(10 * px, L1 - 20 * px, c.v(3));
@@ -798,7 +869,7 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
         i32 ex = (k ? gl / 2 : -gl / 2), ey = px;
         spin(ex, ey, rotation(-120)); g.add(cx + ex, cy + ey);
     }
-    draw(f, md::view::comb, g, cx, cy, mid, true);
+    kdraw(f, md::view::comb, g, cx, cy, line_of(3), true);
     // CLIC: a spark at the contact, fixed strokes, more and longer as it rises.
     const i32 clic = c.a(5);
     const u32 n = static_cast<u32>((clic * 6 + 32768) >> 16);
@@ -818,7 +889,7 @@ template <class F>
 inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& moment) {
     const Hit h(moment, rig::shaker);
     const i32 k = s.size >= 0 ? lerp(48000, 78000, c.v(s.size)) : 65536;
-    const i32 cx = 380 * px, cy = 76 * px, rx = scaleq(58 * px, k), ry = scaleq(44 * px, k);
+    const i32 cx = 380 * px, cy = 84 * px, rx = scaleq(58 * px, k), ry = scaleq(44 * px, k);
     // A hit rocks it to and fro, dying away, and rattles its beads.
     const i32 swing = h.on() ? ((((90 * h.left) >> 16) * (md::sine(static_cast<u32>(h.ph) * 0x1000000u) >> 16)) >> 15) : 0;
     Pts g;
@@ -834,7 +905,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
         const Turn t = rotation(1350 - 120 - static_cast<i32>(40 + i) * 3360 / 40);
         g.add(cx + ((t.cos * (rx >> 4)) >> 6), cy - ((t.sin * (ry >> 4)) >> 6));
     }
-    draw(f, md::view::contour, g, cx, cy, thin, false, swing);
+    kdraw(f, md::view::contour, g, cx, cy, kp_light, false, swing);
     if (s.wall >= 0) {
         // TONE: the shell's wall, thicker.
         const i32 t = lerp(2 * px, 8 * px, c.v(s.wall));
@@ -843,7 +914,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
             const Turn a = rotation(static_cast<i32>(i) * 3600 / 32);
             w.add(cx + ((a.cos * ((rx - t) >> 4)) >> 6), cy - ((a.sin * ((ry - t) >> 4)) >> 6));
         }
-        draw(f, md::view::wave, w, cx, cy, mid, false, swing);
+        kdraw(f, md::view::wave, w, cx, cy, line_of(s.wall), false, swing);
     }
     // The beads: RATL (GRNS) of them, HARD's size, in a row or scattered (RTYP),
     // settled to the bottom by DAMP, spread by GLEN; a hit throws them about.
@@ -886,7 +957,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
             const i32 r2 = r - 6 * px;
             q.add(cx + t.cos * (r2 >> 10), cy + t.sin * (r2 >> 10));
         }
-        draw(f, md::view::comb, q, cx, cy - r * 3 / 4, mid, true);
+        kdraw(f, md::view::comb, q, cx, cy - r * 3 / 4, kp_mid, true);
     }
     if (s.dec >= 0) rings(f, cx - rx - 4 * px, cx + rx + 4 * px, cy, c.v(s.dec), scaleq(7 * px, h.pose), 0, lerp(760, 1500, c.v(s.dec)));
 }
@@ -897,8 +968,8 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
     const Hit h(moment);
     // PTCH: shorter tines; RAMP: their tips splayed (the pitch's drop); RDEC: how
     // far down the bend reaches; DEC: the rings at the tips. A hit swings them apart.
-    const i32 cx = 362 * px, yy = 104 * px;
-    const i32 Lt = lerp(102 * px, 44 * px, c.v(0));
+    const i32 cx = 362 * px, yy = 120 * px;
+    const i32 Lt = lerp(96 * px, 44 * px, c.v(0));
     i32 splay = lerp(0, 13 * px, c.v(2));
     splay += scaleq(splay * 2 / 5 + 4 * px, h.pose);
     const i32 from = 65536 - lerp(10000, 62000, c.v(3));   // where the bend starts, Q16 along the tine
@@ -913,7 +984,7 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
         }
         // The yoke's half below, and for the left the stem down to the box.
         Pts all;
-        if (side < 0) { all.add(cx - 2 * px, 116 * px); all.add(cx - 2 * px, yy + 9 * px); }
+        if (side < 0) { all.add(cx - 2 * px, 132 * px); all.add(cx - 2 * px, yy + 9 * px); }
         for (u32 k = 0; k < 4; ++k) {
             const Turn a = rotation(900 + side * static_cast<i32>(k) * 300);
             all.add(cx + ((a.cos * 86) >> 10) * 1 * 0 + side * (8 * px - ((900 - static_cast<i32>(k) * 300) * 0)) * 0 + ((-side * a.sin + 0) * 0) + (side * ((1024 - a.sin) * 7 >> 10) * px / 1) * 0 + cx * 0 + side * static_cast<i32>(k) * 2 * px - side * 0, yy + 8 * px - static_cast<i32>(k) * 2 * px);
@@ -921,19 +992,19 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
         for (u32 i = 0; i < 26; ++i) all.add(q.p[i].x, q.p[i].y);
         for (u32 i = 26; i-- > 0;) all.add(back.p[i].x, back.p[i].y);
         all.add(cx + side * 9 * px, yy + 4 * px);
-        if (side < 0) { all.add(cx + 2 * px, yy + 9 * px); all.add(cx + 2 * px, 116 * px); }
-        draw(f, side < 0 ? md::view::contour : md::view::wave, all, cx + side * 8 * px, yy - Lt / 2, thin);
+        if (side < 0) { all.add(cx + 2 * px, yy + 9 * px); all.add(cx + 2 * px, 132 * px); }
+        kdraw(f, side < 0 ? md::view::contour : md::view::wave, all, cx + side * 8 * px, yy - Lt / 2, kp_light);
     }
     // The resonator box, open at the right, and a mallet resting beside it.
     Pts box;
-    const i32 bp[9][2] = {{298, 116}, {356, 116}, {356, 120}, {434, 120}, {434, 124}, {440, 124}, {440, 146}, {434, 146}, {434, 150}};
+    const i32 bp[9][2] = {{298, 132}, {356, 132}, {356, 136}, {434, 136}, {434, 140}, {440, 140}, {440, 162}, {434, 162}, {434, 166}};
     for (u32 i = 0; i < 9; ++i) box.add(bp[i][0] * px, bp[i][1] * px);
-    box.add(298 * px, 150 * px);
-    draw(f, md::view::comb, box, 368 * px, 133 * px, mid);
+    box.add(298 * px, 166 * px);
+    kdraw(f, md::view::comb, box, 368 * px, 149 * px, kp_neutral);
     Pts mallet;
-    const i32 mp[6][2] = {{262, 158}, {292, 146}, {296, 140}, {302, 144}, {297, 150}, {263, 160}};
+    const i32 mp[6][2] = {{262, 170}, {292, 158}, {296, 152}, {302, 156}, {297, 162}, {263, 172}};
     for (u32 i = 0; i < 6; ++i) mallet.add(mp[i][0] * px, mp[i][1] * px);
-    draw(f, md::view::extra, mallet, 282 * px, 150 * px, mid);
+    kdraw(f, md::view::extra, mallet, 282 * px, 162 * px, kp_mid);
     const i32 tip = yy - Lt + 4 * px;
     const i32 dec = c.v(1);
     rings(f, cx - 12 * px - splay, cx + 12 * px + splay, tip, dec, scaleq(7 * px, h.pose), 0, lerp(760, 1500, dec));
@@ -947,20 +1018,20 @@ inline void radio(F& f, const Ctl& c, const view::Moment& moment) {
     Pts box, cone, grille, mag;
     const i32 bp[4][2] = {{300, 30}, {424, 30}, {424, 142}, {300, 142}};
     for (u32 i = 0; i < 4; ++i) box.add(bp[i][0] * px, bp[i][1] * px);
-    draw(f, md::view::contour, box, 362 * px, 86 * px, mid);
+    kdraw(f, md::view::contour, box, 362 * px, 86 * px, kp_neutral);
     // DEC: how far forward the cone is held; a hit shakes it, dying away.
     const i32 jit = lerp(-6 * px, 8 * px, c.v(0)) + (h.on() ? multiply(scaleq(6 * px, h.left), md::sine(static_cast<u32>(h.ph) * 0x2000000u)) : 0);
     const i32 cp[6][2] = {{334, 78}, {380, 50}, {384, 52}, {384, 120}, {380, 122}, {334, 94}};
     for (u32 i = 0; i < 6; ++i) cone.add(cp[i][0] * px + (i == 0 || i == 5 ? jit : jit / 3), cp[i][1] * px);
-    draw(f, md::view::wave, cone, 360 * px, 86 * px, thin);
+    kdraw(f, md::view::wave, cone, 360 * px, 86 * px, kp_light);
     for (u32 k = 0; k < 5; ++k) {
         const i32 y = (54 + 15 * static_cast<i32>(k)) * px;
         grille.add((k & 1 ? 414 : 396) * px, y); grille.add((k & 1 ? 396 : 414) * px, y);
     }
-    draw(f, md::view::comb, grille, 405 * px, 84 * px, dim, true);
+    kdraw(f, md::view::comb, grille, 405 * px, 84 * px, kp_neutral, true);
     const i32 mp[4][2] = {{316, 76}, {334, 76}, {334, 96}, {316, 96}};
     for (u32 i = 0; i < 4; ++i) mag.add(mp[i][0] * px, mp[i][1] * px);
-    draw(f, md::view::extra, mag, 325 * px, 86 * px, mid);
+    kdraw(f, md::view::extra, mag, 325 * px, 86 * px, kp_neutral);
     const i32 dec = c.v(0);
     rings(f, 0, 428 * px, 86 * px, dec, scaleq(8 * px, h.pose), 1, lerp(760, 1700, dec));
 }
@@ -982,7 +1053,7 @@ inline void cam(F& f, const Ctl& c, const view::Moment& moment) {
         q.add(cx + t.cos * (r >> 10), cy + t.sin * (r >> 10));
     }
     const i32 tenths = 150 - scaleq(3600, 65536 - h.left);
-    draw(f, md::view::contour, q, cx, cy, thin, false, tenths);
+    kdraw(f, md::view::contour, q, cx, cy, kp_light, false, tenths);
     // The follower: a lever from its pivot at the left, its roller on the cam's top.
     i32 top = r0;
     {
@@ -996,10 +1067,10 @@ inline void cam(F& f, const Ctl& c, const view::Moment& moment) {
     lever.add(290 * px, 30 * px); lever.add(cx - 4 * px, ry - 2 * px); lever.add(cx + 4 * px, ry - 6 * px);
     for (u32 k = 0; k <= 8; ++k) { const Turn t = rotation(static_cast<i32>(k) * 3600 / 8); lever.add(cx + t.cos * 5, ry + t.sin * 5); }
     lever.add(cx - 4 * px, ry + 1 * px); lever.add(290 * px, 33 * px);
-    draw(f, md::view::wave, lever, 326 * px, (30 * px + ry) / 2, mid);
+    kdraw(f, md::view::wave, lever, 326 * px, (30 * px + ry) / 2, kp_mid);
     Pts axle;
     for (u32 k = 0; k < 8; ++k) { const Turn t = rotation(static_cast<i32>(k) * 450); axle.add(cx + t.cos * 4, cy + t.sin * 4); }
-    draw(f, md::view::comb, axle, cx, cy, mid);
+    kdraw(f, md::view::comb, axle, cx, cy, kp_neutral);
 }
 
 template <class F>
@@ -1007,7 +1078,7 @@ inline void bar(F& f, const Ctl& c, const view::Moment& moment) {
     const Hit h(moment);
     // A metal bar hung on cords: PTCH shortens it, TENS bows it as it is struck,
     // HARD a smaller, harder mallet, DEC the rings at its ends.
-    const i32 cx = 362 * px, by = 100 * px;
+    const i32 cx = 362 * px, by = 108 * px;
     const i32 half = lerp(118 * px, 70 * px, c.v(0));
     const i32 bow = lerp(lerp(px, 15 * px, c.v(3)), lerp(4 * px, 20 * px, c.v(3)), h.pose);
     Pts q, back;
@@ -1020,15 +1091,15 @@ inline void bar(F& f, const Ctl& c, const view::Moment& moment) {
     Pts all;
     for (u32 i = 0; i < 32; ++i) all.add(q.p[i].x, q.p[i].y);
     for (u32 i = 32; i-- > 0;) all.add(back.p[i].x, back.p[i].y);
-    draw(f, md::view::contour, all, cx, by, thin);
+    kdraw(f, md::view::contour, all, cx, by, kp_light);
     // The frame and cords, from its nodes (0.224 of its length from each end).
     const i32 nl = cx - half + scaleq(2 * half, 14680), nr = cx + half - scaleq(2 * half, 14680);
     Pts cord;
     const i32 cb = by - 4 * px + bow * 3 / 5, w6 = 3 * px / 5;
-    const i32 cp[12][2] = {{238 * px, 18 * px}, {486 * px, 18 * px}, {486 * px, 22 * px}, {nr + w6, 22 * px}, {nr + w6, cb}, {nr - w6, cb},
-                           {nr - w6, 22 * px}, {nl + w6, 22 * px}, {nl + w6, cb}, {nl - w6, cb}, {nl - w6, 22 * px}, {238 * px, 22 * px}};
+    const i32 cp[12][2] = {{238 * px, 26 * px}, {486 * px, 26 * px}, {486 * px, 30 * px}, {nr + w6, 30 * px}, {nr + w6, cb}, {nr - w6, cb},
+                           {nr - w6, 30 * px}, {nl + w6, 30 * px}, {nl + w6, cb}, {nl - w6, cb}, {nl - w6, 30 * px}, {238 * px, 30 * px}};
     for (u32 i = 0; i < 12; ++i) cord.add(cp[i][0], cp[i][1]);
-    draw(f, md::view::wave, cord, cx, 60 * px, mid);
+    kdraw(f, md::view::wave, cord, cx, 68 * px, kp_neutral);
     striker(f, md::view::comb, mallet, cx + 10 * px, by - 4 * px + bow, 20000, lerp(10 * px, 5 * px, c.v(2)), h.pose, 0, 2);
     const i32 dec = c.v(1);
     rings(f, cx - half - 3 * px, cx + half + 3 * px, by, dec, scaleq(7 * px, h.pose), 0, lerp(760, 1500, dec));
@@ -1038,9 +1109,12 @@ inline void bar(F& f, const Ctl& c, const view::Moment& moment) {
 // The machines' views, by their slots (kit.h), each with its row of travel.
 #define MD_FIG_VIEW(ns, row, ...) namespace ns { template <class F> inline void view(F& f, const i32* s, const view::Moment& m) { \
     const fig::Ctl c = {s, fig::travel[row]}; fig::begin(f); __VA_ARGS__ } }
-MD_FIG_VIEW(trx_bd, 0, fig::Mem k = fig::mem(fig::beater, 148); k.trait = 0; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.lift = 4; k.fan = 5; k.harm = 6; k.clip = 7; fig::membrane(f, c, k, m);)
+// TRX-BD as the stock look's sketch has it (K3): PTCH the head's waves, DEC the rings, RAMP the
+// ball in the dent, RDEC the hoops; STRT the band thicker where struck, NOIS grains among the
+// rings, HARM a second ball, CLIP the clamps.
+MD_FIG_VIEW(trx_bd, 0, fig::Mem k = fig::mem(fig::beater, 148); k.trait = 0; k.ptch = 0; k.dec = 1; k.dent = 2; k.hoops = 3; k.band = 4; k.fan = 5; k.ball2 = 6; k.clip = 7; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(trx_sd, 1, fig::Mem k = fig::mem(fig::stick, 112); k.trait = 0; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.lift = 4; k.wires = 5; k.wtune = 6; k.clip = 7; fig::membrane(f, c, k, m);)
-MD_FIG_VIEW(trx_xt, 2, fig::Mem k = fig::mem(fig::stick, 122); k.trait = 0; k.rack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.felt = 4; k.clip = 5; k.clipk = 6; fig::membrane(f, c, k, m);)
+MD_FIG_VIEW(trx_xt, 2, fig::Mem k = fig::mem(fig::stick, 122); k.trait = 0; k.rack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.hoops = 3; k.felt = 4; k.clip = 5; k.clipk = 6; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(trx_cp, 3, fig::Room r = {-1, 4, 0, 3, 1, 6, 7, 5, 2, -1, -1, -1, false}; fig::chamber(f, c, r, m);)
 MD_FIG_VIEW(trx_rs, 4, fig::Mem k = fig::mem(fig::rimstick, 104); k.trait = 0; k.ptch = 0; k.dec = 1; k.clip = 2; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(trx_cb, 5, fig::Bell b = {0, 1, 4, 5, 2, 3, -1, -1, -1, -1, -1, 0}; fig::cowbell(f, c, b, m);)
@@ -1049,11 +1123,11 @@ MD_FIG_VIEW(trx_oh, 7, fig::Cym k = fig::cym(true, false); k.gap = 0; k.dec = 1;
 MD_FIG_VIEW(trx_cy, 8, fig::Cym k = fig::cym(false, false); k.marks = 0; k.dec = 1; k.ping = 2; k.bell = 3; k.size = 4; k.teeth = 5; k.kind = 0; k.trait = 0; fig::cymbal(f, c, k, m);)
 MD_FIG_VIEW(trx_ma, 9, fig::Shake k = {4, -1, 7, 5, 3, 6, 0, 1, 2, -1, -1, false}; fig::shaker(f, c, k, m);)
 MD_FIG_VIEW(trx_cl, 10, fig::claves(f, c, m);)
-MD_FIG_VIEW(trx_xc, 11, fig::Mem k = fig::mem(fig::stick, 136); k.trait = 0; k.floor = true; k.slack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.felt = 4; k.clip = 5; k.clipk = 6; fig::membrane(f, c, k, m);)
+MD_FIG_VIEW(trx_xc, 11, fig::Mem k = fig::mem(fig::stick, 136); k.trait = 0; k.floor = true; k.slack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.hoops = 3; k.felt = 4; k.clip = 5; k.clipk = 6; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(trx_b2, 12, fig::Mem k = fig::mem(fig::beater, 148); k.trait = 0; k.pillow = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.hold = 3; k.ball = 4; k.fan = 5; k.kink = 6; k.clip = 7; fig::membrane(f, c, k, m);)
-MD_FIG_VIEW(efm_bd, 13, fig::Mem k = fig::mem(fig::beater, 148); k.trait = 1; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.harm = 4; k.hfrq = 5; k.hreach = 6; k.kink = 7; k.spring = true; fig::membrane(f, c, k, m);)
+MD_FIG_VIEW(efm_bd, 13, fig::Mem k = fig::mem(fig::beater, 148); k.trait = 1; k.ptch = 0; k.dec = 1; k.dent = 2; k.hoops = 3; k.harm = 4; k.hfrq = 5; k.hreach = 6; k.kink = 7; k.spring = true; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(efm_sd, 14, fig::Mem k = fig::mem(fig::stick, 112); k.trait = 1; k.ptch = 0; k.dec = 1; k.wires = 2; k.wlift = 3; k.harm = 4; k.hfrq = 5; k.hreach = 6; k.hpf = 7; fig::membrane(f, c, k, m);)
-MD_FIG_VIEW(efm_xt, 15, fig::Mem k = fig::mem(fig::stick, 122); k.trait = 1; k.rack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.dentw = 3; k.harm = 4; k.hfrq = 5; k.hreach = 6; k.ball = 7; k.spring = true; fig::membrane(f, c, k, m);)
+MD_FIG_VIEW(efm_xt, 15, fig::Mem k = fig::mem(fig::stick, 122); k.trait = 1; k.rack = true; k.ptch = 0; k.dec = 1; k.dent = 2; k.hoops = 3; k.harm = 4; k.hfrq = 5; k.hreach = 6; k.ball = 7; k.spring = true; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(efm_cp, 16, fig::Room r = {2, 3, -1, -1, 7, 1, -1, -1, 0, 4, 5, 6, true}; fig::chamber(f, c, r, m);)
 MD_FIG_VIEW(efm_rs, 17, fig::Mem k = fig::mem(fig::rimstick, 104); k.trait = 1; k.ptch = 0; k.dec = 1; k.harm = 2; k.hpf = 3; k.wires = 4; k.wtune = 5; k.wlift = 6; k.wkink = 7; fig::membrane(f, c, k, m);)
 MD_FIG_VIEW(efm_cb, 18, fig::Bell b = {0, 1, -1, -1, -1, -1, 2, 3, 4, 5, 6, 1}; fig::cowbell(f, c, b, m);)

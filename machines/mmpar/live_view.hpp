@@ -130,4 +130,37 @@ inline void unfold(Path& path) {
     for (u32 i = m; i < 64; ++i) p[i] = p[m - 1];
 }
 }
+
+// The stock look's paths (md_view.hpp, namespace stock), written so the device draws them whole.
+namespace view {
+namespace stock {
+// A line through up to 32 stage points (Q10), out and back as a thin ribbon, on a
+// path about (ox, oy) stage pixels at scale 2: every point within 128 px of it.
+template <class F>
+inline void trace(F& f, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, u32 key, u32 tone) {
+    typename F::path_type& p = f.paths[path];
+    if (p.key != key) {
+        Point local[32];
+        if (n > 32) n = 32;
+        for (u32 i = 0; i < n; ++i) { local[i].x = (stage[i].x - ox * unit) / 2; local[i].y = (stage[i].y - oy * unit) / 2; }
+        polyline(p, local, n, key);
+        md::live::unfold(p);
+    }
+    show_path(f, path, ox, oy, tone, 2 * unit);
+}
+// A closed outline through up to 64 stage points, as trace's.
+template <class F>
+inline void closed(F& f, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, u32 key, u32 tone) {
+    typename F::path_type& p = f.paths[path];
+    if (p.key != key) {
+        Point local[64];
+        if (n > 64) n = 64;
+        for (u32 i = 0; i < n; ++i) { local[i].x = (stage[i].x - ox * unit) / 2; local[i].y = (stage[i].y - oy * unit) / 2; }
+        outline(p, local, n, key);
+        md::live::unfold(p);
+    }
+    show_path(f, path, ox, oy, tone, 2 * unit);
+}
+}
+}
 }

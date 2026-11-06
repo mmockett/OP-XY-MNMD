@@ -11,8 +11,15 @@
 // ratio to middle C, or MSRC's previous note, which the screen can't know, taken
 // as the same pitch; the ring is drawn as the design draws it, the wave times
 // the modulator's sine. TUNE stretches the oscillator's cycles under a
-// modulator that stays put, as it does in the sound. PWRS on draws a reset bar at
-// the wave's left, as SWAVE-PULSE's does, bright when it acts: on a swept pulse.
+// modulator that stays put, as it does in the sound.
+//
+// In the stock look (S1, OP-XY-Dev media/stock-look-audit/mnmd): one 1.2 px
+// CDCDCD line from x 0 to 480 on a 323232 axis, and the code on small parts
+// (tools/art/stock.mjs): PW's hollow handle on the axis at the pulse's first
+// fall (encoder 1), PWAD's dark bar and handle out to the sweep's reach
+// (encoder 2), PWRS's reset bar, mid, at the left while it is on (encoder 3);
+// WAVE and TUNE (encoder 4) are the steps themselves. MOD, MSRC and MFRQ show
+// only in the steps' shape.
 #include "md_view.hpp"
 #include "md_rig.hpp"
 #include "sid_6581.hpp"
@@ -21,9 +28,10 @@
 namespace md_mmsid {} namespace md = md_mmsid; namespace md_mmsid {
 namespace sid_6581 {
 namespace draw {
-const i32 left = 12, cy = 80;
-const i32 step_px = 9935;          // (468 - 12) / 47 steps, Q10 (9.7 px)
-const i32 level_px = 9557;         // 56 px / 6, Q10
+const i32 left = 0, cy = 94;
+const i32 step_px = 10457;         // 480 / 47 steps, Q10 (10.2 px), the last corner just inside x 480
+const i32 level_px = 9 * 1024;     // 9 px a level: 54 px either side of the axis
+enum Part : u32 { axis = 4, pw_handle, pwad_handle, reset };
 const u32 steps = 47;
 const u32 step_phase = 274145072u; // three cycles over 47 steps: 3 x 2^32 / 47
 
@@ -100,16 +108,31 @@ inline void view(F& frame, const i32* slots, const view::Moment& moment) {
             md::view::polyline(path, points, 32, path_key);
             md::live::unfold(path);
         }
-        md::view::show_path(frame, paths[j], ox, draw::cy, md::view::line, 2 * opxy::draw::unit);
+        md::view::show_path(frame, paths[j], ox, draw::cy, md::view::stock::line4, 2 * opxy::draw::unit);
     }
-    if (step127(slots[PWRS]) >= 64) {
-        typename F::path_type& bar = frame.paths[md::view::extra];
-        if (bar.key != 0x50525331u) {
-            const opxy::draw::Point ends[2] = {{0, -29 * opxy::draw::unit}, {0, 29 * opxy::draw::unit}};
-            md::view::polyline(bar, ends, 2, 0x50525331u);
+    namespace stock = md::view::stock;
+    const i32 u = opxy::draw::unit, axis_y = draw::cy * u;
+    stock::put(frame, draw::axis, 240 * u, axis_y, stock::solid_a);
+    // PW: the first fall of the pulse, duty / cycles of the way across (3 x stretch / 128 cycles),
+    // as the duty is now (PWAD's sweep included).
+    const u32 stretch = md::live::stretch(slots[TUNE]);
+    const i32 x_pw = md::clamp(static_cast<i32>((320u * (duty >> 16)) / stretch), 4 * u, 476 * u);
+    stock::put(frame, draw::pw_handle, x_pw, axis_y, stock::hollow);
+    // PWAD: how far its sweep reaches, half a cycle at full, from the fall; a bar out to a dark handle.
+    const u32 pwad = step127(slots[PWAD]);
+    if (pwad > 2) {
+        const u32 reach = (duty >> 16) + (pwad << 8);                               // Q16 of a cycle
+        const u32 most = 64225u;                                                     // 0.98
+        const i32 x_end = md::clamp(static_cast<i32>((320u * (reach < most ? reach : most)) / stretch), x_pw, x_pw + 250 * u);
+        if (x_end - x_pw > 8 * u) {
+            const i32 a = x_pw + 4 * u, b = x_end - 3 * u, mid = ((a + b) >> 11);
+            const opxy::draw::Point bar[4] = {{a, axis_y - u / 2}, {b, axis_y - u / 2}, {b, axis_y + u / 2}, {a, axis_y + u / 2}};
+            stock::closed(frame, md::view::extra, bar, 4, mid, draw::cy, md::live::sealed(md::live::mix(0x50574144u, a ^ (b << 1))), stock::line2);
+            stock::put(frame, draw::pwad_handle, x_end, axis_y, stock::solid2);
         }
-        md::view::show_path(frame, md::view::extra, draw::left - 4, draw::cy, wave == pulse && rate ? md::view::line : md::view::dim, 2 * opxy::draw::unit);
     }
+    // PWRS on: every cycle restarts at the left, so its bar stands there.
+    if (step127(slots[PWRS]) >= 64) stock::put(frame, draw::reset, 2304, axis_y, stock::solid3);
 }
 }
 }

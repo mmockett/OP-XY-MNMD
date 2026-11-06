@@ -5,16 +5,11 @@
 
 namespace mmsin {
 namespace art {
-const opxy::u32 node_count = 6;
+const opxy::u32 node_count = 0;
 // x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,
 // hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}
-const md::rig::Part parts[6] = {
-    {208, 320, 13, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {960, 320, 4, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {288, 320, 0, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {-37069, 12032, 1025, 1440}},
-    {368, 320, 11, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {-74138, 24064, 1024, 0}},
-    {386, 320, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {-37069, 24064, 7202, 0}},
-    {386, 320, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {-37069, 24064, 7202, 0}},
+const md::rig::Part parts[1] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
 };
 // control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end
 const md::rig::Effect effects[1] = {
@@ -22,8 +17,8 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 6, {0, 0, 0, 0, 0, 0, 0, 64}},   // GND-SIN; the view draws line#w
+    {0, 0, {0, 0, 0, 0, 0, 0, 0, 64}},   // GND-SIN
 };
-const opxy::u16 members[6] = {0, 1, 2, 3, 4, 5};
+const opxy::u16 members[1] = {0};
 }
 }

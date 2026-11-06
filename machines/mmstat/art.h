@@ -5,26 +5,11 @@
 
 namespace mmstat {
 namespace art {
-const opxy::u32 node_count = 16;
+const opxy::u32 node_count = 0;
 // x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,
 // hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}
-const md::rig::Part parts[16] = {
-    {200, 160, 13, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 480, 13, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {800, 320, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 47, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {686, 320, 11, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {686, 320, 11, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {1508, 320, 4, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+const md::rig::Part parts[1] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
 };
 // control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end
 const md::rig::Effect effects[1] = {
@@ -32,8 +17,8 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 16, {30, 64, 70, 0, 40, 30, 64, 64}},   // FM+STAT; the view draws line#a1, line#a2, line#out, text:×2, text:×3
+    {0, 0, {30, 64, 70, 0, 40, 30, 64, 64}},   // FM+STAT
 };
-const opxy::u16 members[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+const opxy::u16 members[1] = {0};
 }
 }

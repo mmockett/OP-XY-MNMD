@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { rig, flatten } from './rig.mjs';
 import { strokes } from './font.mjs';
-import { FIGS, COMMON_SLOTS } from './fig.mjs';
+import { FIGS, COMMON_SLOTS, MDKIT_PALETTE, MDKIT_SHADE } from './fig.mjs';
+import { STOCK, STOCK_PALETTE, STOCK_SHADE } from './stock.mjs';
 import { readFileSync } from 'node:fs';
 
 // The verified slots (tools/catalog.py); the design's spellings where they differ.
@@ -34,7 +35,6 @@ export const PALETTE = [
 ];
 const SHADE = { line: 0, thin: 1, mid: 2, dim: 3, faint: 4, dash: 5, label: 6, f1: 7, f2: 8, f3: 9, f4: 10, f5: 11, node: 11,
                 o0: 12, o1: 13, o2: 14, o3: 15 };
-const FILLED = s => SHADE[s] >= 7;
 const KIND = { rest: 0, struck: 1, hit: 2 };
 const COMMON_NODES = 4 + 3 + 3 + 21;   // md_view.hpp: 4 paths, 3 rings, 2 handles, a cursor and the readout's 21 segments
 // The stage's top on the screen (md_view.hpp's stage_y): under the stock
@@ -249,10 +249,23 @@ const KIT_PALETTE = PALETTE.map(([fill, stroke, width], i) => {
   return style ? [fill, stroke, KIT_PART_WIDTH[style]] : [fill, stroke, width];
 });
 
+// Each engine's palette and its styles' places in it: the design's, the kits'
+// (MD E12), MD KIT's and the stock look's (tools/art/fig.mjs, tools/art/stock.mjs).
+export function paletteOf(engine) {
+  if (STOCK[engine]) return { palette: STOCK_PALETTE, shade: STOCK_SHADE };
+  if (engine === 'mdkit') return { palette: MDKIT_PALETTE, shade: MDKIT_SHADE };
+  // MD E12's parts keep the design palette's authored strokes; its palette entries are the kits'.
+  if (FIG_KITS.includes(engine)) return { palette: KIT_PALETTE, author: PALETTE, shade: SHADE };
+  return { palette: PALETTE, shade: SHADE };
+}
+
 export function build(engine, members, pads = false, withFig = false) {
   const nodes = [], machines = [], texts = [];
+  // An engine in the stock look draws its whole screen from its view: none of the design's parts or labels.
+  const stock = STOCK[engine];
   for (const [instrument, name] of members) {
     const r = rig(instrument, DESIGN_NAME[name] ?? name);
+    if (stock) { r.parts = []; r.hit = []; r.free = []; r.texts = []; }
     if (pads) {
       // One machine at a time, full size: no labels (static text shows for every
       // machine) and no sparks, so a kit's machines fit the device's nodes.
@@ -335,8 +348,8 @@ export function build(engine, members, pads = false, withFig = false) {
   }
   // The sections' fixed parts: the first take the common nodes' places, any more follow the instruments.
   let fig = null;
-  if (withFig) {
-    fig = FIGS[engine].map((f, k) => {
+  if (withFig || stock) {
+    fig = (stock ?? FIGS[engine]).map((f, k) => {
       const [px, py] = f.pivot;
       const d = f.r !== undefined ? `circle 0 0 ${num(f.r)}`
         : 'M' + f.pts.map(([x, y], i) => (i ? 'L' : '') + num(x - px) + ' ' + num(y - py)).join(' ') + (f.closed ? ' Z' : '');
@@ -346,7 +359,7 @@ export function build(engine, members, pads = false, withFig = false) {
       return part;
     });
   }
-  return { engine, nodes, machines, texts, fig };
+  return { engine, nodes, machines, texts, fig, ...paletteOf(engine) };
 }
 
 function header(engine, art) {
@@ -368,7 +381,8 @@ function header(engine, art) {
       effects.push(`    {${control}, ${absent}, {${lo.join(', ')}}, {${hi.join(', ')}}},`);
     }
     const pose = t => t ? [Math.round(t.dx * 1024), Math.round(t.dy * 1024), Math.round(t.s * 1024), Math.round(t.turn * 1800 / Math.PI)] : [0, 0, 1024, 0];
-    return `    {${Math.round(n.cx * 4)}, ${Math.round(n.cy * 4)}, ${SHADE[n.style]}, ${FILLED(n.style) ? 2 : 1}, ${KIND[n.kind]}, ${n.struckBy ? 1 : 0}, ` +
+    const shade = art.shade[n.style], filled = (art.author ?? art.palette)[shade][0] !== 'none';
+    return `    {${Math.round(n.cx * 4)}, ${Math.round(n.cy * 4)}, ${shade}, ${filled ? 2 : 1}, ${KIND[n.kind]}, ${n.struckBy ? 1 : 0}, ` +
            `${firstEffect}, ${effects.length - firstEffect}, {${pose(n.motion).join(', ')}}, {${pose(n.strike).join(', ')}}},`;
   });
   lines.push('#pragma once');
@@ -428,7 +442,7 @@ function panel(engine, art, paged, compact = false) {
   // A kit drawn as sections holds their parts in the common nodes' places.
   const common = new Map((art.fig ?? []).filter(p => p.node < COMMON_NODES).map(p => [p.node, p]));
   const figNode = (p, id) => {
-    const [fill, stroke, width] = PALETTE[SHADE[p.style]];
+    const [fill, stroke, width] = (art.author ?? art.palette)[art.shade[p.style]];
     const round = p.d.match(/^circle (\S+) (\S+) (\S+)$/);
     return round ? `  <circle id="${engine}_node_${id}" cx="${round[1]}" cy="${round[2]}" r="${round[3]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`
                  : `  <path id="${engine}_node_${id}" d="${p.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
@@ -447,7 +461,7 @@ function panel(engine, art, paged, compact = false) {
       push(10 + digit * 7 + seg, `  <path id="${engine}_node_${10 + digit * 7 + seg}" ${park} d="${d}" fill="none" stroke="#8c8d92" stroke-width="0.9"/>`);
     }
   art.nodes.forEach((n, i) => {
-    const [fill, stroke, width] = PALETTE[SHADE[n.style]];
+    const [fill, stroke, width] = (art.author ?? art.palette)[art.shade[n.style]];
     // Art nodes are authored about their pivots and placed by the first frame, so they need no parking transform.
     const round = n.d.match(/^circle (\S+) (\S+) (\S+)$/);
     if (round) {
@@ -470,7 +484,7 @@ function panel(engine, art, paged, compact = false) {
     const x = ring ? ring.cx - width(t.t, fs) / 2 : t.x, baseline = ring ? ring.cy + fs * CAP_HEIGHT / 2 : t.y + t.fs * 0.83;
     out.push(`  <g><text transform="matrix(1 0 0 1 ${num(x)} ${num(stageY + baseline)})" fill="${t.fill}" font-family="UniversNextPro-Light" font-size="${num(fs)}px">${esc(t.t)}</text></g>`);
   }
-  (art.fig ? KIT_PALETTE : PALETTE).forEach(([fill, stroke, width], i) =>
+  art.palette.forEach(([fill, stroke, width], i) =>
     out.push(`  <circle id="${engine}_palette_${i}" ${park} cx="0" cy="0" r="1" fill="${fill === 'none' ? '#000000' : fill}" stroke="${stroke}" stroke-width="${width}"/>`));
   out.push('</g>');
   return (compact ? out.map(line => line.replace(/^  /, '')) : out).join('\n') + '\n';

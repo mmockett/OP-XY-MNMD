@@ -439,5 +439,26 @@ inline u32 key_of(i32 a, i32 b, i32 c, i32 d) {
     return 1u + (static_cast<u32>(a) >> 25) + ((static_cast<u32>(b) >> 25) << 7)
          + ((static_cast<u32>(c) >> 25) << 14) + ((static_cast<u32>(d) >> 25) << 21);
 }
+
+// The stock look (OP-XY-Dev media/stock-look-2026-11-06): the palette of the
+// Monomachine engines drawn in it (tools/art/stock.mjs, STOCK_PALETTE), whose
+// views draw the whole screen. The grey is the knob: a part's grey says which
+// encoder moves it, hollow (black with a CDCDCD edge) for encoder 1, then
+// 4B4B4B, 969696 and CDCDCD; 7D7D7D, 646464 and 323232 belong to no encoder. The
+// line entries are for the paths, which draw at scale 2: 1.2 px for line4, 1 px
+// for the rest. Grey never stands for an amount.
+namespace stock {
+enum Tone : u32 { line4, line3, line2, line_n, line_d, line_a, edge4, edge_n,
+                  solid2, solid3, solid4, solid_n, solid_a, hollow, black, hollow_n };
+// An encoder's (0..3) handle or solid part.
+inline u32 coded(u32 encoder) { return encoder == 0 ? hollow : encoder == 1 ? solid2 : encoder == 2 ? solid3 : solid4; }
+// A fixed part (tools/art/stock.mjs) at (x, y) on the stage, Q10, scaled and turned
+// (tenths of a degree, clockwise); a filled tone fills.
+template <class F>
+inline void put(F& f, u32 node, i32 x, i32 y, u32 tone, i32 scale = unit, i32 tenths = 0) {
+    place(f, node, x, stage_y * unit + y, scale, tone, tone >= solid2 ? fill_and_stroke : stroke);
+    if (tenths) opxy::draw::turn(f, node, rotation(tenths));
+}
+}
 }
 }

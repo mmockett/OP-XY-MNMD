@@ -5,11 +5,11 @@
 
 namespace mmsid {
 namespace art {
-const opxy::u32 node_count = 1;
+const opxy::u32 node_count = 0;
 // x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,
 // hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}
 const md::rig::Part parts[1] = {
-    {960, 320, 4, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
 };
 // control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end
 const md::rig::Effect effects[1] = {
@@ -17,7 +17,7 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 1, {64, 0, 0, 38, 0, 0, 64, 64}},   // SID-6581; the view draws line#sid, text:saw
+    {0, 0, {64, 0, 0, 38, 0, 0, 64, 64}},   // SID-6581
 };
 const opxy::u16 members[1] = {0};
 }
