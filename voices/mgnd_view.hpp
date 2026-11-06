@@ -70,7 +70,7 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
     for (u32 side = 0; side < 2; ++side) {
         for (u32 i = 0; i < 32; ++i) {
             const u32 k = side * 31 + i;                                        // 0 .. 62 along the span
-            xs[i] = wx + static_cast<i32>(k) * 5548;                            // 336 px / 62, Q10: to x 479.9
+            xs[i] = wx + static_cast<i32>(k) * 5541;                            // 335.5 px / 62, Q10: to x 479.5
             ys[i] = cy * unit + multiply(md::sine(at - static_cast<u32>(k) * per_step), r);
         }
         draw32(frame, side ? view::wave : view::contour, xs, ys, side ? 396 : 228, cy,

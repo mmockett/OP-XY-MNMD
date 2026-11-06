@@ -121,9 +121,7 @@ inline void view(F& frame, const i32* slots, const view::Moment& moment) {
     // PWAD: how far its sweep reaches, half a cycle at full, from the fall; a bar out to a dark handle.
     const u32 pwad = step127(slots[PWAD]);
     if (pwad > 2) {
-        const u32 reach = (duty >> 16) + (pwad << 8);                               // Q16 of a cycle
-        const u32 most = 64225u;                                                     // 0.98
-        const i32 x_end = md::clamp(static_cast<i32>((320u * (reach < most ? reach : most)) / stretch), x_pw, x_pw + 250 * u);
+        const i32 x_end = md::clamp(x_pw + static_cast<i32>((320u * (pwad << 8)) / stretch), x_pw, md::clamp(x_pw + 250 * u, 0, 476 * u));
         if (x_end - x_pw > 8 * u) {
             const i32 a = x_pw + 4 * u, b = x_end - 3 * u, mid = ((a + b) >> 11);
             const opxy::draw::Point bar[4] = {{a, axis_y - u / 2}, {b, axis_y - u / 2}, {b, axis_y + u / 2}, {a, axis_y + u / 2}};

@@ -455,7 +455,7 @@ inline void membrane(F& f, const Ctl& c, const Mem& m, const view::Moment& momen
     put(f, post_r, x1, yh - 10 * px);
     // The striker, lifted by its control (STRT, SNAP, HAMR); HOLD rests it in the dent. A
     // beater or mallet nothing lifts rests in the dent, as the stock look's kick has it.
-    const bool rests = (m.striker == beater || m.striker == mallet) && m.lift < 0;
+    const bool rests = (m.striker == beater || m.striker == mallet) && m.lift < 0 && m.hold < 0;
     i32 raise = rests ? -1 : c.v(m.lift);
     if (m.hold >= 0 && !rests) raise = lerp(raise, 0, c.a(m.hold));
     const i32 ball = m.ball >= 0 ? lerp(m.striker == stick || m.striker == rimstick ? 4 * px : 10 * px,
@@ -626,7 +626,7 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
         pb.teeth = 0; pb.marks = 0; pb.rag = 0;
         section(z, cx, cb, pb, 0, true);
         kdraw(f, md::view::comb, z, cx, cb, kp_light);
-        put(f, rod, cx, 84 * px);
+        put(f, rod, cx, 104 * px);   // from 28 px under the header down
         put(f, clutch, cx, ct - p.bellh - 4 * px);
         if (m.trait == 2) { put(f, felt, cx, ct - p.bellh - 11 * px); put(f, felt2, cx, cb + p.bellh + 5 * px); }   // P-I's felt washers
         rings(f, cx - R - 3 * px, cx + R + 3 * px, rim - gap / 2, dec, out, 0, rscale);
@@ -901,7 +901,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
     }
     const Turn hl = rotation(1350);
     const i32 hx = cx + ((hl.cos * (rx >> 4)) >> 6) * 9 / 10, hy = cy + ((hl.sin * (ry >> 4)) >> 6) * 9 / 10;
-    if (!s.egg) { g.add(hx - 3 * px, hy + 2 * px); g.add(hx - 42 * px, hy + 40 * px); g.add(hx - 36 * px, hy + 46 * px); g.add(hx + 3 * px, hy + 8 * px); }
+    if (!s.egg) { g.add(hx - 3 * px, hy + 2 * px); g.add(hx - 38 * px, hy + 36 * px); g.add(hx - 32 * px, hy + 42 * px); g.add(hx + 3 * px, hy + 8 * px); }
     else for (u32 i = 1; i < 5; ++i) {   // P-I's egg shaker: closed round, no handle
         const Turn t = rotation(1350 - 120 - static_cast<i32>(40 + i) * 3360 / 40);
         g.add(cx + ((t.cos * (rx >> 4)) >> 6), cy - ((t.sin * (ry >> 4)) >> 6));

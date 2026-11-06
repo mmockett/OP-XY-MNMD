@@ -165,7 +165,7 @@ inline void row_back(Pen& pen, const Row& r, i32 xs, i32 xe) {
 // across the screen, not the design's 3.4 to 10.
 namespace w1 {
 enum Part : u32 { mask_mid = 4, mask_left, mask_right, left0, width0 = left0 + 7, reset = width0 + 4 };
-const i32 x0 = unit / 4, xm = 240 * unit, x1 = 480 * unit - unit / 4;   // inside the screen by a quarter pixel
+const i32 x0 = unit / 2, xm = 240 * unit, x1 = 480 * unit - unit / 2;   // inside the screen by half a pixel
 // Cycles per Q10 px, Q28, for TUNE 0..127: 2.5 to 5 cycles over 480 px; and the period, 2^28 / it, Q10 px.
 inline u32 per_px_of(u32 tune) { return 1365u + ((tune * 1376u) >> 7); }
 static const i32 period_of[128] = {
