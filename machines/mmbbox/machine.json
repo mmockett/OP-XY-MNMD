@@ -1,12 +1,8 @@
 {
   "schema": 1,
-  "sdk": "1.3",
+  "sdk": "1.10",
   "kind": "synth",
   "description": "The Monomachine's DPRO-BBOX: its 24 drum samples on 24 keys, from the owner's own ROM.",
-  "identity": {
-    "engine": 45,
-    "page": 93
-  },
   "presetDefaults": {
     "amp": {
       "attack": 0,

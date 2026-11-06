@@ -87,14 +87,64 @@ struct State {
 // With no feedback (FB's default, and every kit's) each partial is on its own: a loop each,
 // out of line, so each has a hardware loop and all the registers to itself.
 // The first starts the sum.
+// Each sample's sines are read from addresses the sample before worked out (the modulator's
+// a sample further ahead), so the Blackfin moves each index to an address register well ahead of
+// its load: a move just before one holds it 4 cycles.
 template <bool First> __attribute__((noinline)) inline void add_partial(u32 phase, u32 increment, u32 modulator, u32 modulation, i32 index, u32* total) {
+    const i32* at_modulator = sine_table + (modulator >> 22);
+    u32 moved = static_cast<u32>(multiply(index, *at_modulator)) << 3;
+    modulator += modulation;
+    at_modulator = sine_table + (modulator >> 22);
+    const i32* at_carrier = sine_table + ((phase + moved) >> 22);
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const u32 moved = static_cast<u32>(multiply(index, rough_sine(modulator))) << 3;
-        const u32 quarter = (static_cast<u32>(rough_sine(phase + moved)) + 0x80000000u) >> 2;
-        total[i] = First ? quarter : total[i] + quarter;
-        modulator += modulation;
+        const i32 carrier = *at_carrier, modulating = *at_modulator;
         phase += increment;
+        modulator += modulation;
+        at_modulator = sine_table + (modulator >> 22);
+        moved = static_cast<u32>(multiply(index, modulating)) << 3;
+        at_carrier = sine_table + ((phase + moved) >> 22);
+        const u32 quarter = (static_cast<u32>(carrier) + 0x80000000u) >> 2;
+        total[i] = First ? quarter : total[i] + quarter;
     }
+}
+// With feedback: the modulators never hear it, so each one's phase offsets for the block come
+// first, a loop each; then the four sines a sample, each moved by the sum before it.
+__attribute__((noinline)) inline void modulate(u32 modulator, u32 modulation, i32 index, u32* moved) {
+    const i32* at = sine_table + (modulator >> 22);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 modulating = *at;
+        modulator += modulation;
+        at = sine_table + (modulator >> 22);
+        moved[i] = static_cast<u32>(multiply(index, modulating)) << 3;
+    }
+}
+static_assert(partials == 4, "run_fed sounds four partials");
+__attribute__((noinline)) inline void run_fed(u32* phase, const u32* increment, i32 fb, i32& last, const u32 (*moved)[opxy::block_frames], u32* total) {
+    u32 p0 = phase[0], p1 = phase[1], p2 = phase[2], p3 = phase[3];
+    const u32 i0 = increment[0], i1 = increment[1], i2 = increment[2], i3 = increment[3];
+    i32 previous = last;
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        // FB: the partials' sum, fed back into every one's phase. Each partial a quarter of
+        // full scale, without a signed shift: biased, shifted, unbiased.
+        const u32 fed = static_cast<u32>(multiply(fb, previous)) << 3;
+        const u32 c0 = static_cast<u32>(rough_sine(p0 + fed + moved[0][i]));
+        const u32 c1 = static_cast<u32>(rough_sine(p1 + fed + moved[1][i]));
+        const u32 c2 = static_cast<u32>(rough_sine(p2 + fed + moved[2][i]));
+        const u32 c3 = static_cast<u32>(rough_sine(p3 + fed + moved[3][i]));
+        const u32 sum = ((c0 + 0x80000000u) >> 2) + ((c1 + 0x80000000u) >> 2) + ((c2 + 0x80000000u) >> 2)
+                        + ((c3 + 0x80000000u) >> 2);
+        p0 += i0;
+        p1 += i1;
+        p2 += i2;
+        p3 += i3;
+        total[i] = sum;
+        previous = static_cast<i32>(sum - 0x80000000u);
+    }
+    phase[0] = p0;
+    phase[1] = p1;
+    phase[2] = p2;
+    phase[3] = p3;
+    last = previous;
 }
 
 // The sum under the level, through HPF, to the output.
@@ -168,20 +218,12 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* parame
         }
         voice.last = static_cast<i32>(total[opxy::block_frames - 1] - 0x80000000u);
     } else {
-        for (unsigned i = 0; i != opxy::block_frames; ++i) {
-            // FB: the partials' sum, fed back into every one's phase.
-            const u32 fed = static_cast<u32>(multiply(b.fb, voice.last)) << 3;
-            // Each partial a quarter of full scale, without a signed shift: biased, shifted, unbiased.
-            u32 sum = 0;
-            for (unsigned k = 0; k < partials; ++k) {
-                const u32 moved = static_cast<u32>(multiply(index, rough_sine(voice.modulator[k]))) << 3;
-                sum += (static_cast<u32>(rough_sine(voice.phase[k] + fed + moved)) + 0x80000000u) >> 2;
-                voice.modulator[k] += modulation[k];
-                voice.phase[k] += increment[k];
-            }
-            total[i] = sum;
-            voice.last = static_cast<i32>(sum - 0x80000000u);
+        u32 moved[partials][opxy::block_frames];
+        for (unsigned k = 0; k < partials; ++k) {
+            modulate(voice.modulator[k], modulation[k], index, moved[k]);
+            voice.modulator[k] += modulation[k] << 6;
         }
+        run_fed(voice.phase, increment, b.fb, voice.last, moved, total);
     }
     finish_block(voice, b.hpf, b.decay_step, total, output);
 }

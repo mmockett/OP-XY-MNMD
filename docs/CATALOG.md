@@ -30,6 +30,12 @@ MD KIT.
 
 A pinned tag can be older than this repository's latest, `v1.2.3`.
 
+Since their screens follow the track's amp envelope, every engine above except
+`mdkit` targets SDK 1.10 (`"sdk": "1.10"`, with no `identity`: from SDK 1.5 a
+build's layout gives the numbers). A tag with that change can't go into the
+catalog until SDK 1.10 is released; until then the catalog keeps the tags
+above.
+
 `mde12`, `mmbbox`, `mmddrw`, `mmdens` and `mmwave` are never in the catalog:
 they play samples and waves captured from the owner's ROM, which can't be
 published. `mmbbox`, `mmdens` and `mmwave` also have `absent` slots.

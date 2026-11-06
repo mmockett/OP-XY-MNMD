@@ -28,6 +28,11 @@ typedef short __attribute__((__may_alias__)) half_word;
 inline i32 sine16(u32 phase) {
     return reinterpret_cast<const half_word*>(sine_table)[(phase >> 22) * 2 + 1];
 }
+// The same top halves as a table to step through, at base + (phase >> 22) * 2. The sample loops
+// read the word whose address the sample before worked out, so the Blackfin moves each index to
+// an address register a few instructions ahead of its load, not just before it, where the move
+// would hold the load 4 cycles. (Written out in each loop: through a helper, GCC schedules it worse.)
+inline const half_word* sine16_base() { return reinterpret_cast<const half_word*>(sine_table) + 1; }
 
 // A mode whose level is under one step (Q16, 0..65535) all through a block adds exactly nothing:
 // its loop is skipped, its phase and level kept moving, so if a control lifts it again it
@@ -40,9 +45,13 @@ const i32 quiet = 1;
 // within a step of its end. Nearly always it fits a signed 16 bits, and the plain 16-by-16
 // product is a single cycle against the 32-bit multiply's five.
 __attribute__((noinline)) inline void sound(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * static_cast<short>(static_cast<u32>(level) >> 8);
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
+        out[i] += s * static_cast<short>(static_cast<u32>(level) >> 8);
         level += slope;
     }
 }
@@ -50,31 +59,47 @@ __attribute__((noinline)) inline void sound(u32 phase, u32 increment, i32 level,
 // that small at the block's rate): held, a fifth fewer cycles, and exact when it doesn't move at all.
 __attribute__((noinline)) inline void sound_held(u32 phase, u32 increment, i32 level, i32* out) {
     const short held = static_cast<short>(level);
+    const half_word* const base = sine16_base();
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * held;
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
+        out[i] += s * held;
     }
 }
 __attribute__((noinline)) inline void sound_wide(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += sine16(phase) * static_cast<i32>(static_cast<u32>(level) >> 8);
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
+        out[i] += s * static_cast<i32>(static_cast<u32>(level) >> 8);
         level += slope;
     }
 }
 __attribute__((noinline)) inline void sound_glide(u32 phase, u32 increment, i32 bend, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * static_cast<short>(static_cast<u32>(level) >> 8);
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
         increment += static_cast<u32>(bend);
+        out[i] += s * static_cast<short>(static_cast<u32>(level) >> 8);
         level += slope;
     }
 }
 __attribute__((noinline)) inline void sound_glide_wide(u32 phase, u32 increment, i32 bend, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        out[i] += sine16(phase) * static_cast<i32>(static_cast<u32>(level) >> 8);
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
         increment += static_cast<u32>(bend);
+        out[i] += s * static_cast<i32>(static_cast<u32>(level) >> 8);
         level += slope;
     }
 }
@@ -142,17 +167,27 @@ struct Low {
     i32 points[low_frames + 1];   // [0] is the last block's end: the voice keeps it between blocks
 };
 __attribute__((noinline)) inline void sound_low(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    phase += increment;
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != low_frames; ++i) {
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
         level += slope;
-        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * static_cast<short>(static_cast<u32>(level) >> 8);
+        out[i] += s * static_cast<short>(static_cast<u32>(level) >> 8);
     }
 }
 __attribute__((noinline)) inline void sound_low_wide(u32 phase, u32 increment, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    phase += increment;
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != low_frames; ++i) {
+        const i32 s = *at;
         phase += increment;
+        at = base + (phase >> 22) * 2;
         level += slope;
-        out[i] += sine16(phase) * static_cast<i32>(static_cast<u32>(level) >> 8);
+        out[i] += s * static_cast<i32>(static_cast<u32>(level) >> 8);
     }
 }
 // A mode's block into `low`, as ring_fall into a whole block. On the first block at this rate,
@@ -172,19 +207,31 @@ inline void ring_fall_low(Mode& mode, i32 fall, i32 amount, Low& low, bool openi
 // The same for a gliding mode: the phase and the level land as ring_glide_fall's do, and so do
 // the points, the phases being those of every fourth sample of the full rate's glide.
 __attribute__((noinline)) inline void sound_low_glide(u32 phase, u32 increment, i32 bend, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    phase += increment;
+    increment += static_cast<u32>(bend);
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != low_frames; ++i) {
+        const i32 s = *at;
         phase += increment;
         increment += static_cast<u32>(bend);
+        at = base + (phase >> 22) * 2;
         level += slope;
-        out[i] += static_cast<i32>(static_cast<short>(sine16(phase))) * static_cast<short>(static_cast<u32>(level) >> 8);
+        out[i] += s * static_cast<short>(static_cast<u32>(level) >> 8);
     }
 }
 __attribute__((noinline)) inline void sound_low_glide_wide(u32 phase, u32 increment, i32 bend, i32 level, i32 slope, i32* out) {
+    const half_word* const base = sine16_base();
+    phase += increment;
+    increment += static_cast<u32>(bend);
+    const half_word* at = base + (phase >> 22) * 2;
     for (unsigned i = 0; i != low_frames; ++i) {
+        const i32 s = *at;
         phase += increment;
         increment += static_cast<u32>(bend);
+        at = base + (phase >> 22) * 2;
         level += slope;
-        out[i] += sine16(phase) * static_cast<i32>(static_cast<u32>(level) >> 8);
+        out[i] += s * static_cast<i32>(static_cast<u32>(level) >> 8);
     }
 }
 inline void ring_glide_low(Mode& mode, i32 fall, i32 amount, u32 target, Low& low, bool opening) {

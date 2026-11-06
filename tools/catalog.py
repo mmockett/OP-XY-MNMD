@@ -79,7 +79,7 @@ MACHINES = {
     "PI-HH":   ("md", 72, ["PTCH", "DEC", "CLSN", "RING", "AG", "AU", "BR", "CLOS"]),
     # Monomachine
     "GND-SIN":     ("mm", 1,  [_, _, _, _, _, _, _, "TUNE"]),
-    "GND-NOIS":    ("mm", 2,  ["ST", "RED", "STON", _, _, _, _, "TUNE"]),
+    "GND-NOIS":    ("mm", 2,  ["ST", "RED", "STON", _, _, "RES", _, "TUNE"]),
     "SID-6581":    ("mm", 3,  ["PW", "PWAD", "PWRS", "WAVE", "MOD", "MSRC", "MFRQ", "TUNE"]),
     "SWAVE-SAW":   ("mm", 4,  ["UNIL", "UNIW", "UNIX", _, "SUBX", "SUB1", "SUB2", "TUNE"]),
     "SWAVE-PULSE": ("mm", 5,  ["UNIL", "UNIW", "SUB1", "SUB2", "PW", "PWAD", "PWRS", "TUNE"]),

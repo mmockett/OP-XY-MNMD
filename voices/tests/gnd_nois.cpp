@@ -68,6 +68,32 @@ double peak(const opxy::i32* out, unsigned from, unsigned count, double guess) {
     return best;
 }
 double cents(double f, double ref) { return 1200 * std::log2(f / ref); }
+// The power-weighted frequency within a semitone of a guess: where a narrow band of
+// noise sits. Sums may run over several seconds, for the narrow bands of low notes.
+void band_sums(const opxy::i32* out, unsigned from, unsigned count, double guess, double& sum, double& weight) {
+    for (int c = -100; c <= 100; c += 4) {
+        const double f = guess * std::pow(2.0, c / 1200.0), a = line(out, from, count, f);
+        sum += a * a * f; weight += a * a;
+    }
+}
+double band_centre(const opxy::i32* out, unsigned from, unsigned count, double guess) {
+    double sum = 0, weight = 0;
+    band_sums(out, from, count, guess, sum, weight);
+    return sum / weight;
+}
+// The share of the energy within a semitone of a frequency (Hann-weighted DFT bins, 1 Hz apart).
+double near_share(const opxy::i32* out, unsigned from, unsigned count, double hz) {
+    double in = 0;
+    for (double f = hz * 0.944; f <= hz * 1.059; f += 44100.0 / count) { const double a = line(out, from, count, f); in += a * a; }
+    double all = 0;
+    for (unsigned i = from; i < from + count; ++i) { const double x = out[i] / 2147483648.0; all += x * x; }
+    return in / 4 / (all / count);   // a line's amplitude a carries a^2 / 2 of power; the Hann window halves the bins' sum again
+}
+unsigned at_ceiling(const opxy::i32* out) {
+    unsigned n = 0;
+    for (unsigned i = 0; i < kFrames; ++i) n += out[i] >= 1073741824 || out[i] <= -1073741824;
+    return n;
+}
 
 }
 
@@ -83,11 +109,18 @@ double low_share(const opxy::i32* out) {
     return low / all;
 }
 
+// Zero crossings a second, after the first tenth of a second.
+double crossings(const opxy::i32* out) {
+    unsigned n = 0;
+    for (unsigned i = 4411; i < kFrames; ++i) n += (out[i] < 0) != (out[i - 1] < 0);
+    return n * 44100.0 / (kFrames - 4411);
+}
+
 int main() {
     static opxy::i32 out[kFrames];
     static md::gnd_nois::State voice;
 #define NOIS voice, md::gnd_nois::reset, md::gnd_nois::trigger, md::gnd_nois::render
-    // ST RED STON - - - - TUNE
+    // ST RED STON - / - RES - TUNE
     const int white[8] = {0, 0, 0, 0, 0, 0, 0, 64}, pinkish[8] = {0, 64, 0, 0, 0, 0, 0, 64}, red[8] = {0, 127, 0, 0, 0, 0, 0, 64};
     play(NOIS, white, out);
     const double w = rms(out, 4410, kFrames - 4410), w_low = low_share(out);
@@ -110,6 +143,108 @@ int main() {
     std::printf("ST 127: %.2f x, with STON %.2f x\n", s, s_on);
     check("ST raises the level", s > 1.3 && s < 1.5);
     check("STON leaves the level", s_on > 0.95 && s_on < 1.05);
+    // The key and TUNE: the red part passes a two-pole high-pass an octave under the
+    // played note, so a higher note is a brighter, thinner rush. On the Monomachine
+    // at RED 127 the zero-crossing rate is about 930 a second at C2, 1580 at C4 and
+    // 2990 at C6 (ours, with the white top following the key: 1010, 1810, 3160);
+    // the level falls 2.1 x from C2 to C4 (ours 2.0 x); TUNE 0 .. 127 moves the
+    // rate 1.16 x (ours 1.18 x). Up to v1.2.3 the key and TUNE did nothing here.
+    play(NOIS, red, out, 65.406);
+    const double c2 = crossings(out), c2_rms = rms(out, 4410, kFrames - 4410);
+    play(NOIS, red, out);
+    const double c4 = crossings(out), c4_rms = rms(out, 4410, kFrames - 4410);
+    play(NOIS, red, out, 1046.502);
+    const double c6 = crossings(out);
+    const int red_down[8] = {0, 127, 0, 0, 0, 0, 0, 0}, red_up[8] = {0, 127, 0, 0, 0, 0, 0, 127};
+    play(NOIS, red_down, out);
+    const double t0 = crossings(out);
+    play(NOIS, red_up, out);
+    const double t127 = crossings(out);
+    play(NOIS, white, out, 65.406);
+    const double w2 = crossings(out), w2_rms = rms(out, 4410, kFrames - 4410);
+    play(NOIS, white, out, 1046.502);
+    const double w6 = crossings(out), w6_rms = rms(out, 4410, kFrames - 4410);
+    std::printf("RED 127 crossings/s C2 %.0f, C4 %.0f, C6 %.0f; level C2/C4 %.2f; TUNE 0 %.0f, 127 %.0f; white C2 %.0f, C6 %.0f (level %.2f)\n",
+                c2, c4, c6, c2_rms / c4_rms, t0, t127, w2, w6, w6_rms / w2_rms);
+    check("the key moves RED's noise up", c4 / c2 > 1.35 && c6 / c4 > 1.6);
+    check("the key's level falls as on the original", c2_rms / c4_rms > 1.5 && c2_rms / c4_rms < 2.4);
+    check("TUNE moves RED's noise", t127 / t0 > 1.08 && t127 / t0 < 1.3);
+    // White noise darkens as the key rises, its level held: on the Monomachine the
+    // crossings fall from 9640 a second at C2 to 6400 at C6 (0.66 x; ours 0.69 x).
+    check("the key darkens white noise", w6 / w2 > 0.55 && w6 / w2 < 0.78);
+    check("the key keeps white noise's level", w6_rms / w2_rms > 0.9 && w6_rms / w2_rms < 1.1);
+
+    // RES: 0 is the original, above; turned up it narrows the noise to the note.
+    // At middle C its level stays within 2.5 dB of RES 0's and the share within a
+    // semitone of the note grows at every step, for white noise and red alike.
+    for (int colour = 0; colour < 2; ++colour) {
+        double first = 0, last_share = 0;
+        bool held = true, rising = true;
+        std::printf("RED %d, RES 0..127 at C4: level / share near the note:", colour ? 127 : 0);
+        for (int r = 0; r <= 128; r += 32) {
+            const int v = r > 127 ? 127 : r;
+            const int values[8] = {0, colour ? 127 : 0, 0, 0, 0, v, 0, 64};
+            play(NOIS, values, out);
+            const double level = rms(out, 4410, kFrames - 4410), share = near_share(out, 4410, kFrames - 4410, kMiddleC);
+            std::printf(" %.3f / %.2f", level, share);
+            if (!v) first = level;
+            held = held && std::fabs(20 * std::log10(level / first)) < 2.5;
+            rising = rising && (v == 0 || share > last_share * 1.15);
+            last_share = share;
+        }
+        std::puts("");
+        check(colour ? "RES holds red noise's level" : "RES holds white noise's level", held);
+        check(colour ? "RES narrows red noise to the note" : "RES narrows white noise to the note", rising);
+    }
+    // At RES 127 the band sits on the note, within 10 cents, from C1 to C7, and its
+    // level stays within 4 dB of middle C's (the original falls 18 dB at RED 127).
+    {
+        const int pitched[8] = {0, 64, 0, 0, 0, 127, 0, 64};
+        play(NOIS, pitched, out);
+        const double c4_level = rms(out, 4410, kFrames - 4410);
+        double worst = 0, spread = 0;
+        for (int octave = -3; octave <= 3; ++octave) {
+            const double hz = kMiddleC * std::pow(2.0, octave);
+            play(NOIS, pitched, out, octave ? hz : kMiddleC);
+            spread = std::max(spread, std::fabs(20 * std::log10(rms(out, 4410, kFrames - 4410) / c4_level)));
+            // Eight seconds: at C1 the band is under 2 Hz wide.
+            double sum = 0, weight = 0;
+            for (int second = 0; second < 8; ++second) {
+                if (second) play(NOIS, pitched, out, octave ? hz : kMiddleC, true);
+                band_sums(out, 0, kFrames, hz, sum, weight);
+            }
+            worst = std::max(worst, std::fabs(cents(sum / weight, hz)));
+        }
+        std::printf("RES 127: the band within %.1f cents of the note C1..C7, the level within %.1f dB of C4's\n", worst, spread);
+        check("RES plays the key in tune", worst < 10);
+        check("RES holds the level across the keys", spread < 4);
+    }
+    // TUNE, with RES up, moves the pitch +-2 semitones.
+    {
+        double moved[2];
+        for (int end = 0; end < 2; ++end) {
+            const int values[8] = {0, 64, 0, 0, 0, 96, 0, end ? 127 : 0};
+            play(NOIS, values, out);
+            const double want = kMiddleC * std::pow(2.0, (end ? 2 : -2) / 12.0);
+            moved[end] = cents(band_centre(out, 4410, kFrames - 4410, want), kMiddleC);
+        }
+        std::printf("RES 96: TUNE 0 %+.0f cents, 127 %+.0f cents\n", moved[0], moved[1]);
+        check("TUNE moves RES's pitch two semitones down", moved[0] > -225 && moved[0] < -175);
+        check("TUNE moves RES's pitch two semitones up", moved[1] > 175 && moved[1] < 225);
+    }
+    // Pitched settings never reach the ceiling, on any key: the presets and RES's end.
+    {
+        const int settings[4][8] = {{0, 40, 0, 0, 0, 56, 0, 64}, {0, 16, 0, 0, 0, 112, 0, 64}, {0, 80, 0, 0, 0, 112, 0, 64},
+                                    {127, 64, 0, 0, 0, 127, 0, 127}};
+        unsigned clamped = 0;
+        for (int i = 0; i < 4; ++i)
+            for (int octave = -3; octave <= 4; ++octave) {
+                play(NOIS, settings[i], out, kMiddleC * std::pow(2.0, octave));
+                clamped += at_ceiling(out);
+            }
+        std::printf("RES's presets and ends, C1..C8: %u samples at the ceiling\n", clamped);
+        check("RES never reaches the ceiling", clamped == 0);
+    }
     // Every setting stays inside the ceiling.
     bool ok = true;
     for (int setting = 0; setting < 3; ++setting) {

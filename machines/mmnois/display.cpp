@@ -7,21 +7,32 @@ namespace mmnois {
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
+    state.header.reset();
 }
 
 inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& frame) {
     md::view::begin(frame, input);
     state.hit.update(input);
-    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet};
+    const md::view::Moment moment = {state.hit.age, input.reduced_motion, state.hit.quiet, md::view::amp_of(input)};
     i32 own[8] = {};
     own[0] = input.slots[0];
     own[1] = input.slots[1];
     own[2] = input.slots[2];
     own[7] = input.slots[3];
+    own[5] = input.slots[7];
     md::rig::draw(frame, art::parts, art::effects, art::members, art::machines[0], own, moment);
     md::gnd_nois::view(frame, own, moment);
+    // The header last: both pages, the one the encoders edit on its bar.
+    static const char* const titles[8] = {"st", "red", "ston", "tune", "", "", "", "res"};
+    static const opxy::u8 pages[2][4] = {{0, 1, 2, 3}, {4, 7, 5, 6}};
+    char values[8][opxy::draw::header_capacity];
+    for (u32 i = 0; i < 8; ++i) md::view::value127(values[i], opxy::draw::header_capacity, input.slots[i]);
     static const char* const steps2[2] = {"OFF", "ON"};
-    opxy::draw::copy(frame.header[2], opxy::draw::header_capacity,
-                     steps2[(static_cast<u32>(md::positive(input.parameters[2])) >> 16) * 2u >> 15]);
+    opxy::draw::copy(values[2], opxy::draw::header_capacity,
+                     steps2[(static_cast<u32>(md::positive(input.slots[2])) >> 16) * 2u >> 15]);
+    values[4][0] = 0;
+    values[5][0] = 0;
+    values[6][0] = 0;
+    opxy::draw::page_header(state.header, input, frame, titles, values, header_node, pages);
 }
 }

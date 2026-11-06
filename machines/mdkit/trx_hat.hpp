@@ -94,8 +94,13 @@ struct State {
 __attribute__((noinline)) inline void start_lines(const u32* phase, const u32* increment, i32 lines, i32* band) {
     u32 pulse = phase[squares], a = phase[0], c = phase[1];
     const u32 step_pulse = increment[squares], step_a = increment[0], step_c = increment[1];
+    const i32 twice = lines * 2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        band[i] = (pulse < pulse_duty ? lines : -lines) + (1 - static_cast<i32>(a >> 31) - static_cast<i32>(c >> 31)) * 2 * lines;
+        // (pulse < pulse_duty ? lines : -lines) + (1 - sign a - sign c) * 2 * lines, without the
+        // multiply or a branch: each set sign takes twice the lines away.
+        const i32 high = -static_cast<i32>(pulse < pulse_duty);
+        const i32 off_a = twice & -static_cast<i32>(a >> 31), off_c = twice & -static_cast<i32>(c >> 31);
+        band[i] = ((lines ^ ~high) - ~high) + twice - off_a - off_c;
         pulse += step_pulse;
         a += step_a;
         c += step_c;
@@ -129,9 +134,9 @@ __attribute__((noinline)) inline void add_noise_through_highpass(State& voice, i
 __attribute__((noinline)) inline void run_broad(State& voice, i32 broad, i32* band) {
     i32 low = voice.top1.low, mid = voice.top1.band, high = voice.top1.high;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        low += multiply(broad_at, mid) * 2;
+        low = opxy::q31::add(low, multiply(broad_at, mid) * 2);   // md::Svf::step's sums
         high = band[i] - low - multiply(broad, mid) * 2;
-        mid += multiply(broad_at, high) * 2;
+        mid = opxy::q31::add(mid, multiply(broad_at, high) * 2);
         band[i] = low;
     }
     voice.top1.low = low;
@@ -141,7 +146,7 @@ __attribute__((noinline)) inline void run_broad(State& voice, i32 broad, i32* ba
 __attribute__((noinline)) inline void finish_block(State& voice, i32 resonant, i32 level, i32 slope, const i32* band, opxy::Output output) {
     md::Svf top2 = voice.top2;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        top2.run(band[i], resonant, resonant_damping);
+        top2.step(band[i], resonant, resonant_damping);
         output[i] = md::clamp(multiply(top2.low, level), -ceiling, ceiling) * after_gain;
         level += slope;
     }

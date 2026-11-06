@@ -51,8 +51,12 @@ def detent_problems():
         if len(names) != 1 or not (folder / "definition.json").exists():
             continue   # a kit's controls are its keys' machines'
         name = names[0]
-        parameters = json.loads((folder / "definition.json").read_text())["parameters"]
-        for label, parameter in zip(catalog.MACHINES[name][2], parameters):
+        # By id: a grown engine's definition is not in the machine's slot order (make_engine.GROWN).
+        parameters = {p["id"]: p for p in json.loads((folder / "definition.json").read_text())["parameters"]}
+        for label in catalog.MACHINES[name][2]:
+            parameter = parameters.get(make_engine.control(label, 0)["id"]) if label else None
+            if parameter is None:
+                continue
             steps = make_engine.ENUMS.get(name, {}).get(label)
             mapping = parameter["mapping"]
             if not steps:
