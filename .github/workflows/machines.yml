@@ -68,13 +68,8 @@ jobs:
           mkdir -p local
           c++ -std=c++11 -O2 -fwrapv -w -Iopen-xy/sdk/include -Imd/machines/mdkit -DENGINE=mdkit md/tools/check_kit_frames.cpp -o local/check-kit
           local/check-kit
-      # TEMPORARY: record the stock look's envelope frames, to commit (removed after).
-      - name: Record the stock look's envelope frames
-        run: python md/tools/check_envelope.py --sdk open-xy --out local --record $STOCK_LOOK
-      - uses: actions/upload-artifact@v4
-        with:
-          name: envelope-frames
-          path: md/tools/envelope_frames.json
+      - name: Every synth and MD E12 under the amp envelope, against the recorded frames
+        run: python md/tools/check_envelope.py --sdk open-xy --out local
       - name: Frames as SVG
         if: always()
         run: python md/tools/frame_svg.py --sdk open-xy --out frames $STOCK_LOOK mdkit
