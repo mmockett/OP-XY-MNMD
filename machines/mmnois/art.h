@@ -17,7 +17,7 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 0, {0, 0, 0, 0, 0, 0, 0, 64}},   // GND-NOIS; the view draws line#n, text:white
+    {0, 0, {0, 0, 0, 0, 0, 0, 0, 64}},   // GND-NOIS
 };
 const opxy::u16 members[1] = {0};
 }

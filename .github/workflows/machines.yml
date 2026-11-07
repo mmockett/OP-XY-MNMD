@@ -42,6 +42,44 @@ jobs:
             python open-xy/sdk.py test --machine "$machine" --cxx clang++ --host-cxx g++ || exit 1
           done
 
+  # The screens drawn in the stock look (docs/SCREEN.md): every control through
+  # every value against the device's outline rules, churn and motion, and the
+  # frames drawn as SVG (tools/frame_svg.py), kept as the run's artifact.
+  screens:
+    runs-on: ubuntu-latest
+    env:
+      STOCK_LOOK: mmsaw mmpulse mmsid mmstat mmpar mmdyn mmsin mmnois
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: md
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.OPEN_XY_REPO }}
+          ref: ${{ env.OPEN_XY_REF }}
+          path: open-xy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Synth screens, every control through every value
+        run: python md/tools/check_synth_frames.py --sdk open-xy --out local $STOCK_LOOK
+      - name: MD KIT's sections, every control through every value
+        run: |
+          mkdir -p local
+          c++ -std=c++11 -O2 -fwrapv -w -Iopen-xy/sdk/include -Imd/machines/mdkit -DENGINE=mdkit md/tools/check_kit_frames.cpp -o local/check-kit
+          local/check-kit
+      # The DPRO engines and MD E12 need the owner's ROM captures, which CI hasn't.
+      - name: The synths under the amp envelope, against the recorded frames
+        run: python md/tools/check_envelope.py --sdk open-xy --out local $STOCK_LOOK mmens mmvo6
+      - name: Frames as SVG
+        if: always()
+        run: python md/tools/frame_svg.py --sdk open-xy --out frames $STOCK_LOOK mdkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens
+          path: frames/*/*.svg
+
   # The public Open-XY builder ships catalog machines built against etcetc000's
   # SDK, not the fork. These are the engines it can take as they are: synths
   # that need no drum kind, absent slot or ROM capture (docs/CATALOG.md).

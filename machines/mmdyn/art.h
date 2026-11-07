@@ -5,26 +5,11 @@
 
 namespace mmdyn {
 namespace art {
-const opxy::u32 node_count = 16;
+const opxy::u32 node_count = 0;
 // x, y (quarter pixels on the stage), shade, paint, kind, replaced when struck, effects,
 // hit motion (early to late), strike (rest to struck) {dx, dy, scale, turn}
-const md::rig::Part parts[16] = {
-    {200, 160, 13, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 480, 13, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {800, 320, 14, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {200, 367, 5, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {686, 320, 11, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {686, 320, 11, 2, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
-    {1508, 320, 4, 1, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
+const md::rig::Part parts[1] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 1024, 0}, {0, 0, 1024, 0}},
 };
 // control, absent at (1 low, 2 high; 4 only low, 8 only high), low end {dx, dy, scale, turn}, high end
 const md::rig::Effect effects[1] = {
@@ -32,8 +17,8 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 16, {40, 30, 60, 50, 50, 30, 0, 64}},   // FM+DYN; the view draws line#a1, line#a2, mid#fen, dim#ven, line#out, text:×2.69, text:×0.98
+    {0, 0, {40, 30, 60, 50, 50, 30, 0, 64}},   // FM+DYN
 };
-const opxy::u16 members[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+const opxy::u16 members[1] = {0};
 }
 }

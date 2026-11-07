@@ -103,8 +103,9 @@ inline i32 distance(const Row& r, u32 f) { return static_cast<i32>(((static_cast
 inline void row(Pen& pen, const Row& r, i32 xs, i32 xe) {
     u32 u = r.phase + static_cast<u32>(xs) * r.per_px;
     if (r.shape == sine_wave) {
-        // Six points a cycle.
-        const i32 step = r.period / 6;
+        // Eight points a cycle: the subs' slow sines stay round across the screen,
+        // and every row still fits its path's 64 points (W1).
+        const i32 step = r.period / 8;
         for (i32 x = xs;; x += step) {
             const i32 last = x >= xe;
             const i32 xx = last ? xe : x;
@@ -151,46 +152,79 @@ inline void row_back(Pen& pen, const Row& r, i32 xs, i32 xe) {
     pen.back(one);
 }
 
-// Rows stacked into the two half-paths `left` and `right` as serpentines: the
-// left one starts at x0, the right one at x1, and both turn at the middle.
-// With `retrace`, the last row is drawn back over itself so the path ends
-// where it started (an odd number of rows). `bar`: an upright at x0 - 4 from
-// bar_top to bar_bottom, the left path's way back (PWRS on).
+// SAW's and PULSE's rows in the stock look (W1, OP-XY-Dev media/stock-look-audit/mnmd):
+// each row crosses the whole screen, x 0 to 480; the main row CDCDCD at 1.2 px, the
+// rest one neutral grey at 1 px; the code on handles at the rows' ends.
+//
+// A path spans at most 256 px, so a row is drawn in two halves, x 0..240 and
+// 240..480, and a path's rows run as a serpentine whose turns are short uprights:
+// at the screen's edges, and where the halves meet. Black masks (tools/art/stock.mjs)
+// hide those, at the cost of a hairline gap at x 240. A path has one shade, so the
+// main row has a pair of paths to itself and every other row shares the other
+// pair: it takes all of a path's 64 points, so TUNE's cycles run from 2.5 to 5
+// across the screen, not the design's 3.4 to 10.
+namespace w1 {
+enum Part : u32 { mask_mid = 4, mask_left, mask_right, left0, width0 = left0 + 7, reset = width0 + 4 };
+const i32 x0 = unit / 2, xm = 240 * unit, x1 = 480 * unit - unit / 2;   // inside the screen by half a pixel
+// Cycles per Q10 px, Q28, for TUNE 0..127: 2.5 to 5 cycles over 480 px; and the period, 2^28 / it, Q10 px.
+inline u32 per_px_of(u32 tune) { return 1365u + ((tune * 1376u) >> 7); }
+static const i32 period_of[128] = {
+    196656, 195226, 193676, 192151, 190650, 189306, 187848, 186414, 185000, 183734, 182361, 181008,
+    179676, 178481, 177185, 175908, 174649, 173520, 172295, 171087, 169896, 168827, 167667, 166523,
+    165395, 164382, 163282, 162197, 161126, 160164, 159120, 158089, 157072, 156158, 155165, 154185,
+    153217, 152347, 151402, 150468, 149546, 148718, 147817, 146927, 146048, 145257, 144398, 143548,
+    142709, 141954, 141133, 140322, 139519, 138798, 138013, 137237, 136469, 135779, 135028, 134285,
+    133550, 132889, 132169, 131457, 130753, 130119, 129429, 128746, 128070, 127462, 126800, 126144,
+    125496, 124912, 124276, 123646, 123023, 122461, 121850, 121245, 120645, 120105, 119517, 118935,
+    118358, 117838, 117272, 116711, 116156, 115655, 115110, 114569, 114034, 113551, 113025, 112504,
+    111988, 111523, 111015, 110513, 110015, 109565, 109076, 108590, 108109, 107676, 107203, 106734,
+    106269, 105850, 105393, 104940, 104490, 104085, 103643, 103205, 102770, 102378, 101950, 101526,
+    101106, 100726, 100312, 99902, 99494, 99127, 98726, 98328,
+};
+// A row's height: 0.32 of the row's pitch at full level (never under 0.06 of it)
+// at rest, swelling half as tall again with the track's amp envelope while a note
+// sounds (`swell`, Q31: md::live's amount, the envelope's level when it is known),
+// so the rows rise over the attack, hold at the sustain and fall over the release.
+inline i32 height(i32 row_height_q10, i32 level, i32 swell) {
+    const i32 l = level < 0x07ae147b ? 0x07ae147b : level;
+    const i32 a = multiply(multiply(row_height_q10, 0x28f5c28f), l);
+    return a + multiply(a, swell >> 1);
+}
+// The rows in `order` as serpentines on two half-paths, left (x 0..240, about x 120)
+// and right (240..480, about 360), both about y 94. An odd number of rows draws its
+// last one back over itself, so each path closes at the screen's edge.
 template <class F>
-inline void stack(F& frame, const Row* rows, u32 count, u32 left, u32 right, u32 key, u32 tone, bool retrace,
-                  i32 bar_top = 0, i32 bar_bottom = 0) {
-    const i32 x0 = 10 * unit, xm = 260 * unit, x1 = 472 * unit;   // the left half-path, with PWRS's bar, spans 6..260
+inline void across(F& frame, const Row* rows, const u8* order, u32 count, u32 left, u32 right, u32 key, u32 tone) {
     for (u32 side = 0; side < 2; ++side) {
         Pen pen;
         pen.n = 0;
         for (u32 k = 0; k < count; ++k) {
-            const bool outwards = (k % 2) == 0;   // left: x0 -> xm; right: x1 -> xm
-            if (side == 0) { if (outwards) row(pen, rows[k], x0, xm); else row_back(pen, rows[k], x0, xm); }
-            else { if (outwards) row_back(pen, rows[k], xm, x1); else row(pen, rows[k], xm, x1); }
+            const Row& r = rows[order[k]];
+            const bool outwards = (k % 2) == 0;   // left: from the edge to the middle; right: likewise
+            if (side == 0) { if (outwards) row(pen, r, x0, xm); else row_back(pen, r, x0, xm); }
+            else { if (outwards) row_back(pen, r, xm, x1); else row(pen, r, xm, x1); }
         }
-        if (retrace) {
-            const Row& r = rows[count - 1];
+        if (count % 2) {
+            const Row& r = rows[order[count - 1]];
             if (side == 0) row_back(pen, r, x0, xm); else row(pen, r, xm, x1);
         }
-        if (side == 0 && bar_bottom > bar_top) {
-            pen.to(x0 - 4 * unit, pen.n ? pen.p[pen.n - 1].y : bar_top);
-            pen.to(x0 - 4 * unit, bar_bottom);
-            pen.to(x0 - 4 * unit, bar_top);
-            pen.to(x0 - 4 * unit, rows[0].yc);
-        }
-        commit(frame, side ? right : left, pen, side ? 366 : 133, 83, key + side, tone);
+        commit(frame, side ? right : left, pen, side ? 360 : 120, 94, key + side, tone);
     }
 }
-
-// The rows' height for a level 0..1 (Q31): the design's rh 0.36 max(0.06, level).
-inline i32 height(i32 row_height_q10, i32 level) {
-    const i32 l = level < 0x07ae147b ? 0x07ae147b : level;
-    return multiply(multiply(row_height_q10, 0x2e147ae1), l);
+// The masks over the serpentines' turns, at the edges and down the middle.
+template <class F>
+inline void masks(F& frame) {
+    stock::put(frame, mask_mid, 240 * unit, 94 * unit, stock::black);
+    stock::put(frame, mask_left, 717, 94 * unit, stock::black);
+    stock::put(frame, mask_right, 480 * unit - 717, 94 * unit, stock::black);
 }
-// A detuned row's cycles per px and period, the cycles x (1 + d), d Q31 in -1..1.
-inline void detune(Row& r, u32 per_px, i32 period, i32 d) {
-    r.per_px = static_cast<u32>(static_cast<i32>(per_px) + multiply(static_cast<i32>(per_px), d));
-    r.period = period - multiply(period, d) + multiply(multiply(period, d), d);
+// UNIW's handle: where a row detuned by d (Q16, 0 .. 0.16) has drifted half a cycle
+// from the main one, x = 240 / (cycles d) px; from the right edge, x 471, while that is past it.
+inline i32 drift_x(u32 per_px, i32 d16) {
+    const u32 denominator = per_px * static_cast<u32>(d16 > 0 ? d16 : 0);
+    const u32 x = denominator ? (0xffffffffu / denominator) * 2u : 471u;
+    return static_cast<i32>(x > 471u ? 471u : x) * unit;
+}
 }
 inline u32 frame_key(const i32* s, i32 sliding, u32 salt) {
     u32 key = salt;
@@ -201,74 +235,103 @@ inline u32 frame_key(const i32* s, i32 sliding, u32 salt) {
 // (so as far as the design's in its first 0.5 s) until the release, Q28.
 inline i32 sliding(const Moment& m) { return multiply(md::live::sway(md::live::of(m), md::live::half_hz), 1 << 27); }
 inline u32 slide(i32 s, bool forwards) { return static_cast<u32>(forwards ? s : -s); }
+// A detuned row's cycles per px and period, the cycles x (1 + d), d Q31 in -1..1.
+inline void detune(Row& r, u32 per_px, i32 period, i32 d) {
+    r.per_px = static_cast<u32>(static_cast<i32>(per_px) + multiply(static_cast<i32>(per_px), d));
+    r.period = period - multiply(period, d) + multiply(multiply(period, d), d);
+}
 }
 
-// SWAVE-SAW: UNIL UNIW UNIX - / SUBX SUB1 SUB2 TUNE. Eight rows: the inner and
-// outer pairs about the main saw, then the subs.
+// SWAVE-SAW: UNIL UNIW UNIX - / SUBX SUB1 SUB2 TUNE. Eight rows: the outer and
+// inner pairs about the main saw, then the subs. The code: UNIL's inner pair and
+// SUBX's row hollow at their left ends (encoder 1), UNIX's outer pair mid
+// (encoder 3), SUB1 dark and SUB2 mid; UNIW's dark handles at the unison rows'
+// right ends, where each has drifted half a cycle from the main one, coming in
+// from the edge as the width rises; TUNE (encoder 4) the cycles on every row, the
+// main row CDCDCD.
 namespace swave_saw {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
     const i32 ph = sliding(m);
+    const i32 swell = md::live::of(m).amount;   // the amp envelope's level while a note sounds
     const u32 tune = v127(s[7]);
-    const u32 per_px = per_px_of(tune);
-    const i32 period = period_of[tune];
+    const u32 per_px = w1::per_px_of(tune);
+    const i32 period = w1::period_of[tune];
     const i32 ul = get(s, 0), uw = get(s, 1), ux = multiply(get(s, 2), ul);
-    const i32 rh = 18 * unit + 768;   // 150 / 8 px
+    const i32 rh = 17 * unit + 512;   // 17.5 px
     const i32 levels[8] = {ux, ul, md::one, ul, ux, get(s, 4), get(s, 5), get(s, 6)};
     const i32 spread[5] = {multiply(uw, 0x147ae148), multiply(uw, 0x0a3d70a4), 0, -multiply(uw, 0x0a3d70a4), -multiply(uw, 0x147ae148)};   // 0.16, 0.08
     Row rows[8];
     for (u32 i = 0; i < 8; ++i) {
         Row& r = rows[i];
-        r.yc = 8 * unit + rh * static_cast<i32>(i) + rh / 2;
-        r.a = height(rh, levels[i]);
+        r.yc = 24 * unit + rh * static_cast<i32>(i) + rh / 2;
+        r.a = w1::height(rh, levels[i], swell);
         r.phase = slide(ph, i % 2 != 0);
         r.shape = i == 6 || i == 7 ? sine_wave : saw_wave;
         r.duty = 0; r.wobble = 0;
         if (i < 5) detune(r, per_px, period, spread[i]);
         else { r.per_px = i == 7 ? per_px >> 2 : per_px >> 1; r.period = i == 7 ? period * 4 : period * 2; }
     }
-    const u32 key = frame_key(s, ph, 0);
-    stack(frame, rows, 4, view::contour, view::wave, key, view::line, false);
-    stack(frame, rows + 4, 4, view::comb, view::extra, key + 0x1000, view::mid, false);
+    const u32 key = frame_key(s, ph ^ swell, 0);
+    static const u8 main_row[1] = {2}, others[7] = {0, 1, 3, 4, 5, 6, 7};
+    w1::across(frame, rows, main_row, 1, view::contour, view::wave, key, stock::line4);
+    w1::across(frame, rows, others, 7, view::comb, view::extra, key + 0x1000, stock::line_n);
+    w1::masks(frame);
+    // The left ends: rows 0, 1, 3, 4 (UNIX, UNIL, UNIL, UNIX), then SUBX, SUB1, SUB2.
+    static const u8 left_rows[7] = {0, 1, 3, 4, 5, 6, 7}, left_code[7] = {2, 0, 0, 2, 0, 1, 2};
+    for (u32 k = 0; k < 7; ++k) stock::put(frame, w1::left0 + k, 9 * unit, rows[left_rows[k]].yc, stock::coded(left_code[k]));
+    // UNIW's handles on the unison rows: the outer pair drifts twice as fast as the inner.
+    const i32 outer = multiply(uw, 10486), inner = multiply(uw, 5243);   // 0.16 and 0.08, Q16
+    static const u8 width_rows[4] = {0, 1, 3, 4};
+    for (u32 k = 0; k < 4; ++k)
+        stock::put(frame, w1::width0 + k, w1::drift_x(per_px, k == 0 || k == 3 ? outer : inner), rows[width_rows[k]].yc, stock::solid2);
 }
 }
 
-// SWAVE-PULSE: UNIL UNIW SUB1 SUB2 / PW PWAD PWRS TUNE. Five rows: the pair
-// about the main pulse, then the subs; PWAD sways each cycle's width, and PWRS
-// on draws the reset bar at the rows' left.
+// SWAVE-PULSE: UNIL UNIW SUB1 SUB2 / PW PWAD PWRS TUNE. Five rows: the pair about
+// the main pulse, then the subs; PW and PWAD shape every pulse, PWAD swaying each
+// cycle's width. The code: UNIL's pair hollow at their left ends (encoder 1),
+// UNIW's dark handles at their right ends, SUB1 mid and SUB2 light; PWRS on draws
+// its reset bar, mid, at the rows' left; TUNE the cycles, the main row CDCDCD.
 namespace swave_pulse {
 template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
     const i32 ph = sliding(m);
+    const i32 swell = md::live::of(m).amount;   // the amp envelope's level while a note sounds
     const u32 tune = v127(s[7]);
-    const u32 per_px = per_px_of(tune);
-    const i32 period = period_of[tune];
+    const u32 per_px = w1::per_px_of(tune);
+    const i32 period = w1::period_of[tune];
     const i32 ul = get(s, 0), uw = get(s, 1);
     // The duty as the sound has it (voices/swave.hpp): 1% + 0.98 PW / 128.
     const u32 duty = 2684355u + v127(s[4]) * 2055209u;
     const i32 wobble = multiply(get(s, 5), 0x05999999);   // the design's 0.35 x PWAD, Q28
-    const i32 rh = 30 * unit;
+    const i32 rh = 27 * unit;
     const i32 levels[5] = {ul, md::one, ul, get(s, 2), get(s, 3)};
     const i32 spread[3] = {multiply(uw, 0x0a3d70a4), 0, -multiply(uw, 0x0a3d70a4)};
     Row rows[5];
     for (u32 i = 0; i < 5; ++i) {
         Row& r = rows[i];
-        r.yc = 8 * unit + rh * static_cast<i32>(i) + rh / 2;
-        r.a = height(rh, levels[i]);
+        r.yc = 26 * unit + rh * static_cast<i32>(i) + rh / 2;
+        r.a = w1::height(rh, levels[i], swell);
         r.phase = slide(ph, i % 2 != 0);
         r.shape = i < 3 ? pulse_wave : sine_wave;
         r.duty = duty; r.wobble = wobble;
         if (i < 3) detune(r, per_px, period, spread[i]);
         else { r.per_px = i == 4 ? per_px >> 2 : per_px >> 1; r.period = i == 4 ? period * 4 : period * 2; }
     }
-    const u32 key = frame_key(s, ph, 0x2000);
-    stack(frame, rows, 2, view::contour, view::wave, key, view::line, false);
-    // PWRS's bar: every row restarts at the left, so it spans the rows' heights.
-    const bool reset = s[6] >= half;
-    const i32 top = at(rows[0], static_cast<i32>(cycle)), bottom = rows[4].yc + rows[4].a;
-    stack(frame, rows + 2, 3, view::comb, view::extra, key + 0x1000, view::dim, true, reset ? top : 0, reset ? bottom : 0);
+    const u32 key = frame_key(s, ph ^ swell, 0x2000);
+    static const u8 main_row[1] = {1}, others[4] = {0, 2, 3, 4};
+    w1::across(frame, rows, main_row, 1, view::contour, view::wave, key, stock::line4);
+    w1::across(frame, rows, others, 4, view::comb, view::extra, key + 0x1000, stock::line_n);
+    w1::masks(frame);
+    static const u8 left_rows[4] = {0, 2, 3, 4}, left_code[4] = {0, 0, 2, 3};
+    for (u32 k = 0; k < 4; ++k) stock::put(frame, w1::left0 + k, 9 * unit, rows[left_rows[k]].yc, stock::coded(left_code[k]));
+    const i32 d16 = multiply(uw, 5243);   // 0.08, Q16
+    for (u32 k = 0; k < 2; ++k) stock::put(frame, w1::width0 + k, w1::drift_x(per_px, d16), rows[k ? 2 : 0].yc, stock::solid2);
+    // PWRS: every row restarts at the left, so its bar spans the rows.
+    if (s[6] >= half) stock::put(frame, w1::reset, 2304, 93 * unit + 512, stock::solid3);
 }
 }
 
