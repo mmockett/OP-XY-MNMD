@@ -181,10 +181,14 @@ static const i32 period_of[128] = {
     106269, 105850, 105393, 104940, 104490, 104085, 103643, 103205, 102770, 102378, 101950, 101526,
     101106, 100726, 100312, 99902, 99494, 99127, 98726, 98328,
 };
-// The design's row height: 0.42 of the row's pitch at full level, never under 0.06 of it.
-inline i32 height(i32 row_height_q10, i32 level) {
+// A row's height: 0.32 of the row's pitch at full level (never under 0.06 of it)
+// at rest, swelling half as tall again with the track's amp envelope while a note
+// sounds (`swell`, Q31: md::live's amount, the envelope's level when it is known),
+// so the rows rise over the attack, hold at the sustain and fall over the release.
+inline i32 height(i32 row_height_q10, i32 level, i32 swell) {
     const i32 l = level < 0x07ae147b ? 0x07ae147b : level;
-    return multiply(multiply(row_height_q10, 0x35c28f5c), l);
+    const i32 a = multiply(multiply(row_height_q10, 0x28f5c28f), l);
+    return a + multiply(a, swell >> 1);
 }
 // The rows in `order` as serpentines on two half-paths, left (x 0..240, about x 120)
 // and right (240..480, about 360), both about y 94. An odd number of rows draws its
@@ -250,6 +254,7 @@ template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
     const i32 ph = sliding(m);
+    const i32 swell = md::live::of(m).amount;   // the amp envelope's level while a note sounds
     const u32 tune = v127(s[7]);
     const u32 per_px = w1::per_px_of(tune);
     const i32 period = w1::period_of[tune];
@@ -261,14 +266,14 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
     for (u32 i = 0; i < 8; ++i) {
         Row& r = rows[i];
         r.yc = 24 * unit + rh * static_cast<i32>(i) + rh / 2;
-        r.a = w1::height(rh, levels[i]);
+        r.a = w1::height(rh, levels[i], swell);
         r.phase = slide(ph, i % 2 != 0);
         r.shape = i == 6 || i == 7 ? sine_wave : saw_wave;
         r.duty = 0; r.wobble = 0;
         if (i < 5) detune(r, per_px, period, spread[i]);
         else { r.per_px = i == 7 ? per_px >> 2 : per_px >> 1; r.period = i == 7 ? period * 4 : period * 2; }
     }
-    const u32 key = frame_key(s, ph, 0);
+    const u32 key = frame_key(s, ph ^ swell, 0);
     static const u8 main_row[1] = {2}, others[7] = {0, 1, 3, 4, 5, 6, 7};
     w1::across(frame, rows, main_row, 1, view::contour, view::wave, key, stock::line4);
     w1::across(frame, rows, others, 7, view::comb, view::extra, key + 0x1000, stock::line_n);
@@ -294,6 +299,7 @@ template <class F>
 inline void view(F& frame, const i32* s, const view::Moment& m) {
     using namespace swave_view;
     const i32 ph = sliding(m);
+    const i32 swell = md::live::of(m).amount;   // the amp envelope's level while a note sounds
     const u32 tune = v127(s[7]);
     const u32 per_px = w1::per_px_of(tune);
     const i32 period = w1::period_of[tune];
@@ -308,14 +314,14 @@ inline void view(F& frame, const i32* s, const view::Moment& m) {
     for (u32 i = 0; i < 5; ++i) {
         Row& r = rows[i];
         r.yc = 26 * unit + rh * static_cast<i32>(i) + rh / 2;
-        r.a = w1::height(rh, levels[i]);
+        r.a = w1::height(rh, levels[i], swell);
         r.phase = slide(ph, i % 2 != 0);
         r.shape = i < 3 ? pulse_wave : sine_wave;
         r.duty = duty; r.wobble = wobble;
         if (i < 3) detune(r, per_px, period, spread[i]);
         else { r.per_px = i == 4 ? per_px >> 2 : per_px >> 1; r.period = i == 4 ? period * 4 : period * 2; }
     }
-    const u32 key = frame_key(s, ph, 0x2000);
+    const u32 key = frame_key(s, ph ^ swell, 0x2000);
     static const u8 main_row[1] = {1}, others[4] = {0, 2, 3, 4};
     w1::across(frame, rows, main_row, 1, view::contour, view::wave, key, stock::line4);
     w1::across(frame, rows, others, 4, view::comb, view::extra, key + 0x1000, stock::line_n);
