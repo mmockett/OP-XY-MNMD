@@ -213,7 +213,7 @@ each engine with its own palette (`stock::Tone` in `md_view.hpp`, `fig::Tone` in
 | MD KIT (K3) | each machine in section; a drum's shell one flat `323232` solid with its seam knocked out, the head a thin hollow band | by the kit's slots: the body hollow, the rings dark (DEC: 1 to 4), the striker mid (a beater's ball solid, its eye knocked out), the hardware light (hoops, clamps, felt); another control's part in its encoder's grey |
 | SWAVE-SAW, -PULSE (W1) | the rows across the screen, the main row `CDCDCD` at 1.2 px, the rest `7D7D7D` | handles at the rows' ends: UNIL's and SUBX's hollow, UNIX's and SUB2's mid, SUB1's dark; UNIW's dark ones come in from the right edge where a row has drifted half a cycle; PWRS's bar mid |
 | SID-6581 (S1) | thin steps edge to edge on a `323232` axis | PW's hollow handle at the pulse's fall, PWAD's dark bar and handle to the sweep's reach, PWRS's mid bar |
-| FM+ (F1) | the operator diagram without letters or arrowheads, the carrier a `323232` disc, the wave to the edge | M1 hollow, 1FIN its dark pointer, M1's bundle mid, 1FB its light loop (STAT); PAR's pairs and DYN's envelopes in their encoders' greys |
+| FM+ (F1) | the operator diagram without letters or arrowheads, the carrier a `323232` disc, the diagram and its wave centred as one group (48 px each side) | M1 hollow, 1FIN its dark pointer, M1's bundle mid, 1FB its light loop (STAT); PAR's pairs and DYN's envelopes in their encoders' greys |
 | GND-SIN, -NOIS (G1) | the orb hollow in `646464`, the sine `CDCDCD` to the edge; the noise across the screen | TUNE's handle on the tip; STON's second trace mid |
 
 What the device's limits change from the sketches:

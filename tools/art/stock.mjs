@@ -92,7 +92,7 @@ const stat = parts((add, ring) => {
   add('pointer', 'solid2', m1, rect(-1.1, -8, 2.2, 8));
   ring('m2', 'hollow', m2, 12.5);
   ring('carrier', 'solid_a', c, 22);
-  add('axis', 'solid_a', [350, 98], bar(260));
+  add('axis', 'solid_a', [318, 98], bar(228));
   add('loop_end', 'solid4', m1, handle(5, 1));
 });
 const par = parts((add, ring) => {
@@ -107,7 +107,7 @@ const par = parts((add, ring) => {
   lead(40, [[180, 39.5], [204.3, 39.5], [222.5, 95.8], [221.5, 96.2], [203.7, 40.5], [180, 40.5]]);
   lead(96, rect(180, 95.5, 42, 1));
   lead(152, [[180, 151.5], [203.7, 151.5], [221.5, 95.8], [222.5, 96.2], [204.3, 152.5], [180, 152.5]]);
-  add('axis', 'solid_a', [351, 96], bar(258));
+  add('axis', 'solid_a', [322.5, 96], bar(219));
 });
 const dyn = parts((add, ring) => {
   const m1 = [78, 58], m2 = [78, 138], c = [204, 98];
@@ -116,7 +116,7 @@ const dyn = parts((add, ring) => {
   ring('m1', 'hollow', m1, 14);
   ring('m2', 'hollow', m2, 11.5);
   ring('carrier', 'solid_a', c, 22);
-  add('axis', 'solid_a', [353, 98], bar(254));
+  add('axis', 'solid_a', [323, 98], bar(218));
   add('loop_end', 'solid3', m2, handle(5, 1));
 });
 

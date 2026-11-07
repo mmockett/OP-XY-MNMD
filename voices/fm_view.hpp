@@ -3,8 +3,7 @@
 // the design's operator diagram (docs/design/Main.dc.html, mnmView's FM+ branch)
 // without letters or arrowheads. Modulators on the left as plain circles, a
 // bundle of parallel lines as deep as each one's depth into the carrier, a plain
-// 323232 disc, and the output wave leaving the carrier and running to the right
-// edge over a 323232 axis. Each part holds its encoder's grey (md_view.hpp,
+// 323232 disc, and the output wave leaving the carrier over a 323232 axis. Each part holds its encoder's grey (md_view.hpp,
 // namespace stock): on STAT and DYN page 1 is all M1, so M1's four controls are
 // four parts of M1. Nothing brightens with an amount.
 //
@@ -14,6 +13,9 @@
 // resizes. The paths draw what does reshape: the output wave, the feedback loop,
 // DYN's two envelope sketches. The wave uses the real ratios (fmp.hpp), so it
 // shows the sound's own steps; the header names each FRQ step.
+//
+// The diagram and its wave are centred as one group: the wave ends at x 432,
+// as far from the right edge as the largest modulator is from the left (48 px).
 #include "md_view.hpp"
 #include "md_rig.hpp"
 #include "fmp.hpp"
@@ -142,7 +144,7 @@ inline u32 wave_key(const i32* s, const Live& l) {
     return md::live::mix(md::live::mix(key, l.spin), l.ease ^ l.swell) & ~1u;   // key + side: two paths
 }
 
-// DYN's envelope sketches, x 116..160: 1FEN's pitch envelope falls 4 + 20 FEN
+// DYN's envelope sketches, x 104..148: 1FEN's pitch envelope falls 4 + 20 FEN
 // px from y 26, 1VEN's level envelope rises 4 + 18 VEN px to y 52 (stage), each
 // 1 - e^(-4 t) across.
 template <class F>
@@ -151,10 +153,10 @@ inline void sketch(F& f, u32 path, i32 control, i32 y0, i32 dir, i32 most, u32 t
     const i32 depth = 4 * unit + multiply(md::positive(control), most * unit);
     for (u32 i = 0; i < 21; ++i) {
         const i32 rise = md::one - md::exp_neg(13107 * static_cast<i32>(i));   // 1 - e^(-4 i / 20)
-        pts[i].x = 116 * unit + static_cast<i32>(i) * 2253;                     // 44 px / 20, Q10
+        pts[i].x = 104 * unit + static_cast<i32>(i) * 2253;                     // 44 px / 20, Q10
         pts[i].y = y0 * unit + dir * multiply(rise, depth);
     }
-    stock::trace(f, path, pts, 21, 138, y0 + dir * 12, md::live::sealed(md::live::mix(0x454e5600u + path, control)), tone);
+    stock::trace(f, path, pts, 21, 126, y0 + dir * 12, md::live::sealed(md::live::mix(0x454e5600u + path, control)), tone);
 }
 }
 
@@ -169,14 +171,14 @@ template <class F>
 inline void view(F& f, const i32* s, const view::Moment& m) {
     using namespace fm_panel;
     const i32 r1 = between(s[0], 20, 11), r2 = between(s[4], 16, 9);
-    bundle(f, b1, 84, 58, 198, 98, 193, s[2], stock::solid3);
-    bundle(f, b2, 84, 138, 198, 98, -193, s[5], stock::solid2);
-    op(f, m1, 84, 58, r1, 15872, stock::hollow);   // authored 15.5 px
-    stock::put(f, pointer, 84 * unit, 58 * unit, stock::solid2, unit, static_cast<i32>(v127(s[1])) * 2700 / 127 - 1350);
-    op(f, m2, 84, 138, r2, 12800, stock::hollow);   // 12.5 px
-    stock::put(f, carrier, 198 * unit, 98 * unit, stock::solid_a);
-    stock::put(f, axis, 350 * unit, 98 * unit, stock::solid_a);
-    loop(f, view::contour, loop_end, 84, 58, r1 + 8 * unit, -1500, s[3], stock::line4, stock::solid4);
+    bundle(f, b1, 68, 58, 182, 98, 193, s[2], stock::solid3);
+    bundle(f, b2, 68, 138, 182, 98, -193, s[5], stock::solid2);
+    op(f, m1, 68, 58, r1, 15872, stock::hollow);   // authored 15.5 px
+    stock::put(f, pointer, 68 * unit, 58 * unit, stock::solid2, unit, static_cast<i32>(v127(s[1])) * 2700 / 127 - 1350);
+    op(f, m2, 68, 138, r2, 12800, stock::hollow);   // 12.5 px
+    stock::put(f, carrier, 182 * unit, 98 * unit, stock::solid_a);
+    stock::put(f, axis, 318 * unit, 98 * unit, stock::solid_a);
+    loop(f, view::contour, loop_end, 68, 58, r1 + 8 * unit, -1500, s[3], stock::line4, stock::solid4);
     const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));                       // 0.5 + TONE
     const i32 i1 = cycles(multiply(multiply(get(s, 2), tone), l.ease), 3 * 2 * radian);   // 1env 3 tone live
@@ -184,7 +186,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     // M1 as the sound has it: its listed ratio moved by 1FIN, with 1FB's feedback.
     const u32 r1q = static_cast<u32>(md::positive(fmp::ratio(s[0]) + fine(s[1]))) >> 12, r2q = static_cast<u32>(fmp::ratio(s[4])) >> 12;
     const i32 fb = fmp::feedback(s[3]);
-    output(f, view::comb, 2, 220, 479, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+    output(f, view::comb, 2, 204, 432, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
         const u32 offset = (static_cast<u32>(multiply(fed_back(u16 * r1q, fb), i1)) + static_cast<u32>(multiply(md::sine(u16 * r2q), i2))) << 4;
         return md::sine(u + offset);
     });
@@ -203,12 +205,12 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     static const u32 tones[3] = {stock::solid2, stock::solid4, stock::solid2}, ops[3] = {stock::hollow, stock::solid3, stock::hollow};
     for (u32 k = 0; k < 3; ++k) {
         const i32 y = 40 + 56 * static_cast<i32>(k);
-        bundle(f, b1 + 5 * k, 70, y, 168, y, 0, s[2 * k + 1], tones[k]);
-        op(f, m1 + k, 70, y, between(s[2 * k], 13, 7), 10 * unit, ops[k]);
-        stock::put(f, c1 + k, 168 * unit, y * unit, stock::solid_a);
-        stock::put(f, lead1 + k, 0, 0, stock::solid_a);
+        bundle(f, b1 + 5 * k, 61, y, 159, y, 0, s[2 * k + 1], tones[k]);
+        op(f, m1 + k, 61, y, between(s[2 * k], 13, 7), 10 * unit, ops[k]);
+        stock::put(f, c1 + k, 159 * unit, y * unit, stock::solid_a);
+        stock::put(f, lead1 + k, -9 * unit, 0, stock::solid_a);   // drawn in place, 9 px left
     }
-    stock::put(f, axis, 351 * unit, 96 * unit, stock::solid_a);
+    stock::put(f, axis, 322 * unit + unit / 2, 96 * unit, stock::solid_a);
     const Live l = moving(m);
     const i32 tone = half + opxy::q31::half(get(s, 6));
     i32 index[3], weight[3];
@@ -224,7 +226,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     // s = sum(sin_k env_k) / max(0.3, sum env_k), the division read off a table.
     const i32 floor = 0x0999999a;                                                // 0.3, quartered
     const i32 norm = inverse(total > floor ? total : floor);
-    output(f, view::comb, 2, 222, 479, 96, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+    output(f, view::comb, 2, 213, 432, 96, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
         i32 sum = 0;
         for (u32 k = 0; k < 3; ++k) sum += multiply(modulated(u, u16, index[k], ratio[k]), weight[k]);
         return md::gain(multiply(sum, norm), 4);
@@ -242,15 +244,15 @@ template <class F>
 inline void view(F& f, const i32* s, const view::Moment& m) {
     using namespace fm_panel;
     const i32 r1 = between(s[0], 18, 10), r2 = between(s[4], 15, 8);
-    bundle(f, b1, 78, 58, 204, 98, 176, s[2], stock::solid3);
-    bundle(f, b2, 78, 138, 204, 98, -176, s[5], stock::solid2);
-    op(f, m1, 78, 58, r1, 14 * unit, stock::hollow);
-    op(f, m2, 78, 138, r2, 11776, stock::hollow);   // 11.5 px
-    stock::put(f, carrier, 204 * unit, 98 * unit, stock::solid_a);
-    stock::put(f, axis, 353 * unit, 98 * unit, stock::solid_a);
+    bundle(f, b1, 66, 58, 192, 98, 176, s[2], stock::solid3);
+    bundle(f, b2, 66, 138, 192, 98, -176, s[5], stock::solid2);
+    op(f, m1, 66, 58, r1, 14 * unit, stock::hollow);
+    op(f, m2, 66, 138, r2, 11776, stock::hollow);   // 11.5 px
+    stock::put(f, carrier, 192 * unit, 98 * unit, stock::solid_a);
+    stock::put(f, axis, 323 * unit, 98 * unit, stock::solid_a);
     sketch(f, view::wave, s[1], 26, 1, 20, stock::line2);
     sketch(f, view::comb, s[3], 52, -1, 18, stock::line4);
-    loop(f, view::contour, loop_end, 78, 138, r2 + 8 * unit, 600, s[6], stock::line3, stock::solid3);
+    loop(f, view::contour, loop_end, 66, 138, r2 + 8 * unit, 600, s[6], stock::line3, stock::solid3);
     const Live l = moving(m);
     // I1 = 1vol 3 (1 + 1ven (0.5 at rest, more with the note's swell)), I2 = 2env 2.5.
     const i32 lift = multiply(get(s, 3), half + opxy::q31::half(md::clamp(l.swell, 0, md::one)));
@@ -258,7 +260,7 @@ inline void view(F& f, const i32* s, const view::Moment& m) {
     const i32 i2 = cycles(get(s, 5), 5 * radian / 2);
     const u32 r1q = static_cast<u32>(fmp::dyn_ratio1(s[0])) >> 12, r2q = static_cast<u32>(fmp::dyn_ratio2(s[4])) >> 12;
     const i32 fb = fmp::feedback(s[6]);
-    output(f, view::extra, 1, 226, 479, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
+    output(f, view::extra, 1, 214, 432, 98, l.spin, s[7], wave_key(s, l), [&](u32 u, u32 u16) {
         const u32 offset = (static_cast<u32>(multiply(md::sine(u16 * r1q), i1)) + static_cast<u32>(multiply(fed_back(u16 * r2q, fb), i2))) << 4;
         return md::sine(u + offset);
     });

@@ -42,7 +42,7 @@
   <circle id="mmdyn_node_14" cx="0" cy="0" r="14" fill="#000000" stroke="#CDCDCD" stroke-width="1"/>
   <circle id="mmdyn_node_15" cx="0" cy="0" r="11.5" fill="#000000" stroke="#CDCDCD" stroke-width="1"/>
   <circle id="mmdyn_node_16" cx="0" cy="0" r="22" fill="#323232" stroke="#323232" stroke-width="0.1"/>
-  <path id="mmdyn_node_17" d="M-127 -0.5 L127 -0.5 L127 0.5 L-127 0.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
+  <path id="mmdyn_node_17" d="M-109 -0.5 L109 -0.5 L109 0.5 L-109 0.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
   <path id="mmdyn_node_18" d="M1.5 -2.5 L2.2 -2.2 L2.5 -1.5 L2.5 1.5 L2.2 2.2 L1.5 2.5 L-1.5 2.5 L-2.2 2.2 L-2.5 1.5 L-2.5 -1.5 L-2.2 -2.2 L-1.5 -2.5 Z" fill="#969696" stroke="#969696" stroke-width="0.1"/>
   <path id="mmdyn_node_19" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
   <path id="mmdyn_node_20" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>

@@ -53,7 +53,7 @@
   <path id="mmpar_node_25" d="M180 39.5 L204.3 39.5 L222.5 95.8 L221.5 96.2 L203.7 40.5 L180 40.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
   <path id="mmpar_node_26" d="M180 95.5 L222 95.5 L222 96.5 L180 96.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
   <path id="mmpar_node_27" d="M180 151.5 L203.7 151.5 L221.5 95.8 L222.5 96.2 L204.3 152.5 L180 152.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
-  <path id="mmpar_node_28" d="M-129 -0.5 L129 -0.5 L129 0.5 L-129 0.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
+  <path id="mmpar_node_28" d="M-109.5 -0.5 L109.5 -0.5 L109.5 0.5 L-109.5 0.5 Z" fill="#323232" stroke="#323232" stroke-width="0.1"/>
   <path id="mmpar_node_29" transform="matrix(1 0 0 1 640 320)" d="M0 -1.2 L0 1.2" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
   <path id="mmpar_node_30" transform="matrix(1 0 0 1 640 320)" d="M-1.6 0 L1.6 0" fill="none" stroke="#8c8d92" stroke-width="0.9"/>
   <circle id="mmpar_palette_0" transform="matrix(1 0 0 1 640 320)" cx="0" cy="0" r="1" fill="#000000" stroke="#CDCDCD" stroke-width="0.6"/>
