@@ -68,8 +68,9 @@ jobs:
           mkdir -p local
           c++ -std=c++11 -O2 -fwrapv -w -Iopen-xy/sdk/include -Imd/machines/mdkit -DENGINE=mdkit md/tools/check_kit_frames.cpp -o local/check-kit
           local/check-kit
-      - name: Every synth and MD E12 under the amp envelope, against the recorded frames
-        run: python md/tools/check_envelope.py --sdk open-xy --out local
+      # The DPRO engines and MD E12 need the owner's ROM captures, which CI hasn't.
+      - name: The synths under the amp envelope, against the recorded frames
+        run: python md/tools/check_envelope.py --sdk open-xy --out local $STOCK_LOOK mmens mmvo6
       - name: Frames as SVG
         if: always()
         run: python md/tools/frame_svg.py --sdk open-xy --out frames $STOCK_LOOK mdkit
