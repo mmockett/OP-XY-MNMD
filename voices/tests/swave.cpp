@@ -92,9 +92,8 @@ void extremes(const char* name, State& voice, Reset reset, Trigger trigger, Rend
 }
 
 
-// Stereo (render_stereo): left = mono + side, right = mono - side. The two sides
-// sum to the mono voice exactly, sample for sample; nothing passes the declared
-// peak; and a side stays within `most_off` dB of the mono level.
+// Stereo (render_stereo) at full spread: each side's RMS within `most_off` dB of
+// the mono voice's, and both sides within half scale.
 template <class State, class Reset, class Trigger, class Mono, class Stereo>
 void stereo_checks(const char* name, Reset reset, Trigger trigger, Mono mono, Stereo stereo, const int (*presets)[8], int count, double most_off) {
     static State a, b;
@@ -105,32 +104,31 @@ void stereo_checks(const char* name, Reset reset, Trigger trigger, Mono mono, St
     for (int n = 0; n < count; ++n) {
         opxy::i32 parameters[8];
         for (int i = 0; i < 8; ++i) parameters[i] = presets[n][i] >= 127 ? 0x7fffffff : presets[n][i] * 16909320;
-        double m = 0, side = 0, cross = 0;
+        double m = 0, left = 0, right = 0, cross = 0;
         reset(a, shared, 1); trigger(a, shared);
         reset(b, shared, 1); trigger(b, shared);
-        bool bounded = true, summed = true;
+        bool bounded = true;
         for (unsigned k = 0; k < 690; ++k) {
             mono(a, shared, one, parameters, pitch);
             stereo(b, shared, two, parameters, pitch);
             for (unsigned i = 0; i < opxy::block_frames; ++i) {
                 const opxy::i32 l = two[2 * i], r = two[2 * i + 1];
                 bounded = bounded && l >= -1073741824 && l <= 1073741824 && r >= -1073741824 && r <= 1073741824;
-                summed = summed && static_cast<long long>(l) + r == 2LL * one[i];
                 if (k > 80) {
                     m += static_cast<double>(one[i]) * one[i];
-                    side += (static_cast<double>(l) * l + static_cast<double>(r) * r) / 2;
+                    left += static_cast<double>(l) * l;
+                    right += static_cast<double>(r) * r;
                     cross += static_cast<double>(l) * r;
                 }
             }
         }
+        const double to_left = 10 * std::log10(left / m), to_right = 10 * std::log10(right / m);
+        std::printf("%s case %d: left %+.2f dB, right %+.2f dB against mono, the sides' correlation %.2f\n",
+                    name, n, to_left, to_right, cross / std::sqrt(left * right));
         char what[128];
-        const double to_side = 10 * std::log10(side / m);
-        std::printf("%s preset %d: a side %+.1f dB against mono, the sides' correlation %.2f\n", name, n, to_side, cross / side);
-        std::snprintf(what, sizeof what, "%s preset %d: a side %+.1f dB against mono", name, n, to_side);
-        check(what, to_side >= -0.01 && to_side <= most_off);
-        std::snprintf(what, sizeof what, "%s preset %d: the sides sum to the mono voice", name, n);
-        check(what, summed);
-        std::snprintf(what, sizeof what, "%s preset %d: above the declared peak", name, n);
+        std::snprintf(what, sizeof what, "%s case %d: each side within %.1f dB of mono (%+.2f, %+.2f)", name, n, most_off, to_left, to_right);
+        check(what, std::fabs(to_left) <= most_off && std::fabs(to_right) <= most_off);
+        std::snprintf(what, sizeof what, "%s case %d: above the declared peak", name, n);
         check(what, bounded);
     }
 }
@@ -175,9 +173,13 @@ int main() {
         mono_at_zero<swave_saw::State>("SAW at UNIW 0", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws[1], 1);
         mono_at_zero<swave_pulse::State>("PULSE at UNIW 0", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses[3], 1);
         mono_at_zero<swave_ens::State>("ENS at CHRW 0", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords[2], 6);
-        stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws, 5, 3.1);
-        stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses, 5, 3.1);
-        stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords, 5, 3.1);
+        // Full spread: each engine's defaults with its width control at 127, and a heavy case.
+        static const int saws_wide[2][8] = {{40, 127, 0, 0, 0, 30, 0, 64}, {127, 127, 127, 0, 0, 0, 0, 64}};
+        static const int pulses_wide[2][8] = {{30, 127, 30, 0, 64, 20, 0, 64}, {127, 127, 0, 0, 64, 0, 0, 64}};
+        static const int chords_wide[2][8] = {{84, 99, 62, 0, 64, 40, 127, 64}, {84, 99, 62, 0, 64, 127, 127, 64}};
+        stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws_wide, 2, 0.5);
+        stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses_wide, 2, 0.5);
+        stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords_wide, 2, 0.5);
     }
     static opxy::i32 out[kFrames];
     static opxy::i32 other[kFrames];

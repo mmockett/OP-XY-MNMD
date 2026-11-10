@@ -18,8 +18,8 @@
 // the note, so the key and TUNE play a pitch. Its level falls 2 dB over RES at
 // middle C, and the red part's fall across the keyboard flattens as RES rises.
 // In stereo (render_stereo), with STON on, ST is the width: a second noise
-// through the same chain is added to the left and taken from the right, so the
-// two sides' sum is the mono noise, sample for sample.
+// through the same chain is added to the left and taken from the right, each
+// side holding the mono level.
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
@@ -90,6 +90,8 @@ const i32 softplus_of[9] = {369, 1466, 5732, 21098, 65536, 152170, 267876, 39468
 const i32 white_follow_of[9] = {0x00000000, 0x0458793e, 0x1718fc50, 0x327d566d, 0x420aa64c, 0x44985f07, 0x44bac711, 0x4535a858, 0x4695e9e2};
 const i32 red_follow_of[9] = {0x00000000, 0x0ae7d567, 0x104d013b, 0x1b958106, 0x27a5e354, 0x339096bc, 0x3d04816f, 0x43c36113, 0x42ae7d56};
 const i32 out_level = 0x10000000;        // Q28, then x 4 (reference/fit_mgnd.py)
+// In stereo, the level at ST 0, 16, ..., 127 with STON on: 1 / sqrt(1 + ST^2), Q31.
+const i32 even_of[9] = {0x7fffffff, 0x7f02f623, 0x7c2da123, 0x77d9a26e, 0x727c9717, 0x6c8b355b, 0x66666666, 0x60546ee2, 0x5a82799a};
 const i32 tune_centre = 1082196480;      // 64/127 in Q31; TUNE +-2 semitones, as GND-SIN's
 const i32 hp_most = 0x30000000;          // the high-pass's half coefficient, capped near 5.4 kHz
 const i32 middle_c_log2 = 1612525;       // log2_q16(md::kit::middle_c), as computed below
@@ -196,17 +198,16 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     run(output, voice.noise, coefficients(p, pitch));
 }
 
-// 64 interleaved frames: left = mono + side, right = mono - side, so their sum
-// is the mono noise exactly. STON off, or ST at 0, is the mono noise on both
-// sides. With STON on, ST opens the side by its square, so low settings stay
-// near mono; at full width the side is as loud as the mono noise, and the two
-// sides are independent noises. Near the peak the side gives way, so neither
-// passes half scale and the sum still holds.
+// 64 interleaved frames. STON off, or ST at 0, is the mono noise on both sides.
+// With STON on, ST is the width: a second noise through the same chain, added to
+// the left and taken from the right, two independent noises at full width. The
+// level comes down by as much as the side adds, 1 / sqrt(1 + ST^2), so each side
+// holds the mono noise's level and the middle dips, by 3 dB at full width.
 inline void render_stereo(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
     const Coefficients c = coefficients(p, pitch);
     i32 mono[opxy::block_frames];
     run(mono, voice.noise, c);
-    const i32 width = p[STON] >= 0x40000000 ? md::squared(p[ST]) : 0;
+    const i32 width = p[STON] >= 0x40000000 ? md::positive(p[ST]) : 0;
     if (!width) {
         // The side rests until it opens, so it starts clean.
         voice.side.top[0] = voice.side.top[1] = voice.side.red = 0;
@@ -216,11 +217,12 @@ inline void render_stereo(State& voice, Common&, opxy::Output output, const i32*
     }
     i32 side[opxy::block_frames];
     run(side, voice.side, c);
+    const i32 level = md::table9(even_of, width);
+    const i32 wide = md::multiply(width, level);
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        const i32 m = mono[i], room = 0x40000000 - (m < 0 ? -m : m);
-        const i32 s = md::clamp(md::multiply(side[i], width), -room, room);
-        output[2 * i] = m + s;
-        output[2 * i + 1] = m - s;
+        const i32 m = md::multiply(mono[i], level), s = md::multiply(side[i], wide);
+        output[2 * i] = md::finish(m + s);
+        output[2 * i + 1] = md::finish(m - s);
     }
 }
 }

@@ -236,8 +236,10 @@ Load one on a synth track and play it chromatically.
 
 SWAVE-SAW, SWAVE-PULSE, SWAVE-ENS and GND-NOIS play in stereo. Each spreads on
 one of its own controls and is mono at its defaults, so a sound only widens
-when you turn that control up. Left and right always add up to the mono sound,
-so a mono mix or a mono speaker hears exactly what it heard before.
+when you turn that control up. As it widens, each side keeps the level of the
+mono sound, so a sound doesn't get louder as it spreads; summed to mono, a wide
+sound is a little quieter in the middle, up to about 1.5 dB on SWAVE-SAW and
+SWAVE-PULSE and 3 dB on SWAVE-ENS and GND-NOIS.
 
 | Engine | Spread on | What spreads |
 | --- | --- | --- |
