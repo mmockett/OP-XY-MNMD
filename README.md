@@ -18,6 +18,10 @@ the Teenage Engineering OP-XY, on the
 - **Each Monomachine machine is its own engine**, played chromatically, with
   its SYN page's two rows as two pages of four encoders. A press of any
   encoder switches between them, as on the SDK's Macro Osc.
+- **Four engines play in stereo (SDK 1.12).** SWAVE-SAW, SWAVE-PULSE,
+  SWAVE-ENS and GND-NOIS spread across left and right on a control they
+  already have, and are mono at their defaults
+  ([Stereo](#stereo)).
 
 | Engine | ID | Machines |
 | --- | --- | --- |
@@ -228,6 +232,27 @@ Load one on a synth track and play it chromatically.
 - **Presets:** each engine comes with a few presets of its own, in the preset
   browser: SID-6581 has saw, square, ring, sync and more.
 
+#### Stereo
+
+SWAVE-SAW, SWAVE-PULSE, SWAVE-ENS and GND-NOIS play in stereo. Each spreads on
+one of its own controls and is mono at its defaults, so a sound only widens
+when you turn that control up. Left and right always add up to the mono sound,
+so a mono mix or a mono speaker hears exactly what it heard before.
+
+| Engine | Spread on | What spreads |
+| --- | --- | --- |
+| SWAVE-SAW | UNIW above 30 | The detuned pairs, one of each to a side; the main saw and the subs stay in the middle |
+| SWAVE-PULSE | UNIW above 20 | The detuned pair, one to a side; the main pulse and the subs stay in the middle |
+| SWAVE-ENS | CHRW above 40 | Each voice's chorus copies, one to a side, and the chord's second and third notes, a little left and right |
+| GND-NOIS | ST, with STON on | A second noise, from mono at ST 0 to two independent noises at 127 |
+
+The width grows slowly at first and fastest near the top of the control. Of
+the presets, SWAVE-SAW's Wide and GND-NOIS's Wide are wide; SWAVE-SAW's Super,
+SWAVE-PULSE's Strings and SWAVE-ENS's Fifths are a little wide; the rest are
+mono as before. These engines
+target SDK 1.12, on the SDK's `staging` branch, and reach the open-xy.com
+builder with its next release.
+
 #### GND-NOIS (`mmnois`)
 
 Noise from white to red, as the Monomachine's, and with RES, noise pitched to
@@ -235,9 +260,9 @@ the key you play: tuned wind, a whistle, a noise bass.
 
 | Page | Control | What it does |
 | --- | --- | --- |
-| 1 | ST | Lifts the level up to +2.9 dB while STON is off |
+| 1 | ST | Lifts the level up to +2.9 dB while STON is off; with STON on, the stereo width |
 | 1 | RED | White noise at 0, through pink, to red at 127; loudest near 64 |
-| 1 | STON | The original's stereo switch; with it on, ST does nothing (the OP-XY's synths are mono) |
+| 1 | STON | The original's stereo switch: on, ST spreads the noise from mono to two independent noises |
 | 1 | TUNE | Moves the sound two semitones either way: a whole tone on the pitch RES plays |
 | 2 | RES | At 0, the original. Turned up, the noise narrows around the played note, from a breathy band to a whistle, at about the same level |
 
@@ -245,8 +270,8 @@ The key moves the noise as it does on the original: the red part passes a
 high-pass at half the note, and white noise darkens as the key rises. RES
 moves that high-pass up to the note and sharpens it, so the key and TUNE play
 a pitch, in tune across the keyboard and at an even level. The presets are
-White, Pink, Red and Loud, the original's, and Wind, Whistle and Bass, which
-use RES.
+White, Pink, Red and Loud, the original's; Wind, Whistle and Bass, which
+use RES; and Wide, in stereo.
 
 Saved sounds keep their controls, and RES reads 0 in a project saved before
 it, so it plays the original. Two things sound different from v1.2.3, both

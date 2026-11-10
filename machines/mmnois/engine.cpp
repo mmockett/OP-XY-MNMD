@@ -13,6 +13,6 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     own[2] = parameters[2];
     own[7] = parameters[3];
     own[5] = parameters[7];
-    md::gnd_nois::render(voice.state, shared.common, output, own, pitch);
+    md::gnd_nois::render_stereo(voice.state, shared.common, output, own, pitch);
 }
 }

@@ -461,7 +461,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
 int main() {{
     static {engine}::Voice voice;
     static {engine}::Shared shared;
-    opxy::i32 out[{2 if stereo else 1} * opxy::block_frames];
+    opxy::i32 out[{"2 * " if stereo else ""}opxy::block_frames];
     int failures = 0;
     for (int octave = -2; octave <= 2; ++octave) {{
         opxy::u32 pitch[opxy::block_frames];
@@ -474,7 +474,7 @@ int main() {{
             bool sounding = false, bounded = true;
             for (unsigned b = 0; b < 690; ++b) {{
                 {engine}::render(voice, shared, 1, out, p, pitch);
-                for (unsigned i = 0; i < {2 if stereo else 1} * opxy::block_frames; ++i) {{
+                for (unsigned i = 0; i < {"2 * " if stereo else ""}opxy::block_frames; ++i) {{
                     sounding = sounding || out[i] != 0;
                     bounded = bounded && out[i] >= -1073741824 && out[i] <= 1073741824;
                 }}

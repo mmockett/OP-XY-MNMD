@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.10",
+  "sdk": "1.12",
   "kind": "synth",
   "description": "The Monomachine's GND-NOIS: white noise turning red, fitted to the original, with RES pitching it to the key.",
   "presetDefaults": {

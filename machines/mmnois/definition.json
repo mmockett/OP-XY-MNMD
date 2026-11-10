@@ -151,14 +151,22 @@
       "ston": 0.25,
       "tune": 0.503937,
       "res": 0.88189
+    },
+    "Wide": {
+      "st": 1.0,
+      "red": 0.0,
+      "ston": 0.75,
+      "tune": 0.503937,
+      "res": 0.0
     }
   },
   "resources": {
-    "voiceBytes": 24,
+    "voiceBytes": 48,
     "voiceAlignment": 4,
     "voiceCapacity": 32,
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
+    "stereoOutput": 1,
     "display": {
       "stateBytes": 40,
       "stateAlignment": 4,

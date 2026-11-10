@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.10",
+  "sdk": "1.12",
   "kind": "synth",
   "description": "The Monomachine's SWAVE-ENS: a four-voice chord of saws or pulses with chorus, fitted to the original.",
   "presetDefaults": {

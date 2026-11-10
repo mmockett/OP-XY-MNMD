@@ -31,8 +31,10 @@ void render(State&, Common&, opxy::Output out,          // one 64-sample block
 
 A machine whose structure has two sides (`STEREO` in `tools/make_engine.py`)
 also has `render_stereo`, with the same arguments, writing 64 interleaved frames
-(SDK 1.8). Each side keeps the mono level, and `render` stays as the mono sound
-the fitted checks measure.
+(SDK 1.12, `resources.stereoOutput`). Left is mono + side and right mono - side,
+so the two sides' sum is `render`'s mono sound sample for sample; `render` stays
+the sound the fitted checks measure. The side sits on one of the machine's own
+controls and is 0 at the defaults, so a machine is mono until that control opens it.
 
 - `slots` are the machine's eight controls in **its own slot order**
   (catalog.py), Q31, 0 to 0x7fffffff for 0 to 127; empty slots read 0.

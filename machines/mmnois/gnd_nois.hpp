@@ -17,16 +17,24 @@
 // white part through it too: the noise narrows to a band, then a whistle, at
 // the note, so the key and TUNE play a pitch. Its level falls 2 dB over RES at
 // middle C, and the red part's fall across the keyboard flattens as RES rises.
+// In stereo (render_stereo), with STON on, ST is the width: a second noise
+// through the same chain is added to the left and taken from the right, so the
+// two sides' sum is the mono noise, sample for sample.
 #include <opxy/audio.hpp>
 #include "md_dsp.hpp"
 
 namespace md_mmnois {} namespace md = md_mmnois; namespace md_mmnois {
 namespace gnd_nois {
-struct State {
+// One noise and its filters' states.
+struct Noise {
     u32 seed;
     i32 top[2];    // the roll-off above the key's corner: two 1-poles
     i32 red;       // the red noise's 1-pole state
     i32 hp[2];     // the high-pass: a Chamberlin filter's low and band
+};
+struct State {
+    Noise noise;
+    Noise side;    // render_stereo's second noise, through the same chain
 };
 namespace {
 enum { ST, RED, STON, RES = 5, TUNE = 7 };
@@ -107,16 +115,14 @@ inline i32 log2_q16(u32 increment) {
 
 inline void trigger(State&, Common&) {}
 inline void reset(State& voice, Common&, u32 owner) {
-    voice.seed = 0x2545f491u * (owner + 1);
-    voice.top[0] = voice.top[1] = 0;
-    voice.red = 0;
-    voice.hp[0] = voice.hp[1] = 0;
+    voice.noise = {0x2545f491u * (owner + 1), {0, 0}, 0, {0, 0}};
+    voice.side = {0x9e3779b9u * (owner + 1), {0, 0}, 0, {0, 0}};
 }
 
 namespace {
 // The block's samples, with the state on locals. A nonzero seed never returns to 0,
 // so md::noise's check is needed only before the first draw.
-__attribute__((noinline)) inline void samples(opxy::Output output, State& voice, i32 top_pole, i32 dry, i32 wet, i32 red,
+__attribute__((noinline)) inline void samples(opxy::Output output, Noise& voice, i32 top_pole, i32 dry, i32 wet, i32 red,
                                               i32 red_pole, i32 level, i32 hp, i32 damping, i32 high_gain, i32 band_gain) {
     u32 seed = voice.seed ? voice.seed : 0x9e3779b9u;
     i32 top0 = voice.top[0], top1 = voice.top[1], low = voice.red;
@@ -148,7 +154,11 @@ __attribute__((noinline)) inline void samples(opxy::Output output, State& voice,
 }
 }
 
-inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
+// The block's coefficients, for the mono noise and the stereo side alike.
+struct Coefficients {
+    i32 top_pole, dry, wet, red, red_pole, level, hp, damping, high_gain, band_gain;
+};
+inline Coefficients coefficients(const i32* p, opxy::Pitch pitch) {
     const u32 note = md::transpose(pitch[0], md::multiply(p[TUNE] - tune_centre, 21675));
     // The tuned note's octaves from middle C (Q16), and as the key, C0 .. C8 over 0 .. 1 (Q31).
     const i32 octaves = log2_q16(note) - middle_c_log2;
@@ -174,8 +184,44 @@ inline void render(State& voice, Common&, opxy::Output output, const i32* p, opx
     const i32 band = md::multiply(0x40000000, md::table9(band_of, p[RES]));
     const i32 st = p[STON] >= 0x40000000 ? 0x40000000 : md::table9(st_gain, p[ST]);
     const i32 level = md::multiply(out_level, st) * 2;                 // Q28
-    samples(output, voice, md::table9(top_pole_of, key), white - share, wet, red, md::table9(red_pole_of, p[RED]),
-            level, hp, damping, 0x40000000 - band, band);
+    return {md::table9(top_pole_of, key), white - share, wet, red, md::table9(red_pole_of, p[RED]),
+            level, hp, damping, 0x40000000 - band, band};
+}
+
+inline void run(opxy::Output output, Noise& chain, const Coefficients& c) {
+    samples(output, chain, c.top_pole, c.dry, c.wet, c.red, c.red_pole, c.level, c.hp, c.damping, c.high_gain, c.band_gain);
+}
+
+inline void render(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
+    run(output, voice.noise, coefficients(p, pitch));
+}
+
+// 64 interleaved frames: left = mono + side, right = mono - side, so their sum
+// is the mono noise exactly. STON off, or ST at 0, is the mono noise on both
+// sides. With STON on, ST opens the side by its square, so low settings stay
+// near mono; at full width the side is as loud as the mono noise, and the two
+// sides are independent noises. Near the peak the side gives way, so neither
+// passes half scale and the sum still holds.
+inline void render_stereo(State& voice, Common&, opxy::Output output, const i32* p, opxy::Pitch pitch) {
+    const Coefficients c = coefficients(p, pitch);
+    i32 mono[opxy::block_frames];
+    run(mono, voice.noise, c);
+    const i32 width = p[STON] >= 0x40000000 ? md::squared(p[ST]) : 0;
+    if (!width) {
+        // The side rests until it opens, so it starts clean.
+        voice.side.top[0] = voice.side.top[1] = voice.side.red = 0;
+        voice.side.hp[0] = voice.side.hp[1] = 0;
+        for (unsigned i = 0; i != opxy::block_frames; ++i) output[2 * i] = output[2 * i + 1] = mono[i];
+        return;
+    }
+    i32 side[opxy::block_frames];
+    run(side, voice.side, c);
+    for (unsigned i = 0; i != opxy::block_frames; ++i) {
+        const i32 m = mono[i], room = 0x40000000 - (m < 0 ? -m : m);
+        const i32 s = md::clamp(md::multiply(side[i], width), -room, room);
+        output[2 * i] = m + s;
+        output[2 * i + 1] = m - s;
+    }
 }
 }
 }

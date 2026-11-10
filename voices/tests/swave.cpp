@@ -92,38 +92,44 @@ void extremes(const char* name, State& voice, Reset reset, Trigger trigger, Rend
 }
 
 
-// Stereo (render_stereo): each side keeps the mono level, the two sum to it without
-// losing body, nothing passes the declared peak, and with nothing to spread the sides match.
+// Stereo (render_stereo): left = mono + side, right = mono - side. The two sides
+// sum to the mono voice exactly, sample for sample; nothing passes the declared
+// peak; and a side stays within `most_off` dB of the mono level.
 template <class State, class Reset, class Trigger, class Mono, class Stereo>
 void stereo_checks(const char* name, Reset reset, Trigger trigger, Mono mono, Stereo stereo, const int (*presets)[8], int count, double most_off) {
-    static State voice;
-    static opxy::i32 buffer[2 * opxy::block_frames];
+    static State a, b;
+    static opxy::i32 one[opxy::block_frames], two[2 * opxy::block_frames];
     md::Common shared = {};
     opxy::u32 pitch[opxy::block_frames];
     for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
     for (int n = 0; n < count; ++n) {
         opxy::i32 parameters[8];
         for (int i = 0; i < 8; ++i) parameters[i] = presets[n][i] >= 127 ? 0x7fffffff : presets[n][i] * 16909320;
-        double m = 0, side = 0, sum = 0;
-        reset(voice, shared, 1); trigger(voice, shared);
-        for (unsigned b = 0; b < 690; ++b) {
-            mono(voice, shared, buffer, parameters, pitch);
-            for (unsigned i = 0; b > 80 && i < opxy::block_frames; ++i) m += static_cast<double>(buffer[i]) * buffer[i];
-        }
-        reset(voice, shared, 1); trigger(voice, shared);
-        bool bounded = true;
-        for (unsigned b = 0; b < 690; ++b) {
-            stereo(voice, shared, buffer, parameters, pitch);
+        double m = 0, side = 0, cross = 0;
+        reset(a, shared, 1); trigger(a, shared);
+        reset(b, shared, 1); trigger(b, shared);
+        bool bounded = true, summed = true;
+        for (unsigned k = 0; k < 690; ++k) {
+            mono(a, shared, one, parameters, pitch);
+            stereo(b, shared, two, parameters, pitch);
             for (unsigned i = 0; i < opxy::block_frames; ++i) {
-                const double l = buffer[2 * i], r = buffer[2 * i + 1];
-                bounded = bounded && l >= -1073741824.0 && l <= 1073741824.0 && r >= -1073741824.0 && r <= 1073741824.0;
-                if (b > 80) { side += (l * l + r * r) / 2; sum += (l + r) * (l + r) / 4; }
+                const opxy::i32 l = two[2 * i], r = two[2 * i + 1];
+                bounded = bounded && l >= -1073741824 && l <= 1073741824 && r >= -1073741824 && r <= 1073741824;
+                summed = summed && static_cast<long long>(l) + r == 2LL * one[i];
+                if (k > 80) {
+                    m += static_cast<double>(one[i]) * one[i];
+                    side += (static_cast<double>(l) * l + static_cast<double>(r) * r) / 2;
+                    cross += static_cast<double>(l) * r;
+                }
             }
         }
-        char what[96];
-        const double to_side = 10 * std::log10(side / m), to_sum = 10 * std::log10(sum / m);
-        std::snprintf(what, sizeof what, "%s preset %d: a side %+.1f dB and the sum %+.1f dB against mono", name, n, to_side, to_sum);
-        check(what, std::fabs(to_side) <= most_off && std::fabs(to_sum) <= most_off);
+        char what[128];
+        const double to_side = 10 * std::log10(side / m);
+        std::printf("%s preset %d: a side %+.1f dB against mono, the sides' correlation %.2f\n", name, n, to_side, cross / side);
+        std::snprintf(what, sizeof what, "%s preset %d: a side %+.1f dB against mono", name, n, to_side);
+        check(what, to_side >= -0.01 && to_side <= most_off);
+        std::snprintf(what, sizeof what, "%s preset %d: the sides sum to the mono voice", name, n);
+        check(what, summed);
         std::snprintf(what, sizeof what, "%s preset %d: above the declared peak", name, n);
         check(what, bounded);
     }
@@ -138,7 +144,7 @@ void mono_at_zero(const char* name, Reset reset, Trigger trigger, Mono mono, Ste
     for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = 25479004u;
     opxy::i32 parameters[8];
     for (int i = 0; i < 8; ++i) parameters[i] = preset[i] >= 127 ? 0x7fffffff : preset[i] * 16909320;
-    parameters[width] = 0;
+    if (width >= 0) parameters[width] = 0;   // else as the preset has it
     reset(a, shared, 1); trigger(a, shared);
     reset(b, shared, 1); trigger(b, shared);
     bool same = true;
@@ -148,7 +154,7 @@ void mono_at_zero(const char* name, Reset reset, Trigger trigger, Mono mono, Ste
         for (unsigned i = 0; i < opxy::block_frames; ++i) same = same && two[2 * i] == one[i] && two[2 * i + 1] == one[i];
     }
     char what[96];
-    std::snprintf(what, sizeof what, "%s: width 0 is the mono voice", name);
+    std::snprintf(what, sizeof what, "%s is the mono voice", name);
     check(what, same);
 }
 
@@ -161,13 +167,17 @@ int main() {
                                          {90, 70, 0, 0, 40, 12, 127, 64}, {20, 10, 100, 60, 48, 6, 127, 64}};
         static const int chords[5][8] = {{84, 99, 62, 0, 64, 40, 40, 64}, {72, 99, 62, 0, 64, 40, 40, 64}, {103, 123, 0, 0, 64, 64, 64, 64},
                                          {123, 0, 103, 127, 32, 20, 30, 64}, {84, 99, 116, 40, 48, 50, 40, 64}};
-        // Width 0 is the mono voice, bit for bit: nothing forces the sides apart.
-        mono_at_zero<swave_saw::State>("SAW UNIW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws[1], 1);
-        mono_at_zero<swave_pulse::State>("PULSE UNIW", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses[3], 1);
-        mono_at_zero<swave_ens::State>("ENS CHRW", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords[0], 6);
-        stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws, 5, 1.6);
-        stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses, 5, 1.6);
-        stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords, 5, 1.6);
+        // At the defaults (each first row), and with the width control at 0, the
+        // voice is mono, bit for bit: nothing forces the sides apart.
+        mono_at_zero<swave_saw::State>("SAW at its defaults", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws[0], -1);
+        mono_at_zero<swave_pulse::State>("PULSE at its defaults", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses[0], -1);
+        mono_at_zero<swave_ens::State>("ENS at its defaults", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords[0], -1);
+        mono_at_zero<swave_saw::State>("SAW at UNIW 0", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws[1], 1);
+        mono_at_zero<swave_pulse::State>("PULSE at UNIW 0", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses[3], 1);
+        mono_at_zero<swave_ens::State>("ENS at CHRW 0", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords[2], 6);
+        stereo_checks<swave_saw::State>("SAW", swave_saw::reset, swave_saw::trigger, swave_saw::render, swave_saw::render_stereo, saws, 5, 3.1);
+        stereo_checks<swave_pulse::State>("PULSE", swave_pulse::reset, swave_pulse::trigger, swave_pulse::render, swave_pulse::render_stereo, pulses, 5, 3.1);
+        stereo_checks<swave_ens::State>("ENS", swave_ens::reset, swave_ens::trigger, swave_ens::render, swave_ens::render_stereo, chords, 5, 3.1);
     }
     static opxy::i32 out[kFrames];
     static opxy::i32 other[kFrames];
