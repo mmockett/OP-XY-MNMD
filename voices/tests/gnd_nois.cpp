@@ -276,7 +276,8 @@ int main() {
             off[0] = q(127);
             zero[2] = on[2] = q(127);
             on[0] = 0x7fffffff;
-            for (const opxy::i32* mono_case : {off, zero}) {
+            const opxy::i32* const mono_cases[2] = {off, zero};
+            for (const opxy::i32* mono_case : mono_cases) {
                 gnd_nois::reset(a, shared, 1); gnd_nois::reset(b, shared, 1);
                 bool same = true;
                 for (unsigned k = 0; k < 40; ++k) {
