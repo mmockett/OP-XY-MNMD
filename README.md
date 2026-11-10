@@ -247,9 +247,8 @@ so a mono mix or a mono speaker hears exactly what it heard before.
 | GND-NOIS | ST, with STON on | A second noise, from mono at ST 0 to two independent noises at 127 |
 
 The width grows slowly at first and fastest near the top of the control. Of
-the presets, SWAVE-SAW's Wide and GND-NOIS's Wide are wide; SWAVE-SAW's Super,
-SWAVE-PULSE's Strings and SWAVE-ENS's Fifths are a little wide; the rest are
-mono as before. These engines
+the presets, SWAVE-SAW's Wide and GND-NOIS's Wide are wide; the others are mono,
+or very nearly. These engines
 target SDK 1.12, on the SDK's `staging` branch, and reach the open-xy.com
 builder with its next release.
 
