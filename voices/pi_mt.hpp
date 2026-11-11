@@ -144,7 +144,7 @@ __attribute__((noinline)) inline void add_strike(State& voice, const Block& b, i
     md::Svf band = voice.band;
     const i32 tune = b.strike_tune, amount = b.strike_amount, step = b.strike_step;
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
-        band.run(modal::noise_eighth_on(seed), tune, 0x20000000);
+        band.step(modal::noise_eighth_on(seed), tune, 0x20000000);
         mixed[i] += multiply(band.band, multiply(strike, amount)) * 4;   // far under gain()'s ceiling
         strike = multiply(strike, step);
     }

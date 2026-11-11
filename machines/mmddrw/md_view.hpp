@@ -10,12 +10,18 @@
 // a run of art nodes (instrument and panel parts, each one shade), drawn
 // relative to a pivot, parked off screen until placed. The machine's view
 // (voices/<machine>_view.hpp) places them, shapes the four paths and writes
-// the labels. Nothing here allocates, divides at run time or uses floats.
+// the labels. Nothing here allocates or uses floats, and nothing divides at
+// run time but through() (a division a call).
 #include <opxy/draw.hpp>
 #include "md_dsp.hpp"
 
 namespace md_mmddrw {} namespace md = md_mmddrw; namespace md_mmddrw {
 namespace view {
+// Stock OS 1.2.1's amp envelope as times and shapes (lib/amp_curve.h, copied
+// byte-identical beside every engine): only 32-bit multiplies, no divides.
+namespace stock_amp {
+#include "amp_curve.h"
+}
 using opxy::i16;
 using opxy::u8;
 using namespace opxy::draw;
@@ -42,11 +48,92 @@ enum Paths : u32 { contour, wave, comb, extra, path_count };
 enum Common : u32 { ring_first = path_count, ring_count = 3, handle_a = ring_first + ring_count, handle_b, cursor,
                     digit_first, digit_segments = 7, digits = 3, art_first = digit_first + digit_segments * digits };
 
+// The track's amp envelope (SDK 1.10's input.amp), as stock OS 1.2.1 plays it
+// (amp_curve.h): a note's motion swells over the attack, falls over the decay to
+// the sustain level while notes are held, and fades over the release after the
+// last one ends, so the screen moves for as long as the sound does
+// (docs/SCREEN.md). A larger attack or decay word is a longer stage, but a
+// larger release word is a SHORTER release. The attack rises concavely,
+// L(u) = 2 (1 - 0.505^u); the decay falls exponentially and stops at the
+// sustain plus 1%; the sustain is a linear level; the release falls
+// exponentially from wherever it starts. Zero, as a Moment built without one
+// has it, is unknown: the screen moves as it always did.
+struct Amp {
+    u32 known;
+    i32 attack, decay, release;   // Q10 seconds: note-on to peak, peak to sustain, full to -66 dB
+    i32 sustain;                  // Q31, linear
+    i32 attack_word, decay_word, release_word;   // the stages' words, the decay and release held to `least`
+};
+// A fall faster than this would jump: the decay and release words are held to
+// stock's fourth-fastest time constant, 23 ms, so motion eases out over at
+// least about 0.1 s (a decay to nothing) or 0.18 s (a release to -66 dB).
+const i32 least = 4 << 24;
+// Microseconds as Q10 seconds, and back (up to 2^20 Q10 s), in 32 bits.
+inline i32 q10_of(u32 us) { return static_cast<i32>(((us >> 10) * 1074u + (((us & 1023u) * 1074u) >> 10)) >> 10); }
+inline u32 us_of(i32 t) {
+    const u32 q = static_cast<u32>(md::clamp(t, 0, 1 << 20));
+    return (q >> 4) * 15625u + (((q & 15u) * 15625u) >> 4);
+}
+// A Q15 level (0 .. 32768) as Q31.
+inline i32 q31_of(u32 q15) { return q15 >= 32768u ? md::one : static_cast<i32>(q15 << 16); }
+// A template, so an engine that never reads the envelope builds on an SDK before 1.10.
+template <class In>
+inline Amp amp_of(const In& input) {
+    Amp a = {0, 0, 0, 0, 0, 0, 0, 0};
+    if (!envelope_known(input.amp)) return a;   // unqualified: found when used, so older SDKs never need it
+    a.known = 1;
+    // A sustain under 1/64 is none: such a note dies away while held, and its motion comes home.
+    a.sustain = input.amp.sustain < (1 << 25) ? 0 : input.amp.sustain;
+    a.attack_word = input.amp.attack;
+    a.decay_word = input.amp.decay < least ? least : input.amp.decay;
+    a.release_word = input.amp.release > md::one - least ? md::one - least : input.amp.release;
+    a.attack = q10_of(stock_amp::attack_us(a.attack_word));
+    a.decay = q10_of(stock_amp::decay_us(a.decay_word, a.sustain));
+    a.release = q10_of(stock_amp::release_us(a.release_word));
+    return a;
+}
+// t / length, Q31, 0 .. 1: a division a call.
+inline i32 through(i32 t, i32 length) {
+    if (t <= 0) return 0;
+    if (t >= length) return md::one;
+    return static_cast<i32>(((static_cast<u32>(t) << 16) / static_cast<u32>(length)) << 15);
+}
+// 2 / -ln(0.505) - 2, Q31: the attack's integral.
+const i32 attack_area = 1991652530;
+// The level t (Q10 s) into a note still held, Q31: up the attack's concave
+// rise, then down the decay's exponential to the sustain level.
+inline i32 held_level(const Amp& a, i32 t) {
+    if (t < a.attack) return q31_of(65536u - 2u * stock_amp::attack_frame_q15(a.attack_word, us_of(t)));
+    if (t >= a.attack + a.decay) return a.sustain;
+    const i32 l = q31_of(stock_amp::decay_frame_q15(a.decay_word, us_of(t - a.attack)));
+    return l > a.sustain ? l : a.sustain;
+}
+// How far the level has carried a held note by t (Q10 s): its integral, Q10 s,
+// so t itself for a level that is full from the start.
+inline i32 held_travel(const Amp& a, i32 t) {
+    if (t <= 0) return 0;
+    // The attack: 2 t - 2 T (1 - 0.505^(t/T)) / -ln 0.505, T the time to 0.99.
+    const i32 rise = t < a.attack ? t : a.attack;
+    const i32 lost = multiply(q10_of(stock_amp::attack_us(a.attack_word)),
+                              q31_of(32768u - stock_amp::attack_frame_q15(a.attack_word, us_of(rise))));
+    i32 d = 2 * rise - 2 * lost - multiply(lost, attack_area);
+    if (d < 0) d = 0;
+    if (t <= a.attack) return d;
+    // The decay: tau (1 - e^(-x/tau)) from full, then the sustain level.
+    const i32 x = t - a.attack < a.decay ? t - a.attack : a.decay;
+    d += multiply(q10_of(stock_amp::decay_tau_us(a.decay_word)), q31_of(32768u - stock_amp::decay_frame_q15(a.decay_word, us_of(x))));
+    if (t > a.attack + a.decay) d += multiply(a.sustain, t - a.attack - a.decay);
+    return d;
+}
+// What the release leaves, `quiet` Q10 s into it, Q31: e^(-quiet/tau).
+inline i32 fall(const Amp& a, i32 quiet) { return q31_of(stock_amp::release_frame_q15(a.release_word, us_of(quiet))); }
+
 // The moment: how long since the hit, for the animations.
 struct Moment {
     i32 age;              // Q10 seconds since the note started; large when idle
     u32 reduced_motion;
     i32 quiet;            // Q10 seconds since a note was last held (Hit::quiet)
+    Amp amp;              // the track's amp envelope; zero, unknown, unless the engine reads it
     // 0 .. 1 (Q10 unit) through an animation of `length` Q10 seconds, or -1 when
     // done; `speed` is 2^20 / length, a constant, so there is no runtime division.
     i32 phase(i32 length, i32 speed) const {
@@ -55,10 +142,34 @@ struct Moment {
     }
     // Q10 seconds since the note started, while a note is held and for `tail`
     // after the last release, for motion that lasts as long as the note does;
-    // -1 when still.
+    // -1 when still. With the envelope known it lasts as long as the sound,
+    // whatever the tail, and runs at the envelope's level: the time the level
+    // has carried the note (travelled).
     i32 running(i32 tail) const {
+        if (amp.known) return level() ? travelled() : -1;
         if (reduced_motion || quiet >= tail) return -1;
         return age;
+    }
+    // With the envelope known: Q10 seconds the note was held, until now while it
+    // is, else until its release.
+    i32 held() const { const i32 h = age - quiet; return h > 0 ? h : 0; }
+    // The envelope's level now, Q31, in steps of 1/2048 so that it reaches 0 where
+    // stock's release ends, at -66 dB: 0 at rest, once the sound has died away,
+    // and under reduced motion.
+    i32 level() const {
+        if (reduced_motion || !amp.known || age >= (1 << 20)) return 0;
+        i32 at = held_level(amp, held());
+        if (quiet > 0) at = multiply(at, fall(amp, quiet));
+        return at & ~0xfffff;
+    }
+    // The level's integral over the note, release included, Q10 s.
+    i32 travelled() const {
+        const i32 h = held();
+        i32 d = held_travel(amp, h);
+        if (quiet > 0)   // tau (1 - e^(-quiet/tau)) from the level it fell from
+            d += multiply(multiply(held_level(amp, h), q10_of(stock_amp::release_tau_us(amp.release_word))),
+                          md::one - fall(amp, quiet));
+        return d;
     }
 };
 
@@ -327,6 +438,27 @@ inline void restyle(F& frame, u32 from, u32 to) {
 inline u32 key_of(i32 a, i32 b, i32 c, i32 d) {
     return 1u + (static_cast<u32>(a) >> 25) + ((static_cast<u32>(b) >> 25) << 7)
          + ((static_cast<u32>(c) >> 25) << 14) + ((static_cast<u32>(d) >> 25) << 21);
+}
+
+// The stock look (OP-XY-Dev media/stock-look-2026-11-06): the palette of the
+// Monomachine engines drawn in it (tools/art/stock.mjs, STOCK_PALETTE), whose
+// views draw the whole screen. The grey is the knob: a part's grey says which
+// encoder moves it, hollow (black with a CDCDCD edge) for encoder 1, then
+// 4B4B4B, 969696 and CDCDCD; 7D7D7D, 646464 and 323232 belong to no encoder. The
+// line entries are for the paths, which draw at scale 2: 1.2 px for line4, 1 px
+// for the rest. Grey never stands for an amount.
+namespace stock {
+enum Tone : u32 { line4, line3, line2, line_n, line_d, line_a, edge4, edge_n,
+                  solid2, solid3, solid4, solid_n, solid_a, hollow, black, hollow_n };
+// An encoder's (0..3) handle or solid part.
+inline u32 coded(u32 encoder) { return encoder == 0 ? hollow : encoder == 1 ? solid2 : encoder == 2 ? solid3 : solid4; }
+// A fixed part (tools/art/stock.mjs) at (x, y) on the stage, Q10, scaled and turned
+// (tenths of a degree, clockwise); a filled tone fills.
+template <class F>
+inline void put(F& f, u32 node, i32 x, i32 y, u32 tone, i32 scale = unit, i32 tenths = 0) {
+    place(f, node, x, stage_y * unit + y, scale, tone, tone >= solid2 ? fill_and_stroke : stroke);
+    if (tenths) opxy::draw::turn(f, node, rotation(tenths));
+}
 }
 }
 }

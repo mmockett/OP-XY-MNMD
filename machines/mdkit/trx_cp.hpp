@@ -89,7 +89,7 @@ __attribute__((noinline)) inline void run_room(State& voice, const Block& b, i32
     for (unsigned i = 0; i != opxy::block_frames; ++i) {
         const i32 n = md::noise_eighth(seed);
         white[i] = n;
-        space.run(n, frequency, room_damping);
+        space.step(n, frequency, room_damping);
         md::smooth(air2, md::smooth(air1, space.band, pole), pole);
         mixed[i] = multiply(air2, room) * 4;
         room += room_slope;
@@ -132,7 +132,7 @@ __attribute__((noinline)) inline void run_starting(State& voice, const Block& b,
         ++clock;
         md::smooth(low, white, b.highpass);
         md::smooth(b2, md::smooth(b1, white - low, b.bright), b.bright);
-        space.run(white, b.room_frequency, room_damping);
+        space.step(white, b.room_frequency, room_damping);
         md::smooth(air2, md::smooth(air1, space.band, b.room_pole), b.room_pole);
         output[i] = md::finish((multiply(b2 * 2, burst) + multiply(air2, room) * 4) * 3);
         burst = multiply(burst, b.burst_step);

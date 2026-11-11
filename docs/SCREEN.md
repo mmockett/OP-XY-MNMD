@@ -145,6 +145,13 @@ Lessons from the device (build 039), for any view on a reshaping path:
   edges a quarter of a local pixel apart. A line traced out and back over itself
   (`polyline`), most of all one that turns sharply, broke up on the device even
   when every host check passed.
+- **Lines are 1 px.** The paths draw at scale 2, which doubles a palette entry's
+  stroke width, so they take entries of their own at half the width
+  (`fig::path_tone`; `KIT_PATH_SHADES` in `tools/art/build.mjs`), in palette places
+  the kits leave unused. A closed outline is then 1 px wide and a ribbon 1.5 px
+  across; the fixed parts' entries are 1 px at their scale of about 1. Up to
+  v1.2.3 the paths drew 2 to 2.4 px, and players asked for stock Drumline's
+  thinner look.
 - **Never draw several separate strokes on one path.** TRX-BD's NOIS spray broke
   up that way: the strokes and the joins between them doubled back at every tip.
   Use fixed nodes (`spark0`..), which cannot change shape.
@@ -184,12 +191,111 @@ paths. `voices/trx_view.hpp` is the worked example: contours, waves and
 partials from the controls, at stage scale, with the readout for numbers in
 labels such as "gap 40".
 
+## The stock look
+
+MD KIT, SWAVE-SAW, SWAVE-PULSE, SID-6581, FM+STAT, FM+PAR, FM+DYN, GND-SIN and
+GND-NOIS are drawn in the stock look (OP-XY-Dev `media/stock-look-2026-11-06`,
+the audit in `media/stock-look-audit/mnmd`): **the grey is the knob**. A part's
+grey says which encoder moves it, dark to light: hollow (black with a `CDCDCD`
+edge) for encoder 1, then `4B4B4B`, `969696` and `CDCDCD`; `7D7D7D`, `646464`
+and `323232` belong to no encoder (axes, carriers, shells, lugs). Lines are 1 to
+1.2 px, and no grey stands for an amount. Everything starts about 28 px under
+the header, and signals cross the whole screen.
+
+Their views draw the whole screen, as MD KIT's always did: `tools/art/build.mjs`
+gives these engines none of the design's parts or labels, and their fixed parts
+come from `tools/art/stock.mjs` (the synths) and `tools/art/fig.mjs` (MD KIT),
+each engine with its own palette (`stock::Tone` in `md_view.hpp`, `fig::Tone` in
+`voices/mdkit_view.hpp`). The other engines keep the design's palette.
+
+| Engine | The drawing | The code |
+| --- | --- | --- |
+| MD KIT (K3) | each machine in section; a drum's shell one flat `323232` solid with its seam knocked out, the head a thin hollow band | by the kit's slots: the body hollow, the rings dark (DEC: 1 to 4), the striker mid (a beater's ball solid, its eye knocked out), the hardware light (hoops, clamps, felt); another control's part in its encoder's grey |
+| SWAVE-SAW, -PULSE (W1) | the rows across the screen, the main row `CDCDCD` at 1.2 px, the rest `7D7D7D`; while a note sounds they slide and swell up to half as tall again with the amp envelope | handles at the rows' ends: UNIL's and SUBX's hollow, UNIX's and SUB2's mid, SUB1's dark; UNIW's dark ones come in from the right edge where a row has drifted half a cycle; PWRS's bar mid |
+| SID-6581 (S1) | thin steps edge to edge on a `323232` axis | PW's hollow handle at the pulse's fall, PWAD's dark bar and handle to the sweep's reach, PWRS's mid bar |
+| FM+ (F1) | the operator diagram without letters or arrowheads, the carrier a `323232` disc, the diagram and its wave centred as one group (48 px each side) | M1 hollow, 1FIN its dark pointer, M1's bundle mid, 1FB its light loop (STAT); PAR's pairs and DYN's envelopes in their encoders' greys |
+| GND-SIN, -NOIS (G1) | the orb hollow in `646464`, the sine `CDCDCD` to the edge; the noise across the screen | TUNE's handle on the tip; STON's second trace mid |
+
+What the device's limits change from the sketches:
+
+- **SuperWave's rows.** A path spans 256 px and has one shade, so a row is drawn
+  in two halves and the rows of one shade run as serpentines; black masks hide
+  their turns at the screen's edges and down the middle, leaving a hairline gap
+  at x 240. The main row has a pair of paths to itself, so every other row shares
+  one grey, and to fit their 64 points TUNE's cycles run from 2.5 to 5 across the
+  screen.
+- **MD KIT's shells** are fixed solids, so a shell that deepens (HPF, now 20 px)
+  or widens (SIZE) is built of 16 px segments placed down its walls. TRX-BD takes
+  the sketch's controls: RDEC the hoops, STRT the band thicker where struck, NOIS
+  grains among the rings, HARM a second ball; RDEC moves the hoops on every model
+  that has it. A beater or mallet nothing lifts rests in the dent.
+
+`tools/frame_svg.py` (CI's screens job, as an artifact) draws the real frames as
+SVG; it builds and runs host code, so run it where that is allowed.
+
+## Following the amp envelope
+
+From SDK 1.10 a screen reads the track's stock amp envelope, the one M2 edits
+(`input.amp`, etcetc000/open-xy#193): attack, decay, sustain and release as
+the envelope page's positions, not times. Every synth whose screen moves with a
+note times that motion by it, so the screen moves for as long as
+the sound does: it swells over the attack, holds at the sustain level while
+notes are held, and fades over the release after the last note-off. A pluck's
+screen goes still with its sound, even with the key held; a pad's keeps moving
+through its release. The envelope scales or times each machine's own motion
+and adds nothing to the drawing. All of it is in `md::view::Moment`
+(`lib/md_view.hpp`) and `md::live` (`voices/live_view.hpp`):
+
+| Motion | Engines | With the envelope known |
+| --- | --- | --- |
+| A sway or swell while held (`live::sway`, `live::swell`) | SWAVE-SAW, -PULSE, -ENS; FM STAT, PAR, DYN | its depth is the envelope's level, and it keeps moving through the release |
+| A turn (`live::turning`) | SID-6581 (its scroll and PW sweep), VO-6, GND-SIN | it turns as far as the level has carried the note, so it gathers speed over the attack and slows with the decay; a note with no sustain brings its turn home as it dies away; from the release it turns home as the release falls |
+| The noise running (`Moment::running`) | GND-NOIS | it runs at the level's speed, for as long as the sound lasts |
+| BBOX's playhead | DPRO-BBOX | goes back once the sound has faded; an envelope can cut a sample short, not play it past its end |
+
+DPRO-WAVE and DPRO-DDRW don't move with a note, so they don't read it. The
+kits, MD KIT and MD E12, don't follow it: stock's drum voices never apply the
+amp envelope to the sound (its drum renderer reads none of the four words), so
+a kit's screen keeps its own timing, and MD E12 stays on SDK 1.8. DPRO-DENS doesn't either, for now: its firmware fails
+to link on the SDK's `staging` ("multiple definition" of the DPRO wave tables,
+the COMDAT issue), so it stays on SDK 1.3 and builds on the fork. Its view
+already knows the envelope (the chorus copy comes down to the wave as far as
+the level over the hit's first quarter second, and rises as the sound fades);
+it will follow it once the DPRO link issue is fixed and it moves to 1.10
+(`AMP_ENVELOPE` in `tools/make_engine.py`). With the envelope unknown (a host before SDK 1.10, the
+builder's preview, a non-instrument track) every screen draws exactly what it
+drew before: `tools/check_envelope.py` hashes a fixed run of frames against
+`tools/envelope_frames.json`, recorded from the screens before they read it.
+
+**Timing.** The times and shapes are stock OS 1.2.1's (`lib/amp_curve.h`,
+copied beside every engine): a larger attack or decay is a longer stage, but a
+larger release is a shorter one, so a release of 127 is stock's shortest. The
+attack rises quickly and rounds off at the top, the decay and release fade
+exponentially (the decay stops at the sustain plus 1%, the release at -66 dB),
+and the sustain is a plain level. Decay and release are held to at least
+stock's fourth-fastest step, so motion eases out over about 0.1 to 0.2 s
+rather than jumping; a sustain under 1/64 is none.
+
+**Churn.** Under a pluck and a pad, held and released, at the defaults, at all
+0, 64 and 127 and at random settings, no engine averages more than 6 changed
+nodes a frame or peaks above 8, and nothing changes at rest
+(`tools/check_envelope.py`). Motion that only follows the level moves in whole
+pixels (DENS's copy, once it reads it) and the level in 1/2048 steps, down to
+stock's -66 dB, so a slow release redraws only when something visibly moves.
+
 ## Checking a screen
 
 - `python3 tools/check_synth_frames.py --sdk <open-xy checkout> <engine>...`
   sweeps a Monomachine synth through every value of every control, at rest and
   under a held note: the device's outline rules, stale path keys, churn, a
   held note's motion, stillness, and what each control moves.
+  `--amp pluck` or `--amp pad` sweeps it under that amp envelope.
+- `python3 tools/check_envelope.py --sdk <open-xy checkout>` checks each screen
+  against the amp envelope: unchanged frames when it is unknown, a pluck still
+  once its sound has gone, churn while held and through the release, and that a
+  larger release word ends the motion sooner and a larger attack word swells slower.
+- `XY_FONT=<UniversNextPro-Light.ttf> python3 tools/envelope_sheet.py --out <folder outside the checkout> mmsaw mmsin`
+  draws contact sheets of a pluck against a pad at 1:1 in the device's font.
 - `python3 tools/serve_bench.py`, then http://127.0.0.1:8930/?track=N. With
   `&flash=1` the screen shows a hit without audio, for screenshots.
 - Headless: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

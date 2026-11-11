@@ -102,7 +102,7 @@ __attribute__((noinline)) inline void shake_block(State& voice, const Block& b, 
         sound = multiply(sound, grain_step);
         modal::noise_on(seed);
         const i32 n = static_cast<i32>(seed >> 3) - 0x10000000;   // an eighth of full scale
-        shell.run(multiply(n, sound), tune, damping);
+        shell.step(multiply(n, sound), tune, damping);
         const i32 under = shell.low - md::smooth(base, shell.low, base_corner);
         // md::finish(md::gain(x, 3)), with no branches in the loop.
         output[i] = md::clamp(multiply(shell.band + multiply(under, body_level) * 2, out_level), -half_scale / 8, half_scale / 8) * 8;

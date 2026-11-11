@@ -17,7 +17,7 @@ const md::rig::Effect effects[1] = {
 };
 // each machine's parts: first entry in members, count, the design defaults (0..127)
 const md::rig::Machine machines[1] = {
-    {0, 0, {40, 30, 0, 0, 0, 30, 0, 64}},   // SWAVE-SAW; the view draws faint#r0, mid#r1, line#r2, mid#r3, faint#r4, faint#r5, dim#r6, faint#r7
+    {0, 0, {40, 30, 0, 0, 0, 30, 0, 64}},   // SWAVE-SAW
 };
 const opxy::u16 members[1] = {0};
 }

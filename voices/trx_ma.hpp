@@ -141,7 +141,7 @@ __attribute__((noinline)) inline void run_band(State& voice, i32 highpass, i32 k
         const i32 grain = x[i];
         i32 band = grain - md::smooth(low1, grain, highpass);
         band -= md::smooth(low2, band, highpass);
-        svf.run(band, knee, damping);
+        svf.step(band, knee, damping);
         x[i] = svf.high + multiply(grain, width);
     }
     voice.low1 = low1;

@@ -5,6 +5,9 @@
 // Motion: a view that moves while a note plays takes it from here. It runs for as
 // long as a note is held (docs/SCREEN.md), eases back to the resting drawing in
 // 0.2 s from the release, and needs no state: Moment already knows the times.
+// With the track's amp envelope known it follows that instead: it swells over
+// the attack, holds at the sustain level while notes are held and fades over the
+// release, still moving, so it lasts as long as the sound.
 // A hold's cost is the few paths it reshapes, a node each.
 #include "md_view.hpp"
 
@@ -17,11 +20,19 @@ const i32 tail = 205;   // Q10 seconds: 0.2 s after the last release
 const u32 half_hz = 2097152u, one_hz = 4194304u;
 
 struct Motion {
-    i32 time;     // Q10 seconds since the note, stopped at the release
-    i32 amount;   // Q31: all of the motion while held, easing to none
+    i32 time;     // Q10 seconds since the note, stopped at the release (running on with the envelope)
+    i32 amount;   // Q31: all of the motion while held, easing to none (the envelope's level)
+    const Moment* envelope;   // the moment, when its envelope is known: turning() follows it
 };
 inline Motion of(const Moment& m) {
-    Motion out = {0, 0};
+    Motion out = {0, 0, 0};
+    if (m.amp.known) {
+        out.amount = m.level();
+        if (!out.amount) return out;
+        out.time = m.age;
+        out.envelope = &m;
+        return out;
+    }
     if (m.reduced_motion || m.quiet >= tail) return out;
     const i32 left = (tail - m.quiet) * 10475529;   // Q31 of the tail
     out.amount = multiply(left, left);              // a curve that eases out
@@ -40,7 +51,25 @@ inline i32 swell(const Motion& m, u32 rate) {
 // A phase that keeps turning, at `fast` for the first `until` (Q10 s), then at
 // `slow`; on release it turns back the short way to 0. The two's complement
 // keeps it continuous as it wraps.
+// With the envelope known it turns as far as the level has carried the note:
+// it gathers speed over the attack and slows with the decay. A note that dies
+// away while held (no sustain) brings what is left of its turn home as its
+// level falls; from the release it turns back to 0 as the release falls.
+inline u32 travel_turn(const Amp& a, i32 t, u32 fast, i32 until, u32 slow) {
+    const u32 x = static_cast<u32>(held_travel(a, t < until ? t : until)), y = static_cast<u32>(held_travel(a, t));
+    return x * fast + (y - x) * slow;
+}
 inline u32 turning(const Motion& m, u32 fast, i32 until, u32 slow) {
+    if (m.envelope) {
+        const Moment& e = *m.envelope;
+        const i32 h = e.held();
+        u32 p = travel_turn(e.amp, h, fast, until, slow);
+        if (!e.amp.sustain && h >= e.amp.attack) {
+            const i32 end = static_cast<i32>(travel_turn(e.amp, e.amp.attack + e.amp.decay, fast, until, slow));
+            p -= static_cast<u32>(multiply(static_cast<i32>(end), md::one - held_level(e.amp, h)));
+        }
+        return e.quiet > 0 ? static_cast<u32>(multiply(static_cast<i32>(p), fall(e.amp, e.quiet))) : p;
+    }
     const u32 t = static_cast<u32>(m.time);
     const u32 p = m.time < until ? t * fast : static_cast<u32>(until) * fast + (t - static_cast<u32>(until)) * slow;
     return static_cast<u32>(multiply(static_cast<i32>(p), m.amount));
@@ -99,6 +128,39 @@ inline void unfold(Path& path) {
     }
     md::view::blunt(p, m);   // a move here can sharpen a turn outline() already squared
     for (u32 i = m; i < 64; ++i) p[i] = p[m - 1];
+}
+}
+
+// The stock look's paths (md_view.hpp, namespace stock), written so the device draws them whole.
+namespace view {
+namespace stock {
+// A line through up to 32 stage points (Q10), out and back as a thin ribbon, on a
+// path about (ox, oy) stage pixels at scale 2: every point within 128 px of it.
+template <class F>
+inline void trace(F& f, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, u32 key, u32 tone) {
+    typename F::path_type& p = f.paths[path];
+    if (p.key != key) {
+        Point local[32];
+        if (n > 32) n = 32;
+        for (u32 i = 0; i < n; ++i) { local[i].x = (stage[i].x - ox * unit) / 2; local[i].y = (stage[i].y - oy * unit) / 2; }
+        polyline(p, local, n, key);
+        md::live::unfold(p);
+    }
+    show_path(f, path, ox, oy, tone, 2 * unit);
+}
+// A closed outline through up to 64 stage points, as trace's.
+template <class F>
+inline void closed(F& f, u32 path, const Point* stage, u32 n, i32 ox, i32 oy, u32 key, u32 tone) {
+    typename F::path_type& p = f.paths[path];
+    if (p.key != key) {
+        Point local[64];
+        if (n > 64) n = 64;
+        for (u32 i = 0; i < n; ++i) { local[i].x = (stage[i].x - ox * unit) / 2; local[i].y = (stage[i].y - oy * unit) / 2; }
+        outline(p, local, n, key);
+        md::live::unfold(p);
+    }
+    show_path(f, path, ox, oy, tone, 2 * unit);
+}
 }
 }
 }
