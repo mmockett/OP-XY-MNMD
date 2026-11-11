@@ -53,8 +53,162 @@ def moment(engine):
 
 
 def sdk_version(engine, kit=False):
-    """The SDK an engine targets: 1.10 to read the amp envelope, else 1.8 for the drum kind, 1.3 for a synth."""
-    return "1.10" if engine in AMP_ENVELOPE else "1.8" if kit else "1.3"
+    """The SDK an engine targets: 1.10 to read the amp envelope or for a kit's padMix, else 1.8 for the drum kind, 1.3 for a synth."""
+    return "1.10" if engine in AMP_ENVELOPE or engine in PAD_MIX else "1.8" if kit else "1.3"
+
+
+# Drum kits whose Shift turns each key's own pan and level (the SDK's padMix, SDK 1.10).
+PAD_MIX = {"mdkit"}
+# Those kits' pad controls (the SDK's padControls) on Shift's second row, before
+# the SDK's FX I and FX II: FILTER (signed: low-pass below 0, high-pass above,
+# 0 open) and SRR.
+PAD_CONTROLS = [{"label": "FILTER", "bits": 5, "signed": True}, {"label": "SRR", "bits": 4}]
+# FILTER's cutoffs, evenly spaced in octaves: low-pass from 8 kHz (one step down)
+# to 150 Hz (sixteen), high-pass from 50 Hz (one step up) to 4 kHz (fifteen).
+# Not yet fitted to the Machinedrum's FLTF/FLTW: sensible ranges, to fit later.
+LP_TOP, LP_BOTTOM, HP_BOTTOM, HP_TOP = 8000.0, 150.0, 50.0, 4000.0
+# FILTER's one resonance, a little over Butterworth: a musical edge without a ring.
+FILTER_Q = 1.2
+# SRR's sample holds: 0 off, then each step holds a sample for this many.
+SRR_HOLD = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]
+
+
+def pad_fx_code():
+    """The pad controls in a kit's engine.cpp: the drum_pad hook, the stock header's
+    captions, and SRR then FILTER in the voice. FILTER is a two-pole state-variable
+    filter in the trapezoidal form (Zavalishin's), stable at every cutoff and
+    resonance, unlike the Chamberlin md::Svf high up; its coefficients for each
+    step and resonance are worked out here, since the device has no divide."""
+    import math
+    rows = []
+    q = FILTER_Q
+    for hz, _caption in filter_steps():
+        if hz is None:
+            rows.append("    {0, 0, 0},")
+            continue
+        g = math.tan(math.pi * hz / 44100)
+        a1 = 1 / (1 + g * (g + 1 / q))
+        a2, a3 = g * a1, g * g * a1
+        rows.append("    {%d, %d, %d}," % tuple(min(round(c * 2 ** 31), 2 ** 31 - 1) for c in (a1, a2, a3)))
+    k_half = round(1 / q / 2 * 2 ** 31)
+    # The input's share: a sixteenth, less the square root of the resonance's
+    # rise over Butterworth, so the filter keeps near the key's level.
+    feed = round(math.sqrt(0.707 / q) / 16 * 2 ** 31)
+    return f"""
+// FILTER's coefficients a1, a2, a3 (Q31) for each of its 32 values (index
+// value + 16; 16 is open) at its one resonance, half its k = 1 / Q, and the
+// input's share: tools/make_engine.py pad_fx_code.
+const i32 filter_coefficients[32][3] = {{
+{chr(10).join(rows)}
+}};
+const i32 filter_k_half = {k_half}, filter_feed = {feed};
+
+// The key's pad controls (the SDK's padControls), before every render.
+inline void drum_pad(Voice& voice, Shared&, u32, const i32* values) {{
+    voice.fx.filter = md::clamp(values[0], -16, 15);
+    voice.fx.srr = md::clamp(values[1], 0, 15);
+}}
+// Their captions for the stock header, as the kit's own header shows them.
+inline bool pad_control_text(u32 field, i32 value, char* text) {{
+    const char* caption = field == 0 ? kit::filter_text[md::clamp(value, -16, 15) + 16]
+                        : field == 1 ? kit::srr_text[md::clamp(value, 0, 15)] : "";
+    u32 n = 0;
+    for (; caption[n] && n < 15; ++n) text[n] = caption[n];
+    text[n] = 0;
+    return true;
+}}
+// SRR holds every hold-th sample, as a lower sample rate would, then FILTER
+// runs low-pass or high-pass. Each is skipped at 0, so a key at its defaults
+// sounds exactly as before. The filter takes under a sixteenth of the signal
+// (filter_feed), so its states stay in range, and gives it back sixteen times
+// over, clamped to the kit's half-scale ceiling.
+inline void pad_fx(PadFx& fx, opxy::Output output) {{
+    if (fx.srr) {{
+        const u32 hold = kit::srr_hold[fx.srr];
+        u32 left = fx.left;
+        i32 held = fx.held;
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {{
+            if (!left) {{ held = output[i]; left = hold; }}
+            --left;
+            output[i] = held;
+        }}
+        fx.left = left;
+        fx.held = held;
+    }}
+    if (!fx.filter) {{
+        fx.ic1 = fx.ic2 = 0;
+        return;
+    }}
+    const i32* c = filter_coefficients[fx.filter + 16];
+    const i32 a1 = c[0], a2 = c[1], a3 = c[2], feed = filter_feed, limit = md::half_scale >> 4;
+    using md::multiply;
+    i32 ic1 = fx.ic1, ic2 = fx.ic2;
+    if (fx.filter > 0) {{
+        const i32 k = filter_k_half;
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {{
+            const i32 v0 = multiply(output[i], feed), v3 = v0 - ic2;
+            const i32 v1 = multiply(a1, ic1) + multiply(a2, v3);
+            const i32 v2 = ic2 + multiply(a2, ic1) + multiply(a3, v3);
+            ic1 = 2 * v1 - ic1;
+            ic2 = 2 * v2 - ic2;
+            output[i] = md::clamp(v0 - 2 * multiply(k, v1) - v2, -limit, limit) * 16;
+        }}
+    }} else {{
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {{
+            const i32 v0 = multiply(output[i], feed), v3 = v0 - ic2;
+            const i32 v1 = multiply(a1, ic1) + multiply(a2, v3);
+            const i32 v2 = ic2 + multiply(a2, ic1) + multiply(a3, v3);
+            ic1 = 2 * v1 - ic1;
+            ic2 = 2 * v2 - ic2;
+            output[i] = md::clamp(v2, -limit, limit) * 16;
+        }}
+    }}
+    fx.ic1 = ic1;
+    fx.ic2 = ic2;
+}}
+"""
+
+
+def filter_steps():
+    """FILTER's 32 values, -16..15 (index value + 16): (cutoff in Hz or None, caption)."""
+    import math
+    def caption(hz):
+        return f"{round(hz / 1000)}k" if hz >= 9950 else f"{hz / 1000:.1f}k" if hz >= 995 else f"{round(hz)}"
+    steps = []
+    for value in range(-16, 16):
+        if value < 0:
+            k = -value - 1   # 0..15
+            hz = LP_TOP * (LP_BOTTOM / LP_TOP) ** (k / 15)
+            steps.append((hz, "L" + caption(hz)))
+        elif value > 0:
+            k = value - 1    # 0..14
+            hz = HP_BOTTOM * (HP_TOP / HP_BOTTOM) ** (k / 14)
+            steps.append((hz, "H" + caption(hz)))
+        else:
+            steps.append((None, "OPEN"))
+    return steps
+
+
+def srr_captions():
+    """SRR's 16 values: OFF, then the held rate at 44.1 kHz."""
+    out = ["OFF"]
+    for hold in SRR_HOLD[1:]:
+        hz = 44100 / hold
+        out.append(f"{round(hz / 1000)}k" if hz >= 9950 else f"{hz / 1000:.1f}k" if hz >= 995 else f"{round(hz)}")
+    return out
+
+
+def pad_tables():
+    """The pad controls' tables for kit.h: SRR's holds and the captions."""
+    quote = lambda items: ", ".join(f'"{t}"' for t in items)
+    return f"""
+// The pad controls (SDK padControls, tools/make_engine.py PAD_CONTROLS), on
+// Shift's second row: SRR's sample hold, and the captions of FILTER (-16..15,
+// index + 16: low-pass below 0, high-pass above, at Q {FILTER_Q}) and SRR.
+// FILTER's coefficients are in engine.cpp.
+const unsigned char srr_hold[16] = {{{", ".join(map(str, SRR_HOLD))}}};
+const char* const filter_text[32] = {{{quote(t for _, t in filter_steps())}}};
+const char* const srr_text[16] = {{{quote(srr_captions())}}};"""
 
 
 # Modules that hold more than one machine.
@@ -383,7 +537,7 @@ struct DisplayState {{
 // {name}: generated by tools/make_engine.py. The screen: md_rig.hpp draws the
 // design's parts from art.h; voices/{headers[1]}.hpp draws what changes shape.
 namespace {engine} {{
-inline void display_reset(DisplayState& state) {{
+{signed_text}inline void display_reset(DisplayState& state) {{
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;{"" if one_row else '''
     state.header.reset();'''}
@@ -597,7 +751,7 @@ inline void controls(u32 m, const i32* values, i32* own) {{
 // A key's stored controls as the SDK hands them to render.
 inline void key_controls(u32 key, i32* values) {{
     for (u32 c = 0; c < 8; ++c) values[c] = static_cast<i32>(static_cast<u32>(key_values[key][c]) << 24);
-}}
+}}{pad_tables() if engine in PAD_MIX else ""}
 }}
 }}
 """)
@@ -615,7 +769,18 @@ inline void key_controls(u32 key, i32* values) {{
 namespace {engine} {{
 using opxy::i32;
 using opxy::u32;
-
+{"""
+// A key's pad controls, from drum_pad, and what they keep between blocks: the
+// filter's states and the sample held by SRR with the frames it has left.
+struct PadFx {
+    i32 filter, srr;
+    u32 spare2;
+    i32 ic1, ic2;   // the filter's two integrator states
+    i32 held;
+    u32 left;
+    u32 spare;      // eight words, so the voice's size is the same on every target
+};
+""" if engine in PAD_MIX else ""}
 struct Voice {{
     u32 machine;   // the member sounding
     u32 next;      // the played key's machine, from drum_select
@@ -623,7 +788,8 @@ struct Voice {{
     u32 pending;   // a note started
     u32 quiet;     // blocks in a row under the floor
     u32 done;      // the sound has ended: render writes silence
-    union {{
+{"""    PadFx fx;      // the key's pad controls and their state
+""" if engine in PAD_MIX else ""}    union {{
 {state}
     }} u;
 }};
@@ -725,7 +891,7 @@ inline bool finished(const Voice& voice, const Shared&) {{ return voice.done != 
 inline void destroy(Voice&, Shared&, u32) {{}}
 inline void drum_select(Voice& voice, Shared&, u32, u32 model) {{ voice.next = model < kit::models ? model : 0; }}
 {scramble}
-
+{pad_fx_code() if engine in PAD_MIX else ""}
 {sound_members}
 
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
@@ -737,7 +903,8 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
         return;
     }}
     if (voice.pending || voice.next != voice.machine) {{
-        voice.pending = 0;
+{"""        if (voice.pending) voice.fx.ic1 = voice.fx.ic2 = voice.fx.left = 0;   // a note starts the filter and the hold afresh
+""" if engine in PAD_MIX else ""}        voice.pending = 0;
         voice.machine = voice.next;
         begin_member(voice, shared);
     }}
@@ -747,7 +914,8 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
 {sound_calls}
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }}
-    // Stops at the first loud sample: nearly every block of a sounding voice has one early.
+{"""    pad_fx(voice.fx, output);
+""" if engine in PAD_MIX else ""}    // Stops at the first loud sample: nearly every block of a sounding voice has one early.
     unsigned under = 0;
     while (under < opxy::block_frames && output[under] < quiet_under && output[under] > -quiet_under) ++under;
     voice.quiet = under < opxy::block_frames ? 0 : voice.quiet + 1;
@@ -766,11 +934,87 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     # --- display.h / display.cpp
     # Shift's controls, as the drum kind orders them (input.choices): a kit with
     # groups the family, its machine and the choke group; one without the
-    # machine and the choke group.
-    shift_titles = ["KIT", "MACHINE", "CHOKE", ""] if groups else ["MACHINE", "CHOKE", "", ""]
-    shift_values = ('kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0]',
-                    'kit::model[selected].name', 'chokes[input.choices[2] & 3u]', '""') if groups else \
-                   ('kit::model[selected].name', 'chokes[input.choices[1] & 3u]', '""', '""')
+    # machine and the choke group. A kit with PAD_MIX (the SDK's padMix) has the
+    # key's own pan and level on the first row's third and fourth, and with
+    # groups its choke group on the second row's first.
+    mixed = engine in PAD_MIX
+    if mixed:
+        # The SDK's padMix: the machine (every one in turn; its family is the
+        # cell's title, "TRX" over "BD", as both words don't fit a value), the
+        # choke group, the key's pan and level; on the second row the key's
+        # FILTER and SRR, then the SDK's FX I and FX II (0: the track's).
+        shift_titles = ["MACHINE", "CHOKE", "PAN", "LEVEL"]
+        choke = 'chokes[input.choices[2] & 3u]' if groups else 'chokes[input.choices[1] & 3u]'
+        shift_values = ('kit::model[selected].name', choke, 'pan', 'level')
+    elif groups:
+        shift_titles = ["KIT", "MACHINE", "CHOKE", ""]
+        shift_values = ('kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0]',
+                        'kit::model[selected].name', 'chokes[input.choices[2] & 3u]', '""')
+    else:
+        shift_titles = ["MACHINE", "CHOKE", "", ""]
+        shift_values = ('kit::model[selected].name', 'chokes[input.choices[1] & 3u]', '""', '""')
+    second_titles = ["FILTER", "SRR", "FX I", "FX II"]
+    second_values = ('kit::filter_text[md::clamp(input.pad[0], -16, 15) + 16]', 'kit::srr_text[md::clamp(input.pad[1], 0, 15)]',
+                     'sends[0]', 'sends[1]')
+    second_line = mixed
+    if mixed:
+        mix_values = f"""        // The key's own pan, -100..100 with 0 centred, and level in dB; and
+        // its sends: 0 follows the track's (TRK), 1..7 send its own 0..100 percent.
+        char pan[8], level[8], sends[2][4];
+        signed_text(pan, sizeof(pan), input.pan, "");
+        signed_text(level, sizeof(level), input.level, "dB");
+        for (u32 s = 0; s < 2; ++s) {{
+            const i32 code = input.pad[2 + s];
+            if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 6, "");
+            else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
+        }}
+"""
+    else:
+        mix_values = ""
+    # A whole number with its unit, as stock shows a key's pan ("-40", "0") and
+    # level ("-6dB"); no plus sign. Only a padMix kit's display has it.
+    signed_text = """// A whole number and its unit, as stock shows a key's pan ("-40", "0", "40")
+// and level ("-6dB", "0dB"): no plus sign.
+inline void signed_text(char* out, u32 capacity, i32 value, const char* unit) {
+    char text[12];
+    u32 n = 0;
+    if (value < 0) { text[n++] = '-'; value = -value; }
+    if (value > 999) value = 999;
+    if (value >= 100) text[n++] = static_cast<char>('0' + value / 100);
+    if (value >= 10) text[n++] = static_cast<char>('0' + value / 10 % 10);
+    text[n++] = static_cast<char>('0' + value % 10);
+    for (u32 i = 0; unit[i] && n + 1 < sizeof(text); ++i) text[n++] = unit[i];
+    text[n] = 0;
+    opxy::draw::copy(out, capacity, text);
+}
+
+""" if mixed else ""
+    if second_line:
+        # Both Shift rows stacked, as the pages are: the first row's on top, the
+        # second's under it, the one the encoders edit bright on the bar.
+        shift_block = f"""        static const char* const shift_titles[2][4] = {{{{{", ".join(f'"{t}"' for t in shift_titles)}}}, {{{", ".join(f'"{t}"' for t in second_titles)}}}}};
+        const char* const shift_values[2][4] = {{{{{", ".join(shift_values)}}}, {{{", ".join(second_values)}}}}};
+        for (u32 line = 0; line < 2; ++line)
+            for (u32 c = 0; c < 4; ++c) {{
+                titles[4 * line + c] = shift_titles[line][c];
+                opxy::draw::copy(values[4 * line + c], opxy::draw::header_capacity, shift_values[line][c]);
+            }}{"""
+        titles[0] = kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0];""" if groups else ""}"""
+    else:
+        shift_block = f"""        static const char* const shift_titles[4] = {{{", ".join(f'"{t}"' for t in shift_titles)}}};
+        const char* const shift_values[4] = {{{", ".join(shift_values)}}};
+        const u32 row = input.shown[0] >= 4 ? 4 : 0;
+        for (u32 c = 0; c < 4; ++c) {{
+            titles[row + c] = shift_titles[c];
+            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
+        }}"""
+    shift_comment = ("""While Shift is held both rows name Shift's controls
+    // and their choices instead, stacked as the pages are: the first row's
+    // (MACHINE, CHOKE, PAN, LEVEL) on top, the second's (FILTER, SRR, FX I,
+    // FX II) under it, the one the encoders edit bright on the bar. Shift swaps
+    // all eight names and values at once.""" if second_line else
+                     """While Shift is held the edited row names Shift's
+    // controls and their choices instead, as the stock header does.""")
     (folder / "display.h").write_text(f"""#pragma once
 // Generated by tools/make_engine.py.
 #include <opxy/draw.hpp>
@@ -800,7 +1044,7 @@ struct DisplayState {{
 // its family's panel on the right, at that key's values (a held step's locks
 // included), struck by each note.
 namespace {engine} {{
-inline void display_reset(DisplayState& state) {{
+{signed_text}inline void display_reset(DisplayState& state) {{
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
     state.header.reset();
@@ -831,8 +1075,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }}
     // The header last: both rows, the one the encoders edit on its bar, as the
     // Monomachine engines show their two pages. A slot the machine lacks is
-    // blank on either row. While Shift is held the edited row names Shift's
-    // controls and their choices instead, as the stock header does.
+    // blank on either row. {shift_comment}
     static const char* const chokes[4] = {{"none", "1", "2", "3"}};
     const char* titles[8];
     char values[8][opxy::draw::header_capacity];
@@ -842,13 +1085,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
     }}
     if (input.shift) {{
-        static const char* const shift_titles[4] = {{{", ".join(f'"{t}"' for t in shift_titles)}}};
-        const char* const shift_values[4] = {{{", ".join(shift_values)}}};
-        const u32 row = input.shown[0] >= 4 ? 4 : 0;
-        for (u32 c = 0; c < 4; ++c) {{
-            titles[row + c] = shift_titles[c];
-            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
-        }}
+{mix_values}{shift_block}
     }}
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }}
@@ -868,6 +1105,8 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
                                 "outputPeakQ31": 1073741824, "modelCount": len(machines),
                                 # One voice a pad, as the Machinedrum's one a track: a new note cuts the last.
                                 "chokeSameKey": 1,
+                                # Each key's own pan and level on Shift (SDK 1.10).
+                                **({"padMix": 1, "padControls": PAD_CONTROLS} if engine in PAD_MIX else {}),
                                 "display": {"stateBytes": 16, "stateAlignment": 4, "paths": 4, "points": 64,
                                             "nodes": 0, "texts": 0, "palette": 16}}}
     if groups:
@@ -883,7 +1122,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     # --- machine.json
     (folder / "machine.json").write_text(json.dumps({
         # SDK 1.8: drum kits, numberless; each build's layout gives the engine and page.
-        # SDK 1.10 for one that follows the amp envelope.
+        # SDK 1.10 for one that follows the amp envelope or turns each key's mix (padMix).
         "schema": 1, "sdk": sdk_version(engine, kit=True), "kind": "drum",
         "description": f"The Machinedrum's {fam.replace('PI', 'P-I')} machines as a drum kit: each key picks its own machine and keeps its own controls."[:160],
         # The longest release: a step's note ends long before most tails do (125 ms

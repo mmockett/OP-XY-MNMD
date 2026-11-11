@@ -249,11 +249,59 @@ def case_problems(played, recorded):
     return problems
 
 
+def pad_mix_problems():
+    """A padMix kit's (make_engine.PAD_MIX) presets keep each key's pan and level
+    within what its Shift row offers (pan -100..100, level -30..0 dB), and its
+    Shift captions fit the header in the device font (OP-XY-Dev
+    tools/caption_width.py, with XY_FONT naming the font; skipped without it).
+    A value has the room to the next column's title, less 2 px, 58 px; the last
+    column's room is the 55 px to the screen's edge, with no neighbour to keep
+    clear of, and LEVEL's widest there, "-30dB", is 53.7 px."""
+    import importlib.util
+    import os
+    import catalog
+    import build_firmware
+    import make_engine
+    problems = []
+    for engine in sorted(make_engine.PAD_MIX):
+        for kit in catalog.ENGINE_KITS.get(engine, ()):
+            for region in build_firmware.kit_regions(engine, kit):
+                pan, gain = region.get("pan", 0), region.get("gain", 0)
+                if not (isinstance(pan, int) and -100 <= pan <= 100 and isinstance(gain, int) and -30 <= gain <= 0):
+                    problems.append(f"{engine} {kit} key {region['hikey']}: pan {pan}, gain {gain}")
+    tool = pathlib.Path(os.environ.get("CAPTION_WIDTH", ROOT.parent / "OP-XY-Dev" / "tools" / "caption_width.py"))
+    if not os.environ.get("XY_FONT") or not tool.is_file():
+        print("SKIP captions: set XY_FONT (and CAPTION_WIDTH if OP-XY-Dev is elsewhere) to measure them")
+        return problems
+    spec = importlib.util.spec_from_file_location("caption_width", tool)
+    ruler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ruler)
+    # MACHINE's value is the machine, its title the family ("trx" over "BD").
+    names = [n.split("-", 1)[1] for e in sorted(make_engine.PAD_MIX) for n in catalog.ENGINES[e]]
+    sends = ["TRK", *(str(round((c - 1) * 100 / 6)) for c in range(1, 8))]
+    middle, last = 58, 55
+    rows = [  # each Shift row's four columns: its captions and their room
+        [(names, middle), (["none", "1", "2", "3"], middle), ([str(v) for v in range(-100, 101)], middle),
+         ([f"{v}dB" for v in range(-30, 1)], last)],
+        [([t for _hz, t in make_engine.filter_steps()], middle), (make_engine.srr_captions(), middle), (sends, middle), (sends, last)]]
+    for row in rows:
+        for texts, room in row:
+            for text in texts:
+                if ruler.width(text, ruler.VALUE_PX) > room:
+                    problems.append(f"caption {text!r}: {ruler.width(text, ruler.VALUE_PX):.1f} px, room {room}")
+    # The two-page header writes titles in lower case.
+    for title in ("trx", "efm", "p-i", "gnd", "choke", "pan", "level", "filter", "srr", "fx i", "fx ii"):
+        if ruler.width(title, ruler.TITLE_PX) > ruler.TITLE_ROOM:
+            problems.append(f"title {title!r}: {ruler.width(title, ruler.TITLE_PX):.1f} px")
+    return problems
+
+
 def main():
     problems = []
     for check, passed, find in (("detents", "every stepped control moves a step a detent", detent_problems),
                                 ("slots", "no engine offers an empty slot as a control", slot_problems),
-                                ("presets", "every kit preset loads each key as its own sound", preset_problems)):
+                                ("presets", "every kit preset loads each key as its own sound", preset_problems),
+                                ("pad mix", "a padMix kit's presets and Shift captions fit its Shift row", pad_mix_problems)):
         found = find()
         for p in found:
             print(f"FAIL {check}: {p}")
