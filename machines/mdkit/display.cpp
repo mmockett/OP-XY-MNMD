@@ -5,6 +5,21 @@
 // its family's panel on the right, at that key's values (a held step's locks
 // included), struck by each note.
 namespace mdkit {
+// A whole number and its unit, as stock shows a key's pan ("-40", "0", "40")
+// and level ("-6dB", "0dB"): no plus sign.
+inline void signed_text(char* out, u32 capacity, i32 value, const char* unit) {
+    char text[12];
+    u32 n = 0;
+    if (value < 0) { text[n++] = '-'; value = -value; }
+    if (value > 999) value = 999;
+    if (value >= 100) text[n++] = static_cast<char>('0' + value / 100);
+    if (value >= 10) text[n++] = static_cast<char>('0' + value / 10 % 10);
+    text[n++] = static_cast<char>('0' + value % 10);
+    for (u32 i = 0; unit[i] && n + 1 < sizeof(text); ++i) text[n++] = unit[i];
+    text[n] = 0;
+    opxy::draw::copy(out, capacity, text);
+}
+
 inline void display_reset(DisplayState& state) {
     state.hit.initialized = 0;
     state.hit.age = 1 << 20;
@@ -68,8 +83,11 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }
     // The header last: both rows, the one the encoders edit on its bar, as the
     // Monomachine engines show their two pages. A slot the machine lacks is
-    // blank on either row. While Shift is held the edited row names Shift's
-    // controls and their choices instead, as the stock header does.
+    // blank on either row. While Shift is held both rows name Shift's controls
+    // and their choices instead, stacked as the pages are: the first row's
+    // (MACHINE, CHOKE, PAN, LEVEL) on top, the second's (FILTER, SRR, FX I,
+    // FX II) under it, the one the encoders edit bright on the bar. Shift swaps
+    // all eight names and values at once.
     static const char* const chokes[4] = {"none", "1", "2", "3"};
     const char* titles[8];
     char values[8][opxy::draw::header_capacity];
@@ -79,13 +97,24 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
         else opxy::draw::copy(values[i], opxy::draw::header_capacity, " ");   // the stock header's blank
     }
     if (input.shift) {
-        static const char* const shift_titles[4] = {"KIT", "MACHINE", "CHOKE", ""};
-        const char* const shift_values[4] = {kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0], kit::model[selected].name, chokes[input.choices[2] & 3u], ""};
-        const u32 row = input.shown[0] >= 4 ? 4 : 0;
-        for (u32 c = 0; c < 4; ++c) {
-            titles[row + c] = shift_titles[c];
-            opxy::draw::copy(values[row + c], opxy::draw::header_capacity, shift_values[c]);
+        // The key's own pan, -100..100 with 0 centred, and level in dB; and
+        // its sends: 0 follows the track's (TRK), 1..7 send its own 0..100 percent.
+        char pan[8], level[8], sends[2][4];
+        signed_text(pan, sizeof(pan), input.pan, "");
+        signed_text(level, sizeof(level), input.level, "dB");
+        for (u32 s = 0; s < 2; ++s) {
+            const i32 code = input.pad[2 + s];
+            if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 6, "");
+            else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
         }
+        static const char* const shift_titles[2][4] = {{"MACHINE", "CHOKE", "PAN", "LEVEL"}, {"FILTER", "SRR", "FX I", "FX II"}};
+        const char* const shift_values[2][4] = {{kit::model[selected].name, chokes[input.choices[2] & 3u], pan, level}, {kit::filter_text[md::clamp(input.pad[0], -16, 15) + 16], kit::srr_text[md::clamp(input.pad[1], 0, 15)], sends[0], sends[1]}};
+        for (u32 line = 0; line < 2; ++line)
+            for (u32 c = 0; c < 4; ++c) {
+                titles[4 * line + c] = shift_titles[line][c];
+                opxy::draw::copy(values[4 * line + c], opxy::draw::header_capacity, shift_values[line][c]);
+            }
+        titles[0] = kit::families[input.choices[0] < kit::family_count ? input.choices[0] : 0];
     }
     opxy::draw::page_header(state.header, input, frame, titles, values, header_node);
 }

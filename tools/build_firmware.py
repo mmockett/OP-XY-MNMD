@@ -72,7 +72,9 @@ def kit_regions(engine, kit=None):
 
 def preset(entry, amp, params, regions):
     """A preset in the device's version-4 structure, as the SDK's browser builder
-    writes its init presets (../open-xy/builder/core.mjs, defaultPreset)."""
+    writes its init presets (../open-xy/builder/core.mjs, defaultPreset). fx is stock's
+    filter, switched off: on a kit it is the track filter (M3). The per-hit lock words
+    (36..38) have no key; preset load leaves them with no lock."""
     return {
         "engine": {
             "bendrange": 8191, "highpass": 0,
