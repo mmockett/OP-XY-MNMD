@@ -8,8 +8,11 @@ artwork (panel.svg.fragment) under the two-row header, in UniversNextPro-Light.
 
 Each synth is drawn at its defaults, every control at 0 and every control at 127,
 and at its defaults a fifth of a second into a note; each of a kit's machines at
-its first key's values (or 64), at 0 and at 127. The SVGs reference the font by
-name only: rasterise them with the face loaded (OP-XY-Dev media/stock-look-build).
+its first key's values (or 64), at 0 and at 127, and with Shift held (its mixer at
+the defaults), the first machine with Shift on the second row too. A two-row
+header is drawn from the frame's own text slots, as the device places them. The
+SVGs reference the font by name only: rasterise them with the face loaded
+(OP-XY-Dev media/stock-look-build).
 """
 import argparse
 import json
@@ -52,7 +55,29 @@ def header(titles, values):
     return "".join(out)
 
 
-def svg(frame, nodes, palette, titles, values):
+def text_slots(folder, engine):
+    """The panel's text slots by number: their fill and font size, as authored."""
+    slots = {}
+    for m in re.finditer(r'<text id="%s_text_(\d+)"([^>]*)>' % engine, (folder / "panel.svg.fragment").read_text()):
+        a = dict(re.findall(r'([\w-]+)="([^"]*)"', m.group(2)))
+        slots[int(m.group(1))] = (a.get("fill", "#CBCBCB"), a.get("font-size", "10px"))
+    return slots
+
+
+def device_header(frame, slots):
+    """The header's text as the frame places it in the panel's text slots."""
+    out = []
+    for n, (x, y, scale, chars) in enumerate(frame.get("texts", [])):
+        if n not in slots or not chars:
+            continue
+        fill, size = slots[n]
+        chars = chars.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        out.append(f'<text transform="matrix({scale / 1024:.4f} 0 0 {scale / 1024:.4f} {x / 1024:.3f} {y / 1024:.3f})" '
+                   f'font-family="{FONT}" font-size="{size}" fill="{fill}">{chars}</text>')
+    return "".join(out)
+
+
+def svg(frame, nodes, palette, titles, values, slots=None):
     body = ['<rect width="480" height="222" fill="#000"/>']
     for n, (x, y, scale, cos, sin, shade, paint) in enumerate(frame["nodes"]):
         if x >= HIDDEN_X or n not in nodes:
@@ -74,8 +99,9 @@ def svg(frame, nodes, palette, titles, values):
             body.append(f'<circle transform="{m}" cx="{a.get("cx", "0")}" cy="{a.get("cy", "0")}" r="{a["r"]}" fill="{fill}" stroke="{stroke}" stroke-width="{width}"/>')
         else:
             body.append(f'<path transform="{m}" d="{a["d"]}" fill="{fill}" stroke="{stroke}" stroke-width="{width}" stroke-linejoin="round"/>')
+    top = device_header(frame, slots) if slots and any(t[3] for t in frame.get("texts", [])) else header(titles, values)
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 222" width="480" height="222">'
-            + "".join(body) + header(titles, values) + "</svg>\n")
+            + "".join(body) + top + "</svg>\n")
 
 
 def labels(folder, engine, model):
@@ -123,21 +149,38 @@ def main():
             key_values = [[int(v) for v in row.split(",")] for row in re.findall(r'^\s*\{([\d, ]+)\},\s*//\s*\d+ ', text, re.M)]
             shown = [int(v) for v in re.search(r"shown\[models\] = \{([^}]*)\}", text).group(1).split(",")]
             models = len(re.findall(r'\{"\w*", \d+, \{', text))
+            # The Shift rows' choices: the model's group and its place in it, or the model; choke group none.
+            groups = json.loads((folder / "definition.json").read_text())["resources"].get("modelGroups")
+            def choices(m):
+                if not groups:
+                    return [m, 0, 0]
+                first = 0
+                for g, group in enumerate(groups):
+                    if m < first + group["count"]:
+                        return [g, m - first, 0]
+                    first += group["count"]
+                return [0, 0, 0]
             for m in range(models):
                 first = shown[m] if m == 0 or shown[m] else None
                 defaults = key_values[first] if first is not None else [64] * 8
                 for name, v in (("defaults", defaults), ("all0", [0] * 8), ("all127", [127] * 8)):
                     settings.append((f"{m:02d}-{name}", m, v, 0))
+                settings.append((f"{m:02d}-shift", m, defaults, 0, [1, 0, *choices(m)]))
+                if m == 0:
+                    settings.append((f"{m:02d}-shift-row2", m, defaults, 0, [1, 1, *choices(m)]))
         else:
             d = json.loads((folder / "definition.json").read_text())
             defaults = [round(p["default"] * 127) for p in d["parameters"]] + [0] * 8
             defaults = defaults[:8]
             for name, v, frames in (("defaults", defaults, 0), ("all0", [0] * 8, 0), ("all127", [127] * 8, 0), ("hit", defaults, 12)):
                 settings.append((name, 0, v, frames))
-        lines = "".join(f"{m} {' '.join(str(x) for x in v)} {frames}\n" for _, m, v, frames in settings)
+        settings = [s if len(s) == 5 else (*s, []) for s in settings]
+        lines = "".join(f"{m} {' '.join(str(x) for x in v)} {frames} {' '.join(map(str, extra))}\n"
+                        for _, m, v, frames, extra in settings)
         result = subprocess.run([str(exe)], input=lines, capture_output=True, text=True, check=True)
         nodes, palette = artwork(folder, engine)
-        for (name, m, v, _), line in zip(settings, result.stdout.splitlines()):
+        slots = text_slots(folder, engine)
+        for (name, m, v, _, _), line in zip(settings, result.stdout.splitlines()):
             frame = json.loads(line)
             titles, enums = labels(folder, engine, m)
             # The header's values: what each definition slot holds, in its position.
@@ -154,7 +197,7 @@ def main():
                     labels_ = p["mapping"].get("labels")
                     values[pos] = labels_[min(len(labels_) - 1, raw * len(labels_) >> 7)] if labels_ else str(raw)
             (out / engine).mkdir(exist_ok=True)
-            (out / engine / f"{name}.svg").write_text(svg(frame, nodes, palette, titles, values))
+            (out / engine / f"{name}.svg").write_text(svg(frame, nodes, palette, titles, values, slots))
             (out / engine / f"{name}.json").write_text(line + "\n")
         print(engine, len(settings), "frames")
     return 0

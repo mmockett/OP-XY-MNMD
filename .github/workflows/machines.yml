@@ -69,12 +69,19 @@ jobs:
           mkdir -p local
           c++ -std=c++11 -O2 -fwrapv -w -Iopen-xy/sdk/include -Imd/machines/mdkit -DENGINE=mdkit md/tools/check_kit_frames.cpp -o local/check-kit
           local/check-kit
-      # The DPRO engines and MD E12 need the owner's ROM captures, which CI hasn't.
+      # MD E12's screen needs no samples: its tapes are drawn from its controls alone.
+      - name: MD E12's tapes, every control through every value
+        if: always()
+        run: |
+          mkdir -p local
+          c++ -std=c++11 -O2 -fwrapv -w -Iopen-xy/sdk/include -Imd/machines/mde12 -DENGINE=mde12 md/tools/check_kit_frames.cpp -o local/check-e12
+          local/check-e12
+      # The DPRO engines' sounds and MD E12's need the owner's ROM captures, which CI hasn't.
       - name: The synths under the amp envelope, against the recorded frames
         run: python md/tools/check_envelope.py --sdk open-xy --out local $STOCK_LOOK mmens mmvo6
       - name: Frames as SVG
         if: always()
-        run: python md/tools/frame_svg.py --sdk open-xy --out frames $STOCK_LOOK mdkit
+        run: python md/tools/frame_svg.py --sdk open-xy --out frames $STOCK_LOOK mdkit mde12
       - uses: actions/upload-artifact@v4
         if: always()
         with:
