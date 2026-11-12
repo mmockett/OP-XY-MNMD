@@ -80,5 +80,12 @@ inline void controls(u32 m, const i32* values, i32* own) {
 inline void key_controls(u32 key, i32* values) {
     for (u32 c = 0; c < 8; ++c) values[c] = static_cast<i32>(static_cast<u32>(key_values[key][c]) << 24);
 }
+// The pad controls (SDK padControls, tools/make_engine.py PAD_CONTROLS), on
+// Shift's second row: SRR's sample hold, and the captions of FILTER (-16..15,
+// index + 16: low-pass below 0, high-pass above, at Q 1.2) and SRR.
+// FILTER's coefficients are in engine.cpp.
+const unsigned char srr_hold[16] = {1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64};
+const char* const filter_text[32] = {"L150", "L196", "L255", "L332", "L433", "L565", "L736", "L959", "L1.3k", "L1.6k", "L2.1k", "L2.8k", "L3.6k", "L4.7k", "L6.1k", "L8.0k", "OPEN", "H50", "H68", "H94", "H128", "H175", "H239", "H327", "H447", "H612", "H836", "H1.1k", "H1.6k", "H2.1k", "H2.9k", "H4.0k"};
+const char* const srr_text[16] = {"OFF", "22k", "15k", "11k", "8.8k", "7.3k", "5.5k", "4.4k", "3.7k", "2.8k", "2.2k", "1.8k", "1.4k", "1.1k", "919", "689"};
 }
 }

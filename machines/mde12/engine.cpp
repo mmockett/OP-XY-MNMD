@@ -107,6 +107,109 @@ void scramble_range(u32 model, u32 slot, opxy::u8* low, opxy::u8* high) {
     *high = scramble_high[model][slot];
 }
 
+// FILTER's coefficients a1, a2, a3 (Q31) for each of its 32 values (index
+// value + 16; 16 is open) at its one resonance, half its k = 1 / Q, and the
+// input's share: tools/make_engine.py pad_fx_code.
+const i32 filter_coefficients[32][3] = {
+    {2128288038, 22743090, 243035},
+    {2122433141, 29566363, 411872},
+    {2114782444, 38404531, 697428},
+    {2104779036, 49829889, 1179705},
+    {2091690046, 64561071, 1992710},
+    {2074549919, 83488560, 3359929},
+    {2052085841, 107695064, 5651921},
+    {2022621153, 138460806, 9478490},
+    {1983953855, 177235797, 15833296},
+    {1933211607, 225548624, 26314854},
+    {1866695103, 284803101, 43452627},
+    {1779741995, 355890268, 71166429},
+    {1666676100, 438516317, 115377283},
+    {1520947531, 530118894, 184770372},
+    {1335604780, 624194313, 291716941},
+    {1104279013, 707657675, 453489906},
+    {0, 0, 0},
+    {2141101139, 7626413, 27165},
+    {2138751322, 10417896, 50746},
+    {2135534394, 14225393, 94759},
+    {2131128727, 19413685, 176850},
+    {2125092072, 26474118, 329811},
+    {2116815364, 36064613, 614440},
+    {2105458249, 49058752, 1143106},
+    {2089859025, 66602455, 2122577},
+    {2068409103, 90172191, 3931052},
+    {2038879717, 121619212, 7254588},
+    {1998188157, 163166183, 13323672},
+    {1942097355, 217289978, 24311312},
+    {1864866263, 286370497, 43975304},
+    {1758925876, 371906456, 78635725},
+    {1614762720, 473001421, 138553077},
+};
+const i32 filter_k_half = 894784853, filter_feed = 103021760;
+
+// The key's pad controls (the SDK's padControls), before every render.
+inline void drum_pad(Voice& voice, Shared&, u32, const i32* values) {
+    voice.fx.filter = md::clamp(values[0], -16, 15);
+    voice.fx.srr = md::clamp(values[1], 0, 15);
+}
+// Their captions for the stock header, as the kit's own header shows them.
+inline bool pad_control_text(u32 field, i32 value, char* text) {
+    const char* caption = field == 0 ? kit::filter_text[md::clamp(value, -16, 15) + 16]
+                        : field == 1 ? kit::srr_text[md::clamp(value, 0, 15)] : "";
+    u32 n = 0;
+    for (; caption[n] && n < 15; ++n) text[n] = caption[n];
+    text[n] = 0;
+    return true;
+}
+// SRR holds every hold-th sample, as a lower sample rate would, then FILTER
+// runs low-pass or high-pass. Each is skipped at 0, so a key at its defaults
+// sounds exactly as before. The filter takes under a sixteenth of the signal
+// (filter_feed), so its states stay in range, and gives it back sixteen times
+// over, clamped to the kit's half-scale ceiling.
+inline void pad_fx(PadFx& fx, opxy::Output output) {
+    if (fx.srr) {
+        const u32 hold = kit::srr_hold[fx.srr];
+        u32 left = fx.left;
+        i32 held = fx.held;
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {
+            if (!left) { held = output[i]; left = hold; }
+            --left;
+            output[i] = held;
+        }
+        fx.left = left;
+        fx.held = held;
+    }
+    if (!fx.filter) {
+        fx.ic1 = fx.ic2 = 0;
+        return;
+    }
+    const i32* c = filter_coefficients[fx.filter + 16];
+    const i32 a1 = c[0], a2 = c[1], a3 = c[2], feed = filter_feed, limit = md::half_scale >> 4;
+    using md::multiply;
+    i32 ic1 = fx.ic1, ic2 = fx.ic2;
+    if (fx.filter > 0) {
+        const i32 k = filter_k_half;
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {
+            const i32 v0 = multiply(output[i], feed), v3 = v0 - ic2;
+            const i32 v1 = multiply(a1, ic1) + multiply(a2, v3);
+            const i32 v2 = ic2 + multiply(a2, ic1) + multiply(a3, v3);
+            ic1 = 2 * v1 - ic1;
+            ic2 = 2 * v2 - ic2;
+            output[i] = md::clamp(v0 - 2 * multiply(k, v1) - v2, -limit, limit) * 16;
+        }
+    } else {
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {
+            const i32 v0 = multiply(output[i], feed), v3 = v0 - ic2;
+            const i32 v1 = multiply(a1, ic1) + multiply(a2, v3);
+            const i32 v2 = ic2 + multiply(a2, ic1) + multiply(a3, v3);
+            ic1 = 2 * v1 - ic1;
+            ic2 = 2 * v2 - ic2;
+            output[i] = md::clamp(v2, -limit, limit) * 16;
+        }
+    }
+    fx.ic1 = ic1;
+    fx.ic2 = ic2;
+}
+
 const u32 tuned[opxy::block_frames] = {::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c, ::md::kit::middle_c};
 __attribute__((noinline)) void sound0(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_bd::render(voice.u.m0, shared.common, output, own, tuned); }
 __attribute__((noinline)) void sound1(Voice& voice, Shared& shared, opxy::Output output, const i32* own) { md::e12_sd::render(voice.u.m1, shared.common, output, own, tuned); }
@@ -134,6 +237,7 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
         return;
     }
     if (voice.pending || voice.next != voice.machine) {
+        if (voice.pending) voice.fx.ic1 = voice.fx.ic2 = voice.fx.left = 0;   // a note starts the filter and the hold afresh
         voice.pending = 0;
         voice.machine = voice.next;
         begin_member(voice, shared);
@@ -159,6 +263,7 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     case 15: sound15(voice, shared, output, own); break;
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }
+    pad_fx(voice.fx, output);
     // Stops at the first loud sample: nearly every block of a sounding voice has one early.
     unsigned under = 0;
     while (under < opxy::block_frames && output[under] < quiet_under && output[under] > -quiet_under) ++under;

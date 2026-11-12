@@ -98,7 +98,7 @@ inline void display(DisplayState& state, const opxy::draw::Input& input, Frame& 
     }
     if (input.shift) {
         // The key's own pan, -100..100 with 0 centred, and level in dB; and
-        // its sends: 0 follows the track's (TRK), 1..7 send its own 0..100 percent.
+        // its sends: TRK follows the track's, else the key's own 0..100 percent.
         char pan[8], level[8], sends[2][4];
         signed_text(pan, sizeof(pan), input.pan, "");
         signed_text(level, sizeof(level), input.level, "dB");

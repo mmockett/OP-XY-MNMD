@@ -98,13 +98,25 @@
   ],
   "presets": {},
   "resources": {
-    "voiceBytes": 72,
+    "voiceBytes": 104,
     "voiceAlignment": 4,
     "voiceCapacity": 16,
     "sharedBytes": 16,
     "outputPeakQ31": 1073741824,
     "modelCount": 16,
     "chokeSameKey": 1,
+    "padMix": 1,
+    "padControls": [
+      {
+        "label": "FILTER",
+        "bits": 5,
+        "signed": true
+      },
+      {
+        "label": "SRR",
+        "bits": 4
+      }
+    ],
     "display": {
       "stateBytes": 44,
       "stateAlignment": 4,
