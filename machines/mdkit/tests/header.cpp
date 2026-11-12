@@ -89,8 +89,9 @@ int main() {
         expect("FX II at 0", frame.header[3], "TRK");
     }
     const struct { Pads pads; const char *f, *s, *a, *b; } rows[] = {
-        {{-16, 15, 7, 1}, "L150", "689", "100", "0"}, {{-6, 4, 3, 0}, "L2.1k", "8.8k", "33", "TRK"},
-        {{-1, 1, 0, 6}, "L8.0k", "22k", "TRK", "83"}, {{1, 2, 2, 5}, "H50", "15k", "17", "67"}, {{15, 9, 4, 0}, "H4.0k", "2.8k", "50", "TRK"}};
+        // A send is 0 (TRK) or its percent + 1 (SDK 1.15).
+        {{-16, 15, 101, 1}, "L150", "689", "100", "0"}, {{-6, 4, 34, 0}, "L2.1k", "8.8k", "33", "TRK"},
+        {{-1, 1, 0, 84}, "L8.0k", "22k", "TRK", "83"}, {{1, 2, 38, 2}, "H50", "15k", "37", "1"}, {{15, 9, 51, 0}, "H4.0k", "2.8k", "50", "TRK"}};
     for (const auto& row : rows) {
         show(0, 1, true, 0, 0, 1, row.pads);
         expect("FILTER", frame.header[0], row.f);
@@ -109,11 +110,11 @@ int main() {
     // (title slots 0..3, values 4..7), the other grey (titles 8..11, values
     // 12..15). On the first row the second's FILTER, SRR, FX I, FX II sit grey
     // under it; on the second, the first's MACHINE, CHOKE, PAN, LEVEL.
-    show(0, 0, true, -40, -6, 2, Pads{-16, 15, 7, 0});
+    show(0, 0, true, -40, -6, 2, Pads{-16, 15, 101, 0});
     for (opxy::u32 c = 0; c < 4; ++c) expect("the grey second-row Shift title", frame.texts[8 + c].chars, second[c]);
     const char* const grey_second[4] = {"L150", "689", "100", "TRK"};
     for (opxy::u32 c = 0; c < 4; ++c) expect("a grey second-row Shift value", frame.texts[12 + c].chars, grey_second[c]);
-    show(0, 1, true, -40, -6, 2, Pads{-16, 15, 7, 0});
+    show(0, 1, true, -40, -6, 2, Pads{-16, 15, 101, 0});
     for (opxy::u32 c = 0; c < 4; ++c) expect("the grey first-row Shift title", frame.texts[8 + c].chars, first[c]);
     const char* const grey_first[4] = {"BD", "2", "-40", "-6dB"};
     for (opxy::u32 c = 0; c < 4; ++c) expect("a grey first-row Shift value", frame.texts[12 + c].chars, grey_first[c]);
@@ -122,7 +123,7 @@ int main() {
     // Without Shift the header shows the key's own controls, as before, on
     // either row, whatever its pad settings.
     for (opxy::u32 line = 0; line < 2; ++line) {
-        show(0, line, false, -100, -30, 3, Pads{-16, 15, 7, 7});
+        show(0, line, false, -100, -30, 3, Pads{-16, 15, 101, 101});
         for (opxy::u32 c = 0; c < 4; ++c)
             if (!(frame.header[c][0] >= '0' && frame.header[c][0] <= '9')) {
                 std::printf("FAIL TRX-BD's header without Shift reads \"%s\"\n", frame.header[c]); ++failures;

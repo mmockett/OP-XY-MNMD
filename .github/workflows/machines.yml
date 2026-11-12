@@ -6,6 +6,7 @@ on:
 permissions:
   contents: read
 env:
+  # Per-key sends in 1% steps (SDK 1.15) are in staging since etcetc000/open-xy#518.
   OPEN_XY_REPO: etcetc000/open-xy
   OPEN_XY_REF: staging
 jobs:
