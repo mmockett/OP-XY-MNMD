@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sdk": "1.10",
+  "sdk": "1.15",
   "kind": "drum",
   "description": "The Machinedrum's KIT machines as a drum kit: each key picks its own machine and keeps its own controls.",
   "presetDefaults": {

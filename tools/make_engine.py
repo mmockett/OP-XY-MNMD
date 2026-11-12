@@ -53,8 +53,9 @@ def moment(engine):
 
 
 def sdk_version(engine, kit=False):
-    """The SDK an engine targets: 1.10 to read the amp envelope or for a kit's padMix, else 1.8 for the drum kind, 1.3 for a synth."""
-    return "1.10" if engine in AMP_ENVELOPE or engine in PAD_MIX else "1.8" if kit else "1.3"
+    """The SDK an engine targets: 1.15 for a kit's padMix (its sends shown in percents), 1.10 to read the amp
+    envelope, else 1.8 for the drum kind, 1.3 for a synth."""
+    return "1.15" if engine in PAD_MIX else "1.10" if engine in AMP_ENVELOPE else "1.8" if kit else "1.3"
 
 
 # Drum kits whose Shift turns each key's own pan and level (the SDK's padMix, SDK 1.10).
@@ -964,8 +965,9 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
         signed_text(pan, sizeof(pan), input.pan, "");
         signed_text(level, sizeof(level), input.level, "dB");
         for (u32 s = 0; s < 2; ++s) {{
-            const i32 code = input.pad[2 + s];
-            if (code > 0) signed_text(sends[s], sizeof(sends[s]), (((code > 7 ? 7 : code) - 1) * 100 + 3) / 6, "");
+            // SDK 1.15: 0 follows the track's send (TRK), else the key's percent + 1.
+            const i32 percent = input.pad[2 + s] - 1;
+            if (percent >= 0) signed_text(sends[s], sizeof(sends[s]), percent > 100 ? 100 : percent, "");
             else opxy::draw::copy(sends[s], sizeof(sends[s]), "TRK");
         }}
 """
