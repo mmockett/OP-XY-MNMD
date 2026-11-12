@@ -1,13 +1,15 @@
-// MD KIT's pad controls in the voice (tools/make_engine.py pad_fx_code): at 0 a key
-// sounds exactly as without them; FILTER's low-pass takes the highs and its
-// high-pass the lows; SRR holds each sample for its hold; at their heaviest,
-// every machine stays under the SDK's half-scale ceiling and still ends.
+// MD KIT's pad controls in the voice (tools/make_engine.py pad_fx_code), written
+// by tools/make_engine.py: at 0 a key sounds exactly as without them; FILTER's
+// low-pass takes the highs and its high-pass the lows; SRR holds each sample
+// for its hold; at their heaviest, every machine stays under the SDK's
+// half-scale ceiling and still ends.
 #include "../engine.cpp"
 #include <cstdio>
 #include <cstring>
 
 namespace {
 int failures = 0;
+const bool captured = true;
 mdkit::Voice voice;
 mdkit::Shared shared;
 
@@ -71,7 +73,7 @@ int main() {
     }
     // Low-pass at its lowest takes most of a hat's highs; high-pass at its
     // highest most of a kick's lows. Key 61 is CH, key 53 BD.
-    {
+    if (captured) {
         opxy::i32 peak;
         play(61, neutral, plain, frames, peak);
         const opxy::i32 low[2] = {-16, 0};
@@ -117,5 +119,6 @@ int main() {
     if (voice.fx.filter != 15 || voice.fx.srr != 15) { std::printf("FAIL pad values unclamped\n"); ++failures; }
     mdkit::drum_pad(voice, shared, 1, under);
     if (voice.fx.filter != -16 || voice.fx.srr != 0) { std::printf("FAIL pad values unclamped\n"); ++failures; }
+    if (!failures) std::puts("PASS mdkit pad controls");
     return failures ? 1 : 0;
 }

@@ -58,8 +58,12 @@ def sdk_version(engine, kit=False):
     return "1.15" if engine in PAD_MIX else "1.10" if engine in AMP_ENVELOPE else "1.8" if kit else "1.3"
 
 
-# Drum kits whose Shift turns each key's own pan and level (the SDK's padMix, SDK 1.10).
-PAD_MIX = {"mdkit"}
+# Drum kits whose Shift is each key's mixer channel (the SDK's padMix, SDK 1.10;
+# its sends in percents, 1.15): MACHINE, CHOKE, PAN and LEVEL on the first row,
+# the pad controls, FX I and FX II on the second, each lockable per step, and
+# the track filter on M3. MD E12 has them as MD KIT does: a sample's key takes
+# the same FILTER and SRR after its own HP.
+PAD_MIX = {"mdkit", "mde12"}
 # Those kits' pad controls (the SDK's padControls) on Shift's second row, before
 # the SDK's FX I and FX II: FILTER (signed: low-pass below 0, high-pass above,
 # 0 open) and SRR.
@@ -651,8 +655,10 @@ SCRAMBLE = {
     "CDEC": (16, 110), "FB": (0, 48), "MFB": (0, 48), "MOD": (0, 90), "NOIS": (0, 80),
     "HOLD": (0, 60), "SUS": (0, 90), "HPF": (0, 80), "LPF": (48, 127), "HARD": (24, 127), "UVAL": (32, 127), "GRAB": (32, 127),
 }
-# E12's sample controls: a retrig that holds, a start past the attack, a stop before it.
-SCRAMBLE_E12 = {"RTRG": (0, 60), "STRT": (0, 48), "STOP": (64, 127), "HP": (0, 64), "HPQ": (0, 80)}
+# E12's sample controls: a retrig that holds, a start past the attack, a stop before it,
+# and E12-BD's SNAP driving the kick at most twice as hard into its clip, as MD KIT's
+# CLIP and DIST stop short of their heaviest.
+SCRAMBLE_E12 = {"RTRG": (0, 60), "STRT": (0, 48), "STOP": (64, 127), "HP": (0, 64), "HPQ": (0, 80), "SNAP": (0, 64)}
 
 
 def control_count(name):
@@ -672,6 +678,296 @@ def kit_keys(engine, kit=None):
         raw = [int(round(v)) if s else 0 for v, s in zip(values, catalog.MACHINES[name][2])]
         keys.append((role, name, machines.index(name), raw))
     return keys
+
+
+def pad_mix_tests(engine, title, machines, groups, sampled, captured):
+    """A padMix kit's own tests (PAD_MIX): tests/header.cpp, its Shift rows in its
+    header; tests/padfx.cpp, its pad controls in the voice. Returns both texts."""
+    fam = KIT_FAMILY[engine]
+    short = [name.split("-", 1)[1] if groups or family(name) == fam else name for name in machines]
+    keys = kit_keys(engine)
+    key_of = lambda role: 53 + next(k for k, key in enumerate(keys) if key[0] == role)
+    hat, kick = key_of("CH"), key_of("BD")
+    if groups:
+        # The first and last machine of each family, under its family's name.
+        picks, first = [], 0
+        for label, members in groups:
+            for m in sorted({first, first + len(members) - 1}):
+                picks.append((m, label.lower(), short[m]))
+            first += len(members)
+        machine_title = groups[0][0].lower()
+        choices = f"""    // The drum kind's choices for a kit with groups: the family, the model's
+    // place in it and the choke group.
+    // The families run in order (kit.h): {", ".join(f"{label} {len(members)}" for label, members in groups)}.
+    opxy::u32 family = 0, first = 0;
+    static const opxy::u32 sizes[{len(groups)}] = {{{", ".join(str(len(members)) for _label, members in groups)}}};
+    while (family + 1 < {engine}::kit::family_count && model >= first + sizes[family]) first += sizes[family++];
+    input.choices[0] = static_cast<opxy::u8>(family);
+    input.choices[1] = static_cast<opxy::u8>(model - first);
+    input.choices[2] = static_cast<opxy::u8>(choke);"""
+        machine_line = f'MACHINE (the machine under its family, "{picks[0][1]}" over "{picks[0][2]}")'
+    else:
+        picks = [(m, "machine", short[m]) for m in range(len(machines))]
+        machine_title = "machine"
+        choices = f"""    // The drum kind's choices for a kit without groups: the model and the choke group.
+    input.choices[0] = static_cast<opxy::u8>(model);
+    input.choices[1] = static_cast<opxy::u8>(choke);"""
+        machine_line = 'MACHINE (the machine under the title "machine")'
+    cells = [f'{{{m}, "{t}", "{n}"}}' for m, t, n in picks]
+    pick_rows = ",\n        ".join(", ".join(cells[i:i + 6]) for i in range(0, len(cells), 6))
+    header = f"""// {title}'s Shift rows in its own header, as the SDK's padMix and padControls
+// give them (written by tools/make_engine.py). The first row is
+// {machine_line}, CHOKE, PAN and
+// LEVEL; the second FILTER, SRR, FX I and FX II. PAN reads as
+// stock's -100..100 with 0 at the centre, LEVEL in whole dB as "-6dB",
+// neither with a plus sign; a send at 0 follows the track's (TRK). Without
+// Shift the header shows the key's controls as before. The captions' widths
+// in the device font: tools/test_voices.py.
+#include "../engine.cpp"
+#include "../display.cpp"
+#include <cstdio>
+#include <cstring>
+
+namespace {{
+int failures = 0;
+{engine}::DisplayState state;
+{engine}::Frame frame;
+
+struct Pads {{ opxy::i32 filter, srr, fx1, fx2; }};
+void show(opxy::u32 model, opxy::u32 line, bool shift, opxy::i32 pan, opxy::i32 level, opxy::u32 choke, Pads pads = Pads()) {{
+    opxy::draw::Input input = opxy::draw::Input();
+    input.model = model;
+    for (opxy::u32 i = 0; i < 4; ++i) input.shown[i] = static_cast<opxy::u8>(line * 4 + i);
+    input.shift = shift ? 1 : 0;
+{choices}
+    input.pan = static_cast<opxy::i8>(pan);
+    input.level = static_cast<opxy::i8>(level);
+    input.line = static_cast<opxy::u8>(line);
+    input.pad[0] = static_cast<opxy::i8>(pads.filter);
+    input.pad[1] = static_cast<opxy::i8>(pads.srr);
+    input.pad[2] = static_cast<opxy::i8>(pads.fx1);
+    input.pad[3] = static_cast<opxy::i8>(pads.fx2);
+    {engine}::display_reset(state);
+    {engine}::display(state, input, frame);
+}}
+
+void expect(const char* what, const char* shown, const char* wanted) {{
+    if (std::strcmp(shown, wanted) != 0) {{
+        std::printf("FAIL %s reads \\"%s\\", not \\"%s\\"\\n", what, shown, wanted);
+        ++failures;
+    }}
+}}
+}}
+
+int main() {{
+    // The first row's Shift: the machine{" with its family" if groups else ""}, the choke group,
+    // then the key's pan and level.
+    const struct {{ opxy::u32 model; const char *family, *name; }} machines[] = {{
+        {pick_rows}}};
+    for (const auto& m : machines) {{
+        show(m.model, 0, true, 0, 0, 1);
+        expect("MACHINE", frame.header[0], m.name);
+        expect("MACHINE's title", frame.texts[0].chars, m.family);
+        expect("CHOKE", frame.header[1], "1");
+    }}
+    const struct {{ opxy::i32 value; const char* text; }} pans[] = {{
+        {{-100, "-100"}}, {{-40, "-40"}}, {{-1, "-1"}}, {{0, "0"}}, {{7, "7"}}, {{40, "40"}}, {{100, "100"}}}};
+    const struct {{ opxy::i32 value; const char* text; }} levels[] = {{
+        {{-30, "-30dB"}}, {{-12, "-12dB"}}, {{-6, "-6dB"}}, {{-1, "-1dB"}}, {{0, "0dB"}}}};
+    const char* const chokes[4] = {{"none", "1", "2", "3"}};
+    for (const auto& pan : pans)
+        for (const auto& level : levels)
+            for (opxy::u32 choke = 0; choke < 4; ++choke) {{
+                show(0, 0, true, pan.value, level.value, choke);
+                expect("CHOKE", frame.header[1], chokes[choke]);
+                expect("PAN", frame.header[2], pan.text);
+                expect("LEVEL", frame.header[3], level.text);
+            }}
+    // Its titles, which the two-page header writes in lower case: the bright
+    // row's are text slots 0..3.
+    show(0, 0, true, 0, 0, 0);
+    const char* const first[4] = {{"{machine_title}", "choke", "pan", "level"}};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a first-row Shift title", frame.texts[c].chars, first[c]);
+    // The second row's Shift: FILTER, SRR, FX I and FX II; every machine has
+    // the row, one with four or fewer controls too.
+    for (opxy::u32 m = 0; m < {engine}::kit::models; ++m) {{
+        show(m, 1, true, -40, -6, 2);
+        expect("FILTER at 0", frame.header[0], "OPEN");
+        expect("SRR at 0", frame.header[1], "OFF");
+        expect("FX I at 0", frame.header[2], "TRK");
+        expect("FX II at 0", frame.header[3], "TRK");
+    }}
+    const struct {{ Pads pads; const char *f, *s, *a, *b; }} rows[] = {{
+        // A send is 0 (TRK) or its percent + 1 (SDK 1.15).
+        {{{{-16, 15, 101, 1}}, "L150", "689", "100", "0"}}, {{{{-6, 4, 34, 0}}, "L2.1k", "8.8k", "33", "TRK"}},
+        {{{{-1, 1, 0, 84}}, "L8.0k", "22k", "TRK", "83"}}, {{{{1, 2, 38, 2}}, "H50", "15k", "37", "1"}}, {{{{15, 9, 51, 0}}, "H4.0k", "2.8k", "50", "TRK"}}}};
+    for (const auto& row : rows) {{
+        show(0, 1, true, 0, 0, 1, row.pads);
+        expect("FILTER", frame.header[0], row.f);
+        expect("SRR", frame.header[1], row.s);
+        expect("FX I", frame.header[2], row.a);
+        expect("FX II", frame.header[3], row.b);
+        char text[16];
+        // The stock header's captions (pad_control_text) are the same.
+        {engine}::pad_control_text(0, row.pads.filter, text); expect("FILTER's stock caption", text, row.f);
+        {engine}::pad_control_text(1, row.pads.srr, text); expect("SRR's stock caption", text, row.s);
+    }}
+    show({len(machines) - 1}, 1, true, 0, 0, 2);
+    const char* const second[4] = {{"filter", "srr", "fx i", "fx ii"}};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a second-row Shift title", frame.texts[c].chars, second[c]);
+    // Both Shift rows at once, stacked as the pages: the edited row bright
+    // (title slots 0..3, values 4..7), the other grey (titles 8..11, values
+    // 12..15). On the first row the second's FILTER, SRR, FX I, FX II sit grey
+    // under it; on the second, the first's MACHINE, CHOKE, PAN, LEVEL.
+    show(0, 0, true, -40, -6, 2, Pads{{-16, 15, 101, 0}});
+    for (opxy::u32 c = 0; c < 4; ++c) expect("the grey second-row Shift title", frame.texts[8 + c].chars, second[c]);
+    const char* const grey_second[4] = {{"L150", "689", "100", "TRK"}};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a grey second-row Shift value", frame.texts[12 + c].chars, grey_second[c]);
+    show(0, 1, true, -40, -6, 2, Pads{{-16, 15, 101, 0}});
+    for (opxy::u32 c = 0; c < 4; ++c) expect("the grey first-row Shift title", frame.texts[8 + c].chars, first[c]);
+    const char* const grey_first[4] = {{"{short[0]}", "2", "-40", "-6dB"}};
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a grey first-row Shift value", frame.texts[12 + c].chars, grey_first[c]);
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a bright second-row Shift title", frame.texts[c].chars, second[c]);
+    for (opxy::u32 c = 0; c < 4; ++c) expect("a bright second-row Shift value", frame.texts[4 + c].chars, grey_second[c]);
+    // Without Shift the header shows the key's own controls, as before, on
+    // either row, whatever its pad settings.
+    for (opxy::u32 line = 0; line < 2; ++line) {{
+        show(0, line, false, -100, -30, 3, Pads{{-16, 15, 101, 101}});
+        for (opxy::u32 c = 0; c < 4; ++c)
+            if (!(frame.header[c][0] >= '0' && frame.header[c][0] <= '9')) {{
+                std::printf("FAIL {machines[0]}'s header without Shift reads \\"%s\\"\\n", frame.header[c]); ++failures;
+            }}
+    }}
+    if (!failures) std::puts("PASS {engine} header");
+    return failures ? 1 : 0;
+}}
+"""
+    padfx = f"""// {title}'s pad controls in the voice (tools/make_engine.py pad_fx_code), written
+// by tools/make_engine.py: at 0 a key sounds exactly as without them; FILTER's
+// low-pass takes the highs and its high-pass the lows; SRR holds each sample
+// for its hold; at their heaviest, every machine stays under the SDK's
+// half-scale ceiling and still ends.{"" if not sampled else chr(10) + "// Built with the data captured from the owner's ROM." if captured else chr(10) + "// Built without the captured data (docs/FAMILIES.md): silent, so what FILTER does to the sound goes unchecked."}
+#include "../engine.cpp"
+#include <cstdio>
+#include <cstring>
+
+namespace {{
+int failures = 0;
+const bool captured = {"true" if captured else "false"};
+{engine}::Voice voice;
+{engine}::Shared shared;
+
+// One note of a key's machine at its kit controls, a second at most, with
+// the pad controls given; returns the blocks rendered until it ended.
+unsigned play(opxy::u32 key, const opxy::i32* pads, opxy::i32* out, unsigned frames, opxy::i32& peak) {{
+    opxy::u8 model, raw[8];
+    {engine}::drum_defaults(key, &model, raw);
+    opxy::i32 values[8];
+    for (int c = 0; c < 8; ++c) values[c] = raw[c] == 127 ? 0x7fffffff : static_cast<opxy::i32>(raw[c]) << 24;
+    std::memset(&voice, 0, sizeof voice);
+    shared = {engine}::Shared();
+    {engine}::initialize(voice, shared, 1);
+    {engine}::start(voice, shared, 1);
+    opxy::u32 pitch[opxy::block_frames];
+    for (unsigned i = 0; i < opxy::block_frames; ++i) pitch[i] = ::md::kit::middle_c;
+    peak = 0;
+    unsigned blocks = 0;
+    for (; blocks < 44100 * 20 / opxy::block_frames && !{engine}::finished(voice, shared); ++blocks) {{
+        {engine}::drum_select(voice, shared, 1, model);
+        if (pads) {engine}::drum_pad(voice, shared, 1, pads);
+        opxy::i32 block[opxy::block_frames];
+        {engine}::render(voice, shared, 1, block, values, pitch);
+        for (unsigned i = 0; i < opxy::block_frames; ++i) {{
+            const opxy::i32 a = block[i] < 0 ? -block[i] : block[i];
+            if (a > peak) peak = a;
+            const unsigned at = blocks * opxy::block_frames + i;
+            if (out && at < frames) out[at] = block[i];
+        }}
+    }}
+    return blocks;
+}}
+
+// The energy of a signal's first differences (its highs) and of a running
+// average (its lows), on 16-bit samples.
+double highs(const opxy::i32* x, unsigned n) {{
+    double e = 0;
+    for (unsigned i = 1; i < n; ++i) {{ const double d = (x[i] - x[i - 1]) / 65536.0; e += d * d; }}
+    return e;
+}}
+double lows(const opxy::i32* x, unsigned n) {{
+    double e = 0, avg = 0;
+    for (unsigned i = 0; i < n; ++i) {{ avg += (x[i] / 65536.0 - avg) / 32; e += avg * avg; }}
+    return e;
+}}
+
+const unsigned frames = 8192;
+opxy::i32 plain[frames], with[frames];
+}}
+
+int main() {{
+    const opxy::i32 neutral[2] = {{0, 0}};
+    // At 0 every key sounds exactly as without the hook.
+    for (opxy::u32 key = 53; key < 77; ++key) {{
+        opxy::i32 peak_a, peak_b;
+        const unsigned a = play(key, nullptr, plain, frames, peak_a);
+        const unsigned b = play(key, neutral, with, frames, peak_b);
+        if (a != b || peak_a != peak_b || std::memcmp(plain, with, sizeof plain)) {{
+            std::printf("FAIL key %u sounds different with its pad controls at 0\\n", key); ++failures;
+        }}
+    }}
+    // Low-pass at its lowest takes most of a hat's highs; high-pass at its
+    // highest most of a kick's lows. Key {hat} is CH, key {kick} BD.
+    if (captured) {{
+        opxy::i32 peak;
+        play({hat}, neutral, plain, frames, peak);
+        const opxy::i32 low[2] = {{-16, 0}};
+        play({hat}, low, with, frames, peak);
+        if (!(highs(with, frames) < 0.05 * highs(plain, frames))) {{
+            std::printf("FAIL FILTER L150 leaves %.3f of CH's highs\\n", highs(with, frames) / highs(plain, frames)); ++failures;
+        }}
+        play({kick}, neutral, plain, frames, peak);
+        const opxy::i32 high[2] = {{15, 0}};
+        play({kick}, high, with, frames, peak);
+        if (!(lows(with, frames) < 0.1 * lows(plain, frames))) {{
+            std::printf("FAIL FILTER H4.0k leaves %.3f of BD's lows\\n", lows(with, frames) / lows(plain, frames)); ++failures;
+        }}
+    }}
+    // SRR holds each sample: at 15, runs of 64 equal samples from the note's start.
+    {{
+        opxy::i32 peak;
+        const opxy::i32 crushed[2] = {{0, 15}};
+        play({kick}, crushed, with, frames, peak);
+        for (unsigned i = 0; i < 4096; ++i)
+            if (with[i] != with[i - i % 64]) {{ std::printf("FAIL SRR 15 changes inside a hold at %u\\n", i); ++failures; break; }}
+        const opxy::i32 light[2] = {{0, 1}};
+        play({kick}, light, with, frames, peak);
+        for (unsigned i = 0; i < 4096; i += 2)
+            if (with[i] != with[i + 1]) {{ std::printf("FAIL SRR 1 does not hold pairs at %u\\n", i); ++failures; break; }}
+    }}
+    // At their heaviest, every machine stays under the ceiling and ends.
+    const opxy::i32 heavy[][2] = {{{{-16, 15}}, {{-1, 0}}, {{1, 0}}, {{15, 15}}, {{-8, 4}}, {{-1, 15}}}};
+    for (opxy::u32 key = 53; key < 77; ++key)
+        for (const auto& pads : heavy) {{
+            opxy::i32 peak;
+            const unsigned blocks = play(key, pads, nullptr, 0, peak);
+            if (peak > ::md::half_scale) {{
+                std::printf("FAIL key %u passes the ceiling at FILTER %d SRR %d\\n", key, pads[0], pads[1]); ++failures;
+            }}
+            if (blocks >= 44100 * 20 / opxy::block_frames && !{engine}::waiting(voice)) {{
+                std::printf("FAIL key %u never ends at FILTER %d SRR %d\\n", key, pads[0], pads[1]); ++failures;
+            }}
+        }}
+    // The values arrive clamped to their fields.
+    const opxy::i32 wild[2] = {{99, 99}}, under[2] = {{-99, -9}};
+    {engine}::drum_pad(voice, shared, 1, wild);
+    if (voice.fx.filter != 15 || voice.fx.srr != 15) {{ std::printf("FAIL pad values unclamped\\n"); ++failures; }}
+    {engine}::drum_pad(voice, shared, 1, under);
+    if (voice.fx.filter != -16 || voice.fx.srr != 0) {{ std::printf("FAIL pad values unclamped\\n"); ++failures; }}
+    if (!failures) std::puts("PASS {engine} pad controls");
+    return failures ? 1 : 0;
+}}
+"""
+    return header, padfx
 
 
 def generate_drum_kit(engine, index):
@@ -940,10 +1236,10 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     # groups its choke group on the second row's first.
     mixed = engine in PAD_MIX
     if mixed:
-        # The SDK's padMix: the machine (every one in turn; its family is the
-        # cell's title, "TRX" over "BD", as both words don't fit a value), the
-        # choke group, the key's pan and level; on the second row the key's
-        # FILTER and SRR, then the SDK's FX I and FX II (0: the track's).
+        # The SDK's padMix: the machine (every one in turn; in a kit with groups
+        # its family is the cell's title, "TRX" over "BD", as both words don't
+        # fit a value), the choke group, the key's pan and level; on the second
+        # row the key's FILTER and SRR, then the SDK's FX I and FX II (0: the track's).
         shift_titles = ["MACHINE", "CHOKE", "PAN", "LEVEL"]
         choke = 'chokes[input.choices[2] & 3u]' if groups else 'chokes[input.choices[1] & 3u]'
         shift_values = ('kit::model[selected].name', choke, 'pan', 'level')
@@ -960,7 +1256,7 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
     second_line = mixed
     if mixed:
         mix_values = f"""        // The key's own pan, -100..100 with 0 centred, and level in dB; and
-        // its sends: 0 follows the track's (TRK), 1..7 send its own 0..100 percent.
+        // its sends: TRK follows the track's, else the key's own 0..100 percent.
         char pan[8], level[8], sends[2][4];
         signed_text(pan, sizeof(pan), input.pan, "");
         signed_text(level, sizeof(level), input.level, "dB");
@@ -1346,6 +1642,11 @@ int main() {{
     return failures ? 1 : 0;
 }}
 """)
+    if engine in PAD_MIX:
+        sampled = any("private_" in (VOICES / f"{h}.hpp").read_text() for h in headers)
+        header_test, padfx_test = pad_mix_tests(engine, title, machines, groups, sampled, captured)
+        (folder / "tests" / "header.cpp").write_text(header_test)
+        (folder / "tests" / "padfx.cpp").write_text(padfx_test)
     return list(machines), []
 
 

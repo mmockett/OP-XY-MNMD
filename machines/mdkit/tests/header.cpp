@@ -1,6 +1,7 @@
 // MD KIT's Shift rows in its own header, as the SDK's padMix and padControls
-// give them: the first row MACHINE (the machine, under its family as the
-// title: "trx" over "BD"), CHOKE, PAN and LEVEL; the second FILTER, SRR, FX I and FX II. PAN reads as
+// give them (written by tools/make_engine.py). The first row is
+// MACHINE (the machine under its family, "trx" over "BD"), CHOKE, PAN and
+// LEVEL; the second FILTER, SRR, FX I and FX II. PAN reads as
 // stock's -100..100 with 0 at the centre, LEVEL in whole dB as "-6dB",
 // neither with a plus sign; a send at 0 follows the track's (TRK). Without
 // Shift the header shows the key's controls as before. The captions' widths
@@ -80,7 +81,7 @@ int main() {
     const char* const first[4] = {"trx", "choke", "pan", "level"};
     for (opxy::u32 c = 0; c < 4; ++c) expect("a first-row Shift title", frame.texts[c].chars, first[c]);
     // The second row's Shift: FILTER, SRR, FX I and FX II; every machine has
-    // the row, one with four or fewer controls too (GND-NS has one).
+    // the row, one with four or fewer controls too.
     for (opxy::u32 m = 0; m < mdkit::kit::models; ++m) {
         show(m, 1, true, -40, -6, 2);
         expect("FILTER at 0", frame.header[0], "OPEN");
@@ -103,7 +104,7 @@ int main() {
         mdkit::pad_control_text(0, row.pads.filter, text); expect("FILTER's stock caption", text, row.f);
         mdkit::pad_control_text(1, row.pads.srr, text); expect("SRR's stock caption", text, row.s);
     }
-    show(31, 1, true, 0, 0, 2);
+    show(32, 1, true, 0, 0, 2);
     const char* const second[4] = {"filter", "srr", "fx i", "fx ii"};
     for (opxy::u32 c = 0; c < 4; ++c) expect("a second-row Shift title", frame.texts[c].chars, second[c]);
     // Both Shift rows at once, stacked as the pages: the edited row bright
@@ -129,5 +130,6 @@ int main() {
                 std::printf("FAIL TRX-BD's header without Shift reads \"%s\"\n", frame.header[c]); ++failures;
             }
     }
+    if (!failures) std::puts("PASS mdkit header");
     return failures ? 1 : 0;
 }

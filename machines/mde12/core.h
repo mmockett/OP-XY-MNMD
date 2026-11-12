@@ -9,6 +9,17 @@ namespace mde12 {
 using opxy::i32;
 using opxy::u32;
 
+// A key's pad controls, from drum_pad, and what they keep between blocks: the
+// filter's states and the sample held by SRR with the frames it has left.
+struct PadFx {
+    i32 filter, srr;
+    u32 spare2;
+    i32 ic1, ic2;   // the filter's two integrator states
+    i32 held;
+    u32 left;
+    u32 spare;      // eight words, so the voice's size is the same on every target
+};
+
 struct Voice {
     u32 machine;   // the member sounding
     u32 next;      // the played key's machine, from drum_select
@@ -16,6 +27,7 @@ struct Voice {
     u32 pending;   // a note started
     u32 quiet;     // blocks in a row under the floor
     u32 done;      // the sound has ended: render writes silence
+    PadFx fx;      // the key's pad controls and their state
     union {
         md::e12_bd::State m0;   // E12-BD
         md::e12_sd::State m1;   // E12-SD

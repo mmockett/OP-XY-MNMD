@@ -89,11 +89,10 @@ Name engines to build only some: `python3 tools/build_firmware.py mdkit`.
 Pick a drum track and choose a kit (MD KIT or MD E12), or a synth track for a
 Monomachine engine. On a kit each key plays its own drum, from the drum page's
 first pad: BD SD HT MT LT CP RS CB CH OH RC CC M1 to M4, then the variations.
-On MD KIT, Shift and the first encoder choose the selected key's family, the
-second its machine and the third its choke group, and a press switches the
-encoders between its first four controls and its last four. On MD E12, Shift
-and the first encoder choose the machine and the second the choke group, and
-a press switches an encoder to its alternate.
+On either kit, Shift is the selected key's mixer channel: its first row
+chooses the machine, the choke group, the pan and the level, and its second
+the key's FILTER, SRR, FX I and FX II. A press switches the encoders between
+the first row and the second, with Shift held or not.
 
 ## Going back to stock
 

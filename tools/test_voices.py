@@ -276,7 +276,8 @@ def pad_mix_problems():
     spec = importlib.util.spec_from_file_location("caption_width", tool)
     ruler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ruler)
-    # MACHINE's value is the machine, its title the family ("trx" over "BD").
+    # MACHINE's value is the machine, its title the family ("trx" over "BD"), or
+    # "machine" in a kit without families (MD E12).
     names = [n.split("-", 1)[1] for e in sorted(make_engine.PAD_MIX) for n in catalog.ENGINES[e]]
     sends = ["TRK", *(str(round((c - 1) * 100 / 6)) for c in range(1, 8))]
     middle, last = 58, 55
@@ -290,7 +291,7 @@ def pad_mix_problems():
                 if ruler.width(text, ruler.VALUE_PX) > room:
                     problems.append(f"caption {text!r}: {ruler.width(text, ruler.VALUE_PX):.1f} px, room {room}")
     # The two-page header writes titles in lower case.
-    for title in ("trx", "efm", "p-i", "gnd", "choke", "pan", "level", "filter", "srr", "fx i", "fx ii"):
+    for title in ("trx", "efm", "p-i", "gnd", "machine", "choke", "pan", "level", "filter", "srr", "fx i", "fx ii"):
         if ruler.width(title, ruler.TITLE_PX) > ruler.TITLE_ROOM:
             problems.append(f"title {title!r}: {ruler.width(title, ruler.TITLE_PX):.1f} px")
     return problems
