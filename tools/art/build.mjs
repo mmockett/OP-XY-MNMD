@@ -234,28 +234,15 @@ function liftStrikes(parts) {
 // A kit drawn as the sounding part in section (tools/art/fig.mjs), full screen:
 // the design's instrument and panel give way to the parts the view places.
 const FIG_KITS = Object.keys(FIGS);
-// Their sections draw on the four paths at scale 2, where a palette entry's
-// stroke width doubles, and their fixed parts at about scale 1. So the paths
-// take entries of their own (voices/mdkit_view.hpp, fig::path_tone), in the
-// ones the kits leave unused: each path shade's grey, at a width that draws
-// 1 px on the screen. The parts' lines are 1 px too, so the kits draw one line
-// weight, as thin as stock Drumline's.
-export const KIT_PATH_SHADES = { line: 'thin', o0: 'mid', o1: 'dim', f2: 'faint', f3: 'dash', f5: 'label' };
-const KIT_PATH_WIDTH = 0.5;
-const KIT_PART_WIDTH = { mid: 1, o2: 1 };
-const KIT_PALETTE = PALETTE.map(([fill, stroke, width], i) => {
-  const style = Object.keys(SHADE).find(s => SHADE[s] === i && s in { ...KIT_PATH_SHADES, ...KIT_PART_WIDTH });
-  if (style in KIT_PATH_SHADES) return ['none', PALETTE[SHADE[KIT_PATH_SHADES[style]]][1], KIT_PATH_WIDTH];
-  return style ? [fill, stroke, KIT_PART_WIDTH[style]] : [fill, stroke, width];
-});
 
-// Each engine's palette and its styles' places in it: the design's, the kits'
-// (MD E12), MD KIT's and the stock look's (tools/art/fig.mjs, tools/art/stock.mjs).
+// Each engine's palette and its styles' places in it: the design's, the stock
+// look's (tools/art/stock.mjs), and the kits' (tools/art/fig.mjs): MD KIT and
+// MD E12 share one, the encoders' greys with 1 px lines (MDKIT_PALETTE). Their
+// paths draw at scale 2 and their fixed parts at about 1, so the paths take
+// entries of their own at half the width (voices/mdkit_view.hpp, fig::Tone).
 export function paletteOf(engine) {
   if (STOCK[engine]) return { palette: STOCK_PALETTE, shade: STOCK_SHADE };
-  if (engine === 'mdkit') return { palette: MDKIT_PALETTE, shade: MDKIT_SHADE };
-  // MD E12's parts keep the design palette's authored strokes; its palette entries are the kits'.
-  if (FIG_KITS.includes(engine)) return { palette: KIT_PALETTE, author: PALETTE, shade: SHADE };
+  if (FIG_KITS.includes(engine)) return { palette: MDKIT_PALETTE, shade: MDKIT_SHADE };
   return { palette: PALETTE, shade: SHADE };
 }
 

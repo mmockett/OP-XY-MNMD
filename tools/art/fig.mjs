@@ -23,7 +23,7 @@ const arc = (r, a0, a1, n = 6) => Array.from({ length: n + 1 }, (_, i) => {
   return [Math.round(r * Math.cos(a) * 2) / 2, Math.round(r * Math.sin(a) * 2) / 2];
 });
 
-// MD KIT in the stock look (K3, OP-XY-Dev media/stock-look-audit/mnmd): the
+// MD KIT (and MD E12) in the stock look (K3, OP-XY-Dev media/stock-look-audit/mnmd): the
 // grey says which encoder moves a part, the drum kit's slots dark to light (the
 // body hollow, the rings dark, the striker mid, the hardware light); 646464 and
 // 323232 belong to no encoder, and a drum's shell is one flat 323232 solid with
@@ -137,17 +137,20 @@ const kit = parts.splice(0);
 // resting by the cut; splicing-tape patches over the joins; and the diagonal
 // splice where a second sample's tape takes over. The tape, its recorded
 // stripes and the cut-off scrap are paths. voices/mdkit_view.hpp's fig_e12::Part
-// names them in this order.
-add('e12_block', 'mid', [0, 0], [[-150, -40], [150, -40], [152, -38], [152, 38], [150, 40], [-150, 40], [-152, 38], [-152, -38]]);
-add('e12_ch_top', 'dim', [0, 0], rect(-144, -0.6, 288, 1.2));
-add('e12_ch_bot', 'dim', [0, 0], rect(-144, -0.6, 288, 1.2));
-add('e12_slot45', 'dim', [0, 0], [[-40, 40], [-38, 40], [42, -40], [40, -40]]);
-add('e12_slot90', 'dim', [0, 0], rect(-1, -40, 2, 80));
-add('e12_blade', 'o2', [0, 0], [[-8, -36], [8, -36], [8, -6], [3, -6], [3, -2], [-3, -2], [-3, -6], [-8, -6]]);
-for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'o2', [0, 0], rect(-3, -22, 6, 44));
-add('e12_diag', 'thin', [0, 0], [[-20, 20], [-19, 20], [21, -20], [20, -20]]);
+// names them in this order. In MD KIT's stock look and palette: the block and
+// its fittings belong to no encoder (a 646464 outline, its rails, slots, blade
+// and notches 646464 solids), the patches are RTRG's (encoder 2's 4B4B4B
+// solid), and the second sample's splice the fourth control's (CDCDCD).
+add('e12_block', 'neutral', [0, 0], [[-150, -40], [150, -40], [152, -38], [152, 38], [150, 40], [-150, 40], [-152, 38], [-152, -38]]);
+add('e12_ch_top', 'f_neutral', [0, 0], rect(-144, -0.6, 288, 1.2));
+add('e12_ch_bot', 'f_neutral', [0, 0], rect(-144, -0.6, 288, 1.2));
+add('e12_slot45', 'f_neutral', [0, 0], [[-40, 40], [-38, 40], [42, -40], [40, -40]]);
+add('e12_slot90', 'f_neutral', [0, 0], rect(-1, -40, 2, 80));
+add('e12_blade', 'f_neutral', [0, 0], [[-8, -36], [8, -36], [8, -6], [3, -6], [3, -2], [-3, -2], [-3, -6], [-8, -6]]);
+for (let k = 0; k < 4; k++) add(`e12_patch${k}`, 'f_dark', [0, 0], rect(-3, -22, 6, 44));
+add('e12_diag', 'light', [0, 0], [[-20, 20], [-19, 20], [21, -20], [20, -20]]);
 // The block's mark for each machine: four notches filed in its right end, as a binary gauge.
-for (let k = 0; k < 4; k++) add(`e12_notch${k}`, 'thin', [0, 0], rect(-1.5, -4, 3, 8));
+for (let k = 0; k < 4; k++) add(`e12_notch${k}`, 'f_neutral', [0, 0], rect(-1.5, -4, 3, 8));
 const e12 = parts.splice(0);
 
 // Each kit drawn this way, and its parts.

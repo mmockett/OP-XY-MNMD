@@ -118,7 +118,11 @@ follow the common nodes, and each view hides them first); MD E12 is 39 nodes
 and about 11 KB. 
 MD E12 draws its sample as a strip of tape on a splicing block, seen from
 above (namespace `fig_e12`), its recording developed into stripes across it,
-each machine its own recording:
+each machine its own recording. It is in MD KIT's stock look and palette, with
+1 px lines: the tape, its stripes and the cut-off start CDCDCD; RTRG's patches
+encoder 2's 4B4B4B, solid; the block, which belongs to no encoder, a 646464
+outline, with its rails, slots, blade and notches 646464 solids. The block is
+centred under the header, its blade about 30 px below it:
 
 | Control | What it moves |
 | --- | --- |
@@ -141,14 +145,14 @@ stand-in); only the measured travel goes in the table, never sample data.
 
 Lessons from the device (build 039), for any view on a reshaping path:
 
-- **A line is a real thin closed shape.** `fig::draw(..., ribbon)` offsets both
+- **A line is a real thin closed shape.** `fig::kdraw(..., ribbon)` offsets both
   edges a quarter of a local pixel apart. A line traced out and back over itself
   (`polyline`), most of all one that turns sharply, broke up on the device even
   when every host check passed.
 - **Lines are 1 px.** The paths draw at scale 2, which doubles a palette entry's
-  stroke width, so they take entries of their own at half the width
-  (`fig::path_tone`; `KIT_PATH_SHADES` in `tools/art/build.mjs`), in palette places
-  the kits leave unused. A closed outline is then 1 px wide and a ribbon 1.5 px
+  stroke width, so they take entries of their own at half the width (`fig::Tone`'s
+  `kp_*`; `MDKIT_PALETTE` in `tools/art/fig.mjs`, which both kits use). A closed
+  outline is then 1 px wide and a ribbon 1.5 px
   across; the fixed parts' entries are 1 px at their scale of about 1. Up to
   v1.2.3 the paths drew 2 to 2.4 px, and players asked for stock Drumline's
   thinner look.

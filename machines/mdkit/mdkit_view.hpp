@@ -69,7 +69,7 @@ static const opxy::u16 travel[33][8] = {
 };
 // travel:end
 
-// MD KIT's palette (tools/art/fig.mjs, MDKIT_PALETTE): the paths' entries at half
+// The kits' palette, MD KIT's and MD E12's (tools/art/fig.mjs, MDKIT_PALETTE): the paths' entries at half
 // width (they draw at scale 2), then the fixed parts' lines, solids, the shell,
 // black, hollow (black with a CDCDCD edge: encoder 1's solid) and a lug's slot.
 enum Tone : u32 { kp_light, kp_dark, kp_mid, kp_neutral, k_light, k_dark, k_mid, k_neutral,
@@ -162,27 +162,10 @@ inline i32 reach(i32 x, i32 y) {
     return (ax > ay ? ax + ay * 3 / 8 : ay + ax * 3 / 8) | 1;
 }
 
-// A path's own palette entry for a shade. The paths draw at scale 2, where an
-// entry's stroke width doubles, and the fixed parts at about 1, so the paths
-// take entries of their own: the same grey at half the width, in entries the
-// kits leave unused (tools/art/build.mjs, KIT_PATH_SHADES). Both then draw
-// lines about 1 px wide, as thin as stock Drumline's.
-inline u32 path_tone(u32 tone) {
-    switch (tone) {
-    case thin: return line;
-    case mid: return outline0;
-    case dim: return outline1;
-    case faint: return fill2;
-    case dash: return fill3;
-    case label: return fill5;
-    default: return tone;
-    }
-}
-
 // Draws points as a closed outline (or, `ribbon`, a line out and back) on a
 // path about (ox, oy) on the stage, at scale 2, turned by `tenths` about it, in
-// palette entry `entry`. The key is the points' own hash, so an unchanged shape
-// costs nothing. MD KIT passes its own entries (Tone); MD E12 a shade (draw).
+// palette entry `entry` (Tone: a path's entries, kp_*, draw 1 px at scale 2).
+// The key is the points' own hash, so an unchanged shape costs nothing.
 template <class F>
 inline void kdraw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 entry, bool ribbon = false, i32 tenths = 0) {
     Point local[64];
@@ -226,10 +209,6 @@ inline void kdraw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 entry, bool 
     }
     place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, entry, stroke);
     if (tenths) opxy::draw::turn(f, path, rotation(tenths));
-}
-template <class F>
-inline void draw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 tone, bool ribbon = false, i32 tenths = 0) {
-    kdraw(f, path, q, ox, oy, path_tone(tone), ribbon, tenths);
 }
 // A fixed part at (x, y) on the stage (Q10), scaled and turned, in its own shade or another.
 template <class F>
@@ -1160,6 +1139,13 @@ MD_FIG_VIEW(gnd_im, 32, fig::cam(f, c, m);)
 // cut shorter the sooner it stops (STOP), the start saturated, stripes clipped flat (SNAP, for
 // SPLN's length), or the tape's edge creased (HPQ). A hit runs the tape left
 // through the block in sixteen steps.
+//
+// In MD KIT's stock look and palette (fig::Tone), 1 px lines: the tape, its
+// stripes and the cut-off start CDCDCD (PTCH's and STRT's encoder, and the
+// fourth's, which creases or cuts the tape); RTRG's patches encoder 2's 4B4B4B
+// solid; the block, belonging to no encoder, a 646464 outline with its rails,
+// slots, blade and notches 646464 solids. The block sits centred under the
+// header, its blade about 30 px below it.
 namespace fig_e12 {
 using namespace md::view;
 using fig::Ctl;
@@ -1168,6 +1154,7 @@ using fig::Hit;
 using fig::lerp;
 using fig::scaleq;
 using fig::px;
+using fig::kdraw;
 using opxy::u16;
 
 // travel-e12:begin (tools/art/travel.py writes this table: edit the tool, then run it)
@@ -1195,7 +1182,9 @@ static const opxy::u16 travel_e12[16][8] = {
 
 // tools/art/fig.mjs's E12 parts, in its order, in the common nodes' places.
 enum Part : u32 { block = 4, ch_top, ch_bot, slot45, slot90, blade, patch0, diag = patch0 + 4, notch0, part_end = notch0 + 4 };
-static const u8 part_shade[part_end - block] = {mid, dim, dim, dim, dim, outline2, outline2, outline2, outline2, outline2, thin, thin, thin, thin, thin};
+static const u8 part_shade[part_end - block] = {fig::k_neutral, fig::kf_neutral, fig::kf_neutral, fig::kf_neutral, fig::kf_neutral,
+                                                fig::kf_neutral, fig::kf_dark, fig::kf_dark, fig::kf_dark, fig::kf_dark, fig::k_light,
+                                                fig::kf_neutral, fig::kf_neutral, fig::kf_neutral, fig::kf_neutral};
 
 // Each machine's recording, so each tape reads as its own: how far apart its stripes
 // (Q8 of the pitch's spacing), how many come in a burst and how many steps' gap
@@ -1224,7 +1213,7 @@ static const Take takes[16] = {
 template <class F>
 inline void put(F& f, u32 part, i32 x, i32 y) {
     const u8 s = part_shade[part - block];
-    place(f, part, x + fig::shift, stage_y * unit + y, unit, s, s >= fill1 ? fill_and_stroke : stroke);
+    place(f, part, x + fig::shift, stage_y * unit + y, unit, s, s >= fig::kf_light ? fill_and_stroke : stroke);
 }
 
 enum Own { crease, second, stop, snap };
@@ -1237,7 +1226,7 @@ inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view:
     // envelope can cut a sample short but not play it past its end, so the hit's
     // own return still ends it. In whole pixels.
     if (moment.amp.known) slide = -((26 * scaleq(h.arc, moment.level() >> 15) + 32768) >> 16) * px;
-    const i32 cx = 362 * px, yc = 92 * px, half = 20 * px;
+    const i32 cx = 362 * px, yc = 100 * px, half = 20 * px;
     const i32 lead = 242 * px + slide, cut = 306 * px + slide;
     i32 end = 490 * px;
     if (own == stop) end = c.raw(3) >= 127 ? 490 * px : lerp(318 * px, 480 * px, c.v(3));   // STOP: the sooner, the shorter; never at 127
@@ -1260,7 +1249,7 @@ inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view:
     }
     t.add(end - 8 * px, yc + half);
     t.add(lead, yc + half);
-    fig::draw(f, md::view::contour, t, 366 * px + slide, yc, thin);   // within 128 px of every point
+    kdraw(f, md::view::contour, t, 366 * px + slide, yc, fig::kp_light);   // within 128 px of every point
     // The stripes: one a step through the sound, from STRT's step, again from it at each splice.
     const Take& tk = takes[take & 15];
     const i32 spacing0 = (lerp(10 * px, 16 * px / 5, c.v(0)) * tk.spacing) >> 8;
@@ -1321,7 +1310,7 @@ inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view:
     }
     (void)wrote;
     for (u32 p = 0; p < 2; ++p)
-        if (all[p].n >= 2) fig::draw(f, p ? md::view::wave : md::view::comb, all[p], (all[p].p[0].x + all[p].p[all[p].n - 1].x) / 2, yc, thin, true);
+        if (all[p].n >= 2) kdraw(f, p ? md::view::wave : md::view::comb, all[p], (all[p].p[0].x + all[p].p[all[p].n - 1].x) / 2, yc, fig::kp_light, true);
     // The splicing-tape patches: the leader's join, then RTRG's.
     for (i32 k = 0; k < joins && k < 4; ++k) put(f, patch0 + static_cast<u32>(k), cut + k * every, yc);
     if (own == second && c.raw(3, 0) > 0) put(f, diag, second_at, yc);
@@ -1332,8 +1321,8 @@ inline void tape(F& f, const Ctl& c, i32 decay16, Own own, u32 take, const view:
     if (c.a(4) > 2000) {
         const i32 len = lerp(6 * px, 100 * px, c.a(4));
         Pts sc;
-        sc.add(242 * px, 26 * px); sc.add(242 * px + len, 22 * px); sc.add(242 * px + len, 38 * px); sc.add(242 * px, 42 * px);
-        fig::draw(f, md::view::extra, sc, 242 * px + len / 2, 32 * px, mid);
+        sc.add(242 * px, 34 * px); sc.add(242 * px + len, 30 * px); sc.add(242 * px + len, 46 * px); sc.add(242 * px, 50 * px);
+        kdraw(f, md::view::extra, sc, 242 * px + len / 2, 40 * px, fig::kp_light);
     }
 }
 }
