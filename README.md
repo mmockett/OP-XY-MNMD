@@ -14,7 +14,8 @@ the Teenage Engineering OP-XY, on the
 - **MD E12, the sampled family, is build-it-yourself.** Its sounds are the
   Machinedrum ROM's own samples, which can't be shared, so it isn't in the
   open-xy.com builder or any release. Capture them from your own ROM and build
-  it ([E12 and DPRO samples](#e12-and-dpro-samples-optional)).
+  it ([MD E12](#md-e12-mde12)). It plays as MD KIT does, with the same mixer on
+  Shift, step locks and track filter.
 - **Each Monomachine machine is its own engine**, played chromatically, with
   its SYN page's two rows as two pages of four encoders. A press of any
   encoder switches between them, as on the SDK's Macro Osc.
@@ -79,9 +80,9 @@ waits until its firmware links on SDK 1.10; they are unchanged.
 - The Open-XY SDK with drum-kit support. Upstream `staging` has it since
   pull requests [#121](https://github.com/etcetc000/open-xy/pull/121) and
   [#143](https://github.com/etcetc000/open-xy/pull/143) merged, with the
-  two-page synth controls (#125 and its follow-ups). MD KIT's pan, level,
+  two-page synth controls (#125 and its follow-ups). The kits' pan, level,
   filter and SRR need SDK 1.10, whose drum kits keep a key's own mixer
-  settings on Shift. These tools build for
+  settings on Shift, and their sends in 1% steps SDK 1.15. These tools build for
   OS 1.2.0 on the fork's branch below.
 - To put the engines on a device: an OP-XY on **OS 1.2.0** exactly, a USB
   cable, and the Open-XY Blackfin toolchain.
@@ -198,15 +199,16 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
 - **Choose a key's machine:** select the key and hold **Shift**. On MD KIT,
   **encoder 1** steps through all 33 machines, family by family (the cell
   shows the family over the machine: TRX over BD). On a self-built MD E12,
-  **encoder 1** chooses the machine. Any key can hold any of the engine's machines.
+  **encoder 1** steps through its 16 machines (MACHINE over BD). Any key can
+  hold any of the engine's machines.
 - **Choke groups:** hold **Shift** and turn **encoder 2** to put the key in
   choke group 1, 2 or 3, or none. Keys in the same group cut each other off. A
   kit starts with CH, OH and RC in group 1 and the other keys in none.
-- **Pan and level:** on MD KIT, hold **Shift** and turn **encoder 3** to pan
+- **Pan and level:** hold **Shift** and turn **encoder 3** to pan
   the key (PAN, -100 left to 100 right, 0 in the centre) and **encoder 4** to
   set its level (LEVEL, 0dB down to -30dB), as on the OP-XY's Drumline. A
   fast turn moves the pan further.
-- **Filter and SRR:** on MD KIT, hold **Shift** and press any encoder to move
+- **Filter and SRR:** hold **Shift** and press any encoder to move
   Shift to the second row (press again to come back). **Encoder 1** is the
   key's FILTER: turn left for a low-pass, from L8.0k down to L150, right for a
   high-pass, from H50 up to H4.0k, and back to the middle (OPEN) for none. **Encoder 2** is SRR, the
@@ -216,6 +218,9 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   the track's send, then 0 (dry) up to 100, whatever the track's send is. A
   kick can stay dry while the snare goes to the reverb, even with the track's
   sends at 0.
+- **Both Shift rows at once:** while Shift is held the header shows both
+  rows, the one the encoders turn bright and the other small and grey under or
+  over it, as the two pages of controls are shown.
 - **Eight controls a key:** the four encoders hold the machine's first four
   controls. **Press an encoder** to switch it to its alternate (controls 5
   to 8), and press it again to switch back. The labels and values follow the
@@ -225,7 +230,7 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   note you play doesn't change it.
 - **Parameter locks:** hold a step and turn an encoder to lock that control on
   the step. While you hold the step, the screen shows the values it plays.
-- **Track filter:** on MD KIT, **M3** is the OP-XY's own filter, as on a synth
+- **Track filter:** on either kit, **M3** is the OP-XY's own filter, as on a synth
   track: switch it on, pick the type (svf, ladder, z lowpass, z hipass and the
   rest) and set cutoff, resonance, envelope amount and key tracking. Each hit
   gets its own filter and its own filter envelope (**M2** with **Shift**), after
@@ -234,7 +239,7 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
   and FX II.
 - **M3 locks:** hold a step and turn M3's encoders to lock the filter on that
   step, as on a synth. FX I and FX II lock from M3's second row or the mixer.
-- **Shift locks:** on MD KIT, hold a step, hold **Shift** and turn PAN or
+- **Shift locks:** hold a step, hold **Shift** and turn PAN or
   LEVEL (first row), or FILTER, SRR, FX I or FX II (second row), to lock that
   step's hits. LEVEL, FILTER and SRR lock the key's own setting plus an
   offset: level up to 30dB either way, FILTER and SRR across their whole range.
@@ -247,6 +252,47 @@ and `pi` load the TRX, EFM and P-I kits. Each kit's keys are listed in `tools/ca
 - **Saving:** each key's machine, controls, choke group, pan, level, FILTER
   and SRR are saved with the project; its machine, controls, pan and level in
   presets too.
+
+### MD E12 (`mde12`)
+
+MD E12 plays the Machinedrum's sixteen E12 machines from the samples you
+capture from your own ROM: BD, SD, HT, LT, CP, RS, CB, CH, OH, RC, CC, BR, TA,
+TR, SH and BC. Its 24 keys start as the default kit on E12 machines, and everything
+above applies to it: each key's machine and eight controls, the mixer on
+Shift with step locks, and the track filter on M3. With no families, its
+MACHINE cell is titled MACHINE.
+
+| Encoder | Row 1 | Row 2 | Shift, row 1 | Shift, row 2 |
+| --- | --- | --- | --- | --- |
+| 1 | PTCH: the sample's speed, up to two octaves either way | STRT: starts the sample later | MACHINE | FILTER |
+| 2 | DEC: its fall, none at 127 | RTRG: plays it again from STRT, up to 124 times, endlessly at 126 and 127 | CHOKE | SRR |
+| 3 | HP: a two-pole high-pass, up to 6.3 kHz (SNAP on BD) | RTIM: the time between retrigs | PAN | FX I |
+| 4 | The machine's own (below) | BEND: starts the pitch up to an octave away, gliding back | LEVEL | FX II |
+
+The fourth control is each machine's own: HPQ, the high-pass's resonance, on
+HT, LT, CP, CB, CH, CC, TA and TR; RING (SD), RATL (RS), BELL (RC), REAL (BR),
+SLEW (SH) and BC (BC) crossfade to a second sample; STOP (OH) cuts the sample
+short; on BD, SPLN sets how long SNAP, in HP's place, drives the kick up to
+three times harder into a clip. FILTER and SRR work after the sample's own HP, so a key can be
+high-passed by HP and darkened by FILTER at once.
+
+The screen draws the key's sample as a strip of tape on a splicing block, its
+recording as stripes: PTCH packs them closer, DEC fades them along the tape,
+HP thins their lower halves, BEND crowds the first ones, STRT lays the cut-off
+start above the block, RTRG and RTIM add splicing patches, and the fourth
+control creases the tape, cuts it short or splices in the second sample.
+
+To build it, capture the samples ([E12 and DPRO samples](#e12-and-dpro-samples-optional)),
+then generate and build it with MD KIT:
+
+```bash
+python3 tools/make_engine.py mde12
+../open-xy/.venv/bin/python ../open-xy/sdk.py test --machine machines/mde12 --cxx "$(brew --prefix llvm)/bin/clang++"
+python3 tools/build_firmware.py mdkit mde12
+```
+
+Without the capture MD E12 still builds, and its screen and Shift rows work,
+but every key is silent.
 
 ### The Monomachine engines
 

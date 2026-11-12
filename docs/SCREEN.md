@@ -260,7 +260,7 @@ and adds nothing to the drawing. All of it is in `md::view::Moment`
 DPRO-WAVE and DPRO-DDRW don't move with a note, so they don't read it. The
 kits, MD KIT and MD E12, don't follow it: stock's drum voices never apply the
 amp envelope to the sound (its drum renderer reads none of the four words), so
-a kit's screen keeps its own timing, and MD E12 stays on SDK 1.8. DPRO-DENS doesn't either, for now: its firmware fails
+a kit's screen keeps its own timing. (Both kits target SDK 1.15 for their Shift mixer.) DPRO-DENS doesn't either, for now: its firmware fails
 to link on the SDK's `staging` ("multiple definition" of the DPRO wave tables,
 the COMDAT issue), so it stays on SDK 1.3 and builds on the fork. Its view
 already knows the envelope (the chorus copy comes down to the wave as far as

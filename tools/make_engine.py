@@ -655,8 +655,10 @@ SCRAMBLE = {
     "CDEC": (16, 110), "FB": (0, 48), "MFB": (0, 48), "MOD": (0, 90), "NOIS": (0, 80),
     "HOLD": (0, 60), "SUS": (0, 90), "HPF": (0, 80), "LPF": (48, 127), "HARD": (24, 127), "UVAL": (32, 127), "GRAB": (32, 127),
 }
-# E12's sample controls: a retrig that holds, a start past the attack, a stop before it.
-SCRAMBLE_E12 = {"RTRG": (0, 60), "STRT": (0, 48), "STOP": (64, 127), "HP": (0, 64), "HPQ": (0, 80)}
+# E12's sample controls: a retrig that holds, a start past the attack, a stop before it,
+# and E12-BD's SNAP driving the kick at most twice as hard into its clip, as MD KIT's
+# CLIP and DIST stop short of their heaviest.
+SCRAMBLE_E12 = {"RTRG": (0, 60), "STRT": (0, 48), "STOP": (64, 127), "HP": (0, 64), "HPQ": (0, 80), "SNAP": (0, 64)}
 
 
 def control_count(name):
