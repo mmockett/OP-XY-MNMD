@@ -209,6 +209,7 @@ int main() {
                 case 15: md::e12_bc::render(alone.u.m15, b.common, y, own, tuned); break;
                 default: break;
                 }
+                mde12::level(m, y);
                 for (unsigned i = 0; i < opxy::block_frames; ++i)
                     cut = cut || (ended ? y[i] >= mde12::quiet_floor || y[i] <= -mde12::quiet_floor : x[i] != y[i]);
                 ended = ended || mde12::finished(engine_voice, a);

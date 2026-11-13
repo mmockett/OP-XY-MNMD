@@ -1035,6 +1035,10 @@ const unsigned char key_values[keys][8] = {{
 }};
 // The key each machine is first on (0 when no key starts on it).
 const unsigned char shown[models] = {{{", ".join(str(shown.get(m, 0)) for m in machines)}}};
+// Each machine's output level (tools/catalog.py LEVELS): half its gain in Q31,
+// so 0x40000000 is unity and leaves the voice untouched.
+const i32 level[models] = {{{", ".join(hex(min(round(catalog.LEVELS.get(m, 1.0) * 0x40000000), 0x7fffffff)) for m in machines)}}};
+const i32 unity = 0x40000000;
 
 // A machine's eight slots (Q31) from the drum kind's eight controls (Q31,
 // 0..127 << 24), on the scale the voice modules are voiced on.
@@ -1191,6 +1195,14 @@ inline void drum_select(Voice& voice, Shared&, u32, u32 model) {{ voice.next = m
 {pad_fx_code() if engine in PAD_MIX else ""}
 {sound_members}
 
+// A machine's output level (kit::level): out * gain, held at the SDK's ceiling.
+inline void level(u32 machine, opxy::Output output) {{
+    const i32 gain = kit::level[machine < kit::models ? machine : 0];
+    if (gain == kit::unity) return;
+    for (unsigned i = 0; i < opxy::block_frames; ++i)
+        output[i] = md::clamp(md::multiply(output[i], gain), -(md::half_scale >> 1), md::half_scale >> 1) * 2;
+}}
+
 // The machines are voiced at middle C and tuned by their own PTCH, as on the
 // original, so the note's pitch is not used.
 inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy::Parameters parameters, opxy::Pitch) {{
@@ -1211,6 +1223,7 @@ inline void render(Voice& voice, Shared& shared, u32, opxy::Output output, opxy:
 {sound_calls}
     default: for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0; break;
     }}
+    level(voice.machine, output);
 {"""    pad_fx(voice.fx, output);
 """ if engine in PAD_MIX else ""}    // Stops at the first loud sample: nearly every block of a sounding voice has one early.
     unsigned under = 0;
@@ -1631,6 +1644,7 @@ int main() {{
 {alone_cases}
                 default: break;
                 }}
+                {engine}::level(m, y);
                 for (unsigned i = 0; i < opxy::block_frames; ++i)
                     cut = cut || (ended ? y[i] >= {engine}::quiet_floor || y[i] <= -{engine}::quiet_floor : x[i] != y[i]);
                 ended = ended || {engine}::finished(engine_voice, a);

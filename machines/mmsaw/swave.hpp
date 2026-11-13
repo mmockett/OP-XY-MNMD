@@ -209,7 +209,7 @@ const i32 sub2_most = 0x027d70a4;           // 2.49 x 2^24: 2.51 x
 const i32 dent_ratio = 0x0c000000;          // 0.75 in Q28
 const i32 low_pass = 485600;
 const i32 low_damping = 0x5a82799a;
-const i32 out_level = 0x13ae147b;           // Q28: 1.23 x, then x 4 (reference/fit_swave.py)
+const i32 out_level = 0x19a5755f;           // Q28: 1.60 x, then x 4: the fitted 1.23 x (reference/fit_swave.py), 2.3 dB up to the other synths' loudness
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }

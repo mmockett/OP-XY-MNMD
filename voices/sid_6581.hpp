@@ -41,8 +41,10 @@ enum { PW, PWAD, PWRS, WAVE, MOD, MSRC, MFRQ, TUNE };
 enum { tri, saw, pulse, mix, noise_wave };
 enum { off, ring, sync, ring_sync };
 
-// Waves are Q29 inside: +-1 is +-2^29, a quarter of full scale at the output.
+// Waves are Q29 inside: +-1 is +-2^29, a quarter of full scale before `out_level`.
 const i32 unit = 0x20000000;
+// The output, Q31: 3.4 dB down, to the loudness of the other synths (the level pass of 2026-11-04).
+const i32 out_level = 0x5689e30e;
 // PWAD: the sweep's speed at PWAD 0, 16, ..., 127, per sample (2^32 = 128 PW steps):
 // 40 steps a second at 16, 185 at 64, 332 at 127.
 const i32 sweep_rate[9] = {0, 30436, 69243, 105006, 140768, 167400, 194793, 224468, 252622};
@@ -210,7 +212,7 @@ inline void render(State& s, Common& common, opxy::Output out, const i32* slots,
         s.held = v;
         s.low1 += multiply(sample - s.low1, roll_off);
         s.low2 += multiply(s.low1 - s.low2, roll_off);
-        out[i] = md::finish(s.low2);
+        out[i] = md::finish(multiply(s.low2, out_level));
     }
 }
 }

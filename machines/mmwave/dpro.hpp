@@ -111,6 +111,9 @@ struct State {
     u32 fresh;      // a note has started and render has not yet run
 };
 namespace {
+// The output: 7.1 dB over the emulator's level (x 4 after this Q31), to the loudness
+// of the other synths (the level pass of 2026-11-04).
+const i32 out_level = 0x4877f757;
 using md::multiply;
 enum { WAVE, WP, WPM, WPRS, SYNC, SFRQ, SPARE, TUNE };
 
@@ -164,7 +167,7 @@ inline void render(State& s, Common&, opxy::Output out, const i32* p, opxy::Pitc
     const u32 sync_increment = mode == 1 ? static_cast<u32>(md::table9(sync_rate, p[SFRQ])) : 0;
     for (unsigned i = 0; i < opxy::block_frames; ++i) {
         const i32 x = dpro::read(a, s.phase), y = dpro::read(b, s.phase);
-        out[i] = md::finish(x + multiply(y - x, fade));
+        out[i] = md::finish(md::gain(multiply(x + multiply(y - x, fade), out_level), 2));
         s.phase += increment;
         if (sync_increment) {
             const u32 next = s.sync + sync_increment;
@@ -249,6 +252,9 @@ struct State {
     dpro::Noise noise;
 };
 namespace {
+// The output: 6.9 dB over the emulator's level (x 4 after this Q31), to the loudness
+// of the other synths (the level pass of 2026-11-04).
+const i32 out_level = 0x46d1abff;
 using md::multiply;
 enum { PCH2, PCH3, PCH4, WAVE, SPARE, CHRL, CHRW, TUNE };
 const i32 off = 0x7fffffff;
@@ -301,7 +307,7 @@ inline void render(State& s, Common&, opxy::Output out, const i32* p, opxy::Pitc
             dry += quarter(s.voice[k].run(wave, increment[k], s.noise, 0));
             if (depth) wet += quarter(s.chorus[k].run(wave, copy[k], s.noise, 64 * (k + 1)));
         }
-        out[i] = md::finish(dry + multiply(wet, depth));
+        out[i] = md::finish(md::gain(multiply(dry + multiply(wet, depth), out_level), 2));
     }
 }
 }

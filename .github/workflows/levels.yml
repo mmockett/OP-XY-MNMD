@@ -1,0 +1,42 @@
+name: Levels
+# The levels report (tools/levels/levels.py): the changed synths' init sounds and presets, and MD KIT's 24 default keys, rendered
+# through the SDK's host voice path at the release (v1.3.4) and at this branch,
+# measured for K-weighted momentary loudness and peak. The report is the run's
+# summary; the WAVs and report.md are its artifact. It never fails on a level.
+on:
+  push:
+    branches: ['levels/**']
+  workflow_dispatch:
+    inputs:
+      base:
+        description: the base ref
+        default: v1.3.4
+permissions:
+  contents: read
+jobs:
+  levels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: head
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base || 'v1.3.4' }}
+          path: base
+      - uses: actions/checkout@v4
+        with:
+          repository: etcetc000/open-xy
+          ref: staging
+          path: open-xy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy==2.3.5 scipy
+      - name: Render and measure, base and head
+        run: python head/tools/levels/levels.py --sdk open-xy --base base --head head --out levels --synth machines/mmpulse --synth machines/mmstat --synth machines/mmpar --synth machines/mmdyn --synth machines/mmsin --synth machines/mmsid --kit machines/mdkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: levels
+          path: levels

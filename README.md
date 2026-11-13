@@ -57,6 +57,9 @@ mixing, and leave out the screen. TRX-SD's PTCH goes further than the original's
 either way, finely around its default, so a project that saved it away from the default 48 plays at
 its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The track menu's scramble doesn't change a kit yet
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
+In v1.3.5 the synths play at one loudness: the FM engines, GND-SIN and SID are
+quieter, SWAVE-PULSE and the DigiPRO engines louder, and MD KIT raises its
+quieter machines by up to 6 dB.
 
 **The screens follow the amp envelope (SDK 1.10).** Every
 Monomachine engine whose screen moves with a note now times that motion by the

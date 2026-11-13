@@ -15,9 +15,10 @@ struct State {
 namespace {
 enum { TUNE = 7 };
 const i32 tune_centre = 1082196480;   // 64/127 in Q31
-// The Monomachine's sine peaks at 0.183 of its output; this engine's level is
-// twice that, 0.366 of full scale (reference/fit_mgnd.py).
-const i32 level = 0x2ed916f2;
+// The Monomachine's sine peaks at 0.183 of its output (reference/fit_mgnd.py);
+// this engine's is 0.153 of full scale, 7.6 dB under the fitted 0.366, so it
+// plays at the loudness of the other synths (the level pass of 2026-11-04).
+const i32 level = 0x13878d48;
 }
 
 inline void trigger(State& voice, Common&) { voice.fresh = 1; }

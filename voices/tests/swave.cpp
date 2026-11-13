@@ -161,7 +161,7 @@ int main() {
     const double square_line = line(out, 13230, 30870, kMiddleC);
     std::printf("pulse: rms %.4f, 2nd harmonic %.1f dB\n", rms(out, 13230, 30870),
                 20 * std::log10(line(out, 13230, 30870, 2 * kMiddleC) / square_line));
-    check("pulse's level", rms(out, 13230, 30870) > 0.027 && rms(out, 13230, 30870) < 0.034);
+    check("pulse's level", rms(out, 13230, 30870) > 0.035 && rms(out, 13230, 30870) < 0.044);   // the fitted 0.027..0.034, 2.3 dB up
     check("pulse at PW 64 is square", line(out, 13230, 30870, 2 * kMiddleC) < 0.01 * square_line);
     check("pulse plays the key", std::fabs(cents(peak(out, 13230, 30870, kMiddleC), kMiddleC)) < 2);
     // PW 32: a duty of 0.255, its fundamental sin(pi 0.255) = 0.72 of the square's.
