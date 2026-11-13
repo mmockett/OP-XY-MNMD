@@ -37,7 +37,7 @@ inline u32 lines_of(i32 depth) { return 1 + ((static_cast<u32>(md::positive(dept
 template <class F>
 inline void bundle(F& f, u32 first, i32 x0, i32 y0, i32 x1, i32 y1, i32 tenths, i32 depth, u32 tone) {
     const u32 n = lines_of(depth);
-    const Turn t = rotation(tenths);
+    const Turn t = rotated(tenths);
     for (u32 k = 0; k < 5; ++k) {
         if (k >= n) { hide(f, first + k); continue; }
         // Offset (k - (n - 1) / 2) 3.5 px along the normal (-sin, cos): 1.75 px a step of 2k - n + 1.
@@ -60,7 +60,7 @@ inline void loop(F& f, u32 path, u32 handle, i32 x, i32 y, i32 r, i32 from, i32 
     const u32 n = 2 + static_cast<u32>(sweep / 120);         // a point every 12 degrees, at most 27
     Point pts[32];
     for (u32 i = 0; i < n; ++i) {
-        const Turn t = rotation(from + sweep * static_cast<i32>(i) / static_cast<i32>(n - 1));
+        const Turn t = rotated(from + sweep * static_cast<i32>(i) / static_cast<i32>(n - 1));
         pts[i].x = x * unit + ((t.cos * (r >> 4)) >> 6);
         pts[i].y = y * unit + ((t.sin * (r >> 4)) >> 6);
     }

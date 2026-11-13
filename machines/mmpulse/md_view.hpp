@@ -26,6 +26,27 @@ using opxy::i16;
 using opxy::u8;
 using namespace opxy::draw;
 
+// opxy::draw's sine and rotation, the same math kept in each file that draws.
+// The SDK's are plain inline: a copy GCC keeps out of line becomes a global
+// symbol, and another machine's copy then clashes with it in one firmware
+// (open-xy docs/toolchain.md, "One definition for shared code").
+// sin of a tenth-degree angle, Q10, interpolated between whole degrees.
+static inline i32 sine_tenths(i32 tenths) {
+    tenths %= 3600;
+    if (tenths < 0) tenths += 3600;
+    const i32 sign = tenths >= 1800 ? -1 : 1;
+    tenths %= 1800;
+    if (tenths > 900) tenths = 1800 - tenths;
+    const i32 degree = tenths / 10, fraction = tenths % 10;
+    const i32 low = sine_q10[degree], high = sine_q10[degree < 90 ? degree + 1 : 90];
+    return sign * (low + (high - low) * fraction / 10);
+}
+// A clockwise rotation by tenths of a degree.
+static inline Turn rotated(i32 tenths) {
+    const Turn turn = {sine_tenths(tenths + 900), sine_tenths(tenths)};
+    return turn;
+}
+
 // Palette entries, the design's styles (tools/art/build.mjs writes the same order).
 enum Shade : u32 {
     line, thin, mid, dim, faint, dash, label,      // strokes: #f7f5f5 (1.6, 1), #a8a9ad, #606166, #3a3b3f, #7a7b80, #8c8d92
@@ -457,7 +478,7 @@ inline u32 coded(u32 encoder) { return encoder == 0 ? hollow : encoder == 1 ? so
 template <class F>
 inline void put(F& f, u32 node, i32 x, i32 y, u32 tone, i32 scale = unit, i32 tenths = 0) {
     place(f, node, x, stage_y * unit + y, scale, tone, tone >= solid2 ? fill_and_stroke : stroke);
-    if (tenths) opxy::draw::turn(f, node, rotation(tenths));
+    if (tenths) opxy::draw::turn(f, node, rotated(tenths));
 }
 }
 }
