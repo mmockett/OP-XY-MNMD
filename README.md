@@ -59,7 +59,8 @@ its new pitch: a saved 90 was 10 cents up and is now about 2.5 semitones up. The
 ([open-xy#324](https://github.com/etcetc000/open-xy/issues/324)).
 In v1.3.5 the synths play at one loudness: the FM engines, GND-SIN and SID are
 quieter, SWAVE-PULSE and the DigiPRO engines louder, and MD KIT raises its
-quieter machines by up to 6 dB.
+quieter machines by up to 6 dB. In v1.3.6 MD KIT builds into one firmware with
+Hexagon's Moth.
 
 **The screens follow the amp envelope (SDK 1.10).** Every
 Monomachine engine whose screen moves with a note now times that motion by the
