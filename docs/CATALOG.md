@@ -28,7 +28,10 @@ MD KIT.
 | `mmsaw` | [Live](https://open-xy.com/#preview/machines/mmsaw) | `v1.1.9` | `opxy-synth-c8-sweep-v1` | 2.48% |
 | `mmsin` | [Live](https://open-xy.com/#preview/machines/mmsin) | `v1.1.9` | `opxy-synth-c8-sweep-v1`, from `v1.1.6` | 1.75% |
 
-A pinned tag can be older than this repository's latest, `v1.3.0`.
+A pinned tag can be older than this repository's latest, `v1.3.5`. In
+v1.3.5 the synths play at one loudness and MD KIT's quieter machines are
+raised; the changed engines' entries are moving to `v1.3.5` on the SDK's
+`staging` branch with their CPU records, as only output levels changed.
 
 Since their screens follow the track's amp envelope, every engine above except
 `mdkit` targets SDK 1.10 (`"sdk": "1.10"`, with no `identity`: from SDK 1.5 a
