@@ -208,13 +208,13 @@ inline void kdraw(F& f, u32 path, const Pts& q, i32 ox, i32 oy, u32 entry, bool 
         f.paths[path].key = key;
     }
     place(f, path, ox + shift, stage_y * unit + oy, 2 * unit, entry, stroke);
-    if (tenths) opxy::draw::turn(f, path, rotation(tenths));
+    if (tenths) opxy::draw::turn(f, path, rotated(tenths));
 }
 // A fixed part at (x, y) on the stage (Q10), scaled and turned, in its own shade or another.
 template <class F>
 inline void put_in(F& f, u32 part, i32 x, i32 y, i32 scale, i32 tenths, u32 tone) {
     place(f, part, x + shift, stage_y * unit + y, scale, tone, tone >= kf_light ? fill_and_stroke : stroke);
-    if (tenths) opxy::draw::turn(f, part, rotation(tenths));
+    if (tenths) opxy::draw::turn(f, part, rotated(tenths));
 }
 template <class F>
 inline void put(F& f, u32 part, i32 x, i32 y, i32 scale = unit, i32 tenths = 0) {
@@ -294,7 +294,7 @@ inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i
         // hit landing it; or, with no control to lift it (raise16 < 0), resting in the dent.
         const i32 tenths = raise16 < 0 ? 0 : lerp(lerp(60, 450, raise16), 0, pose) * side;
         i32 vx = bx0 - pivx, vy = by0 - pivy;
-        spin(vx, vy, rotation(tenths));
+        spin(vx, vy, rotated(tenths));
         const i32 bx = pivx + vx, by = pivy + vy;
         // The stick: a line from the pivot to the ball's centre, under the ball.
         q.add(pivx, pivy); q.add(bx, by);
@@ -313,10 +313,10 @@ inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i
     // 33 degrees, or lying nearly flat across the rim. `raise` lifts the tip about the butt.
     const i32 len = 76 * px;
     const i32 slope = kind == stick ? 330 : 60;
-    const Turn t0 = rotation(slope);
+    const Turn t0 = rotated(slope);
     const i32 bx = tx - ((t0.cos * (len >> 10))), by = ty - ((t0.sin * (len >> 10)));
     const i32 tenths = kind == stick ? -lerp(lerp(30, 300, raise16), 0, pose) : -lerp(0, 50, pose);
-    const Turn t = rotation(slope + tenths);
+    const Turn t = rotated(slope + tenths);
     // Along +x from the butt: 3.2 px wide there, 1.4 at the tip, and a round tip `ball` across.
     i32 xs[16], ys[16];
     u32 n = 0;
@@ -325,7 +325,7 @@ inline void striker(F& f, u32 path, Striker kind, i32 tx, i32 ty, i32 raise16, i
     if (style == 1) { xs[n] = len; ys[n++] = -ball; xs[n] = len; ys[n++] = ball; }   // a flat nylon tip
     else
         for (u32 k = 1; k < 8; ++k) {
-            const Turn a = rotation(-900 + static_cast<i32>(k) * 1800 / 8);
+            const Turn a = rotated(-900 + static_cast<i32>(k) * 1800 / 8);
             xs[n] = len - ball + ((a.cos * ball) >> 10); ys[n++] = (a.sin * ball) >> 10;
         }
     xs[n] = len - ball; ys[n++] = 14 * px / 10;
@@ -645,7 +645,7 @@ inline void cymbal(F& f, const Ctl& c, const Cym& m, const view::Moment& moment)
                 const i32 r = (8 + 5 * static_cast<i32>(k)) * px + out / 2 + scaleq(10 * px, c.a(m.ping));
                 for (u32 j = 0; j <= 6; ++j) {
                     const u32 jj = k & 1 ? 6 - j : j;
-                    const Turn t = rotation(-1440 + static_cast<i32>(jj) * 1080 / 6);
+                    const Turn t = rotated(-1440 + static_cast<i32>(jj) * 1080 / 6);
                     s.add(cx + ((t.cos * (r >> 4)) >> 6), cy - p.bellh - 2 * px + ((t.sin * (r >> 4)) >> 6));
                 }
             }
@@ -738,7 +738,7 @@ inline void chamber(F& f, const Ctl& c, const Room& r, const view::Moment& momen
         if (rr > 120 * px) rr = 120 * px;
         Pts q;
         for (u32 i = 0; i < 24; ++i) {
-            const Turn t = rotation(-260 + static_cast<i32>(i) * 520 / 23);
+            const Turn t = rotated(-260 + static_cast<i32>(i) * 520 / 23);
             const i32 edge = along - static_cast<i32>(i) * 2849;   // fades out past MDEC's reach
             const i32 e = edge <= 0 ? 0 : edge >= 8192 ? a : (a >> 3) * edge >> 10;
             const i32 rad = rr + multiply(e, md::sine(static_cast<u32>(waves) * i * 11673000u));
@@ -780,7 +780,7 @@ inline void cowbell(F& f, const Ctl& c, const Bell& b, const view::Moment& momen
     }
     // The mouth's front lip, a shallow curve back to the start.
     for (u32 i = 1; i < 8; ++i) {
-        const Turn a = rotation(static_cast<i32>(i) * 1800 / 8);
+        const Turn a = rotated(static_cast<i32>(i) * 1800 / 8);
         q.add(cx + ((a.cos * (wm >> 10))), yb + ((a.sin * 5) ));
     }
     const i32 swing = (70 * (h.pose >> 4)) >> 12;
@@ -788,7 +788,7 @@ inline void cowbell(F& f, const Ctl& c, const Bell& b, const view::Moment& momen
     // The mouth's back lip, seen through it: TONE's thicker wall stands it further in.
     Pts lip;
     for (u32 i = 0; i <= 8; ++i) {
-        const Turn a = rotation(1800 + static_cast<i32>(i) * 1800 / 8);
+        const Turn a = rotated(1800 + static_cast<i32>(i) * 1800 / 8);
         lip.add(cx + ((a.cos * ((wm - t / 2) >> 10))), yb + a.sin * (4 + (t >> 10)) - t / 2);
     }
     kdraw(f, md::view::wave, lip, cx, yt, line_of(b.thick), true, swing);
@@ -821,15 +821,15 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     const i32 L2 = lerp(40 * px, 124 * px, c.a(2)), ang2 = lerp(-200, -480, c.v(4));
     const i32 lift = lerp(12 * px, 0, h.pose);
     struct Rod { static void make(Pts& q, i32 x, i32 y, i32 len, i32 tenths) {
-        const Turn t = rotation(tenths);
+        const Turn t = rotated(tenths);
         const i32 r = 4 * px;
         for (u32 k = 0; k <= 6; ++k) {   // the right end's round, then the left's
-            const Turn a = rotation(-900 + static_cast<i32>(k) * 300);
+            const Turn a = rotated(-900 + static_cast<i32>(k) * 300);
             i32 dx = len / 2 + ((a.cos * r) >> 10), dy = (a.sin * r) >> 10;
             spin(dx, dy, t); q.add(x + dx, y + dy);
         }
         for (u32 k = 0; k <= 6; ++k) {
-            const Turn a = rotation(900 + static_cast<i32>(k) * 300);
+            const Turn a = rotated(900 + static_cast<i32>(k) * 300);
             i32 dx = -len / 2 + ((a.cos * r) >> 10), dy = (a.sin * r) >> 10;
             spin(dx, dy, t); q.add(x + dx, y + dy);
         }
@@ -839,7 +839,7 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     kdraw(f, md::view::contour, a, cx, cy, kp_light);
     const i32 hx = cx + L1 / 8, hy = cy - 10 * px;   // where the second strikes
     i32 dx = 0, dy = -(L2 / 2 + lift);
-    spin(dx, dy, rotation(ang2 + 900));
+    spin(dx, dy, rotated(ang2 + 900));
     Rod::make(b, hx + dx, hy + dy, L2, ang2);
     kdraw(f, md::view::wave, b, hx + dx, hy + dy, line_of(2));
     // ENH: the struck clave's grain, a line along it.
@@ -847,7 +847,7 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     const i32 gl = lerp(10 * px, L1 - 20 * px, c.v(3));
     for (u32 k = 0; k < 2; ++k) {
         i32 ex = (k ? gl / 2 : -gl / 2), ey = px;
-        spin(ex, ey, rotation(-120)); g.add(cx + ex, cy + ey);
+        spin(ex, ey, rotated(-120)); g.add(cx + ex, cy + ey);
     }
     kdraw(f, md::view::comb, g, cx, cy, line_of(3), true);
     // CLIC: a spark at the contact, fixed strokes, more and longer as it rises.
@@ -856,7 +856,7 @@ inline void claves(F& f, const Ctl& c, const view::Moment& moment) {
     const i32 r0 = (6 + ((6 * h.pose) >> 16)) * px, sc = lerp(700, 1400, clic);
     for (u32 k = 0; k < n; ++k) {
         const i32 tenths = -1500 - static_cast<i32>(k) * 1300 / 5;
-        const Turn t = rotation(tenths);
+        const Turn t = rotated(tenths);
         fig::put(f, spark0 + k, hx + t.cos * (r0 >> 10), hy - 6 * px + t.sin * (r0 >> 10), sc, tenths);
     }
     const i32 dec = c.v(1);
@@ -875,14 +875,14 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
     Pts g;
     // The egg from its handle's right side round to its left, then the handle down and back.
     for (u32 i = 0; i <= 40; ++i) {
-        const Turn t = rotation(1350 - 120 - static_cast<i32>(i) * 3360 / 40);
+        const Turn t = rotated(1350 - 120 - static_cast<i32>(i) * 3360 / 40);
         g.add(cx + ((t.cos * (rx >> 4)) >> 6), cy - ((t.sin * (ry >> 4)) >> 6));
     }
-    const Turn hl = rotation(1350);
+    const Turn hl = rotated(1350);
     const i32 hx = cx + ((hl.cos * (rx >> 4)) >> 6) * 9 / 10, hy = cy + ((hl.sin * (ry >> 4)) >> 6) * 9 / 10;
     if (!s.egg) { g.add(hx - 3 * px, hy + 2 * px); g.add(hx - 38 * px, hy + 36 * px); g.add(hx - 32 * px, hy + 42 * px); g.add(hx + 3 * px, hy + 8 * px); }
     else for (u32 i = 1; i < 5; ++i) {   // P-I's egg shaker: closed round, no handle
-        const Turn t = rotation(1350 - 120 - static_cast<i32>(40 + i) * 3360 / 40);
+        const Turn t = rotated(1350 - 120 - static_cast<i32>(40 + i) * 3360 / 40);
         g.add(cx + ((t.cos * (rx >> 4)) >> 6), cy - ((t.sin * (ry >> 4)) >> 6));
     }
     kdraw(f, md::view::contour, g, cx, cy, kp_light, false, swing);
@@ -891,7 +891,7 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
         const i32 t = lerp(2 * px, 8 * px, c.v(s.wall));
         Pts w;
         for (u32 i = 0; i < 32; ++i) {
-            const Turn a = rotation(static_cast<i32>(i) * 3600 / 32);
+            const Turn a = rotated(static_cast<i32>(i) * 3600 / 32);
             w.add(cx + ((a.cos * ((rx - t) >> 4)) >> 6), cy - ((a.sin * ((ry - t) >> 4)) >> 6));
         }
         kdraw(f, md::view::wave, w, cx, cy, line_of(s.wall), false, swing);
@@ -925,15 +925,15 @@ inline void shaker(F& f, const Ctl& c, const Shake& s, const view::Moment& momen
         const i32 a1 = lerp(100, 600, c.v(s.att)), hold = lerp(0, 300, c.v(s.sus)), a3 = lerp(100, 600, c.v(s.rev));
         Pts q;
         for (u32 i = 0; i <= 8; ++i) {
-            const Turn t = rotation(-1350 + static_cast<i32>(i) * a1 / 8);
+            const Turn t = rotated(-1350 + static_cast<i32>(i) * a1 / 8);
             q.add(cx + t.cos * (r >> 10), cy + t.sin * (r >> 10));
         }
         for (u32 i = 1; i <= 4; ++i) {
-            const Turn t = rotation(-1350 + a1 + static_cast<i32>(i) * hold / 4);
+            const Turn t = rotated(-1350 + a1 + static_cast<i32>(i) * hold / 4);
             q.add(cx + t.cos * (r >> 10), cy + t.sin * (r >> 10));
         }
         for (u32 i = 0; i <= 8; ++i) {
-            const Turn t = rotation(-1350 + a1 + hold - static_cast<i32>(i) * a3 / 8);
+            const Turn t = rotated(-1350 + a1 + hold - static_cast<i32>(i) * a3 / 8);
             const i32 r2 = r - 6 * px;
             q.add(cx + t.cos * (r2 >> 10), cy + t.sin * (r2 >> 10));
         }
@@ -966,7 +966,7 @@ inline void fork(F& f, const Ctl& c, const view::Moment& moment) {
         Pts all;
         if (side < 0) { all.add(cx - 2 * px, 116 * px); all.add(cx - 2 * px, yy + 9 * px); }
         for (u32 k = 0; k < 4; ++k) {
-            const Turn a = rotation(900 + side * static_cast<i32>(k) * 300);
+            const Turn a = rotated(900 + side * static_cast<i32>(k) * 300);
             all.add(cx + ((a.cos * 86) >> 10) * 1 * 0 + side * (8 * px - ((900 - static_cast<i32>(k) * 300) * 0)) * 0 + ((-side * a.sin + 0) * 0) + (side * ((1024 - a.sin) * 7 >> 10) * px / 1) * 0 + cx * 0 + side * static_cast<i32>(k) * 2 * px - side * 0, yy + 8 * px - static_cast<i32>(k) * 2 * px);
         }
         for (u32 i = 0; i < 26; ++i) all.add(q.p[i].x, q.p[i].y);
@@ -1029,7 +1029,7 @@ inline void cam(F& f, const Ctl& c, const view::Moment& moment) {
         i32 r = r0;
         if (a < up) r += scaleq(uh / 2, 65536 - (md::sine(static_cast<u32>(a) * (0xffffffffu / static_cast<u32>(up)) + 0x40000000u) >> 15));
         else if (a >= up + 150 && a < up + 150 + dn) r -= scaleq(dd / 2, 65536 - (md::sine(static_cast<u32>(a - up - 150) * (0xffffffffu / static_cast<u32>(dn)) + 0x40000000u) >> 15));
-        const Turn t = rotation(a - 900);
+        const Turn t = rotated(a - 900);
         q.add(cx + t.cos * (r >> 10), cy + t.sin * (r >> 10));
     }
     const i32 tenths = 150 - scaleq(3600, 65536 - h.left);
@@ -1045,11 +1045,11 @@ inline void cam(F& f, const Ctl& c, const view::Moment& moment) {
     const i32 ry = cy - top - 5 * px;
     Pts lever;
     lever.add(290 * px, 30 * px); lever.add(cx - 4 * px, ry - 2 * px); lever.add(cx + 4 * px, ry - 6 * px);
-    for (u32 k = 0; k <= 8; ++k) { const Turn t = rotation(static_cast<i32>(k) * 3600 / 8); lever.add(cx + t.cos * 5, ry + t.sin * 5); }
+    for (u32 k = 0; k <= 8; ++k) { const Turn t = rotated(static_cast<i32>(k) * 3600 / 8); lever.add(cx + t.cos * 5, ry + t.sin * 5); }
     lever.add(cx - 4 * px, ry + 1 * px); lever.add(290 * px, 33 * px);
     kdraw(f, md::view::wave, lever, 326 * px, (30 * px + ry) / 2, kp_mid);
     Pts axle;
-    for (u32 k = 0; k < 8; ++k) { const Turn t = rotation(static_cast<i32>(k) * 450); axle.add(cx + t.cos * 4, cy + t.sin * 4); }
+    for (u32 k = 0; k < 8; ++k) { const Turn t = rotated(static_cast<i32>(k) * 450); axle.add(cx + t.cos * 4, cy + t.sin * 4); }
     kdraw(f, md::view::comb, axle, cx, cy, kp_neutral);
 }
 

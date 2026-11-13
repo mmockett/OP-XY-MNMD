@@ -104,7 +104,7 @@ inline void draw(F& frame, const Part* parts, const Effect* effects, const u16* 
         place(frame, node, part.x * 256 + dx, (view::stage_y * 4 + part.y) * 256 + dy, scale, tone, static_cast<Paint>(part.paint));
         if (turn) {
             const i32 tenths = ((turn % 3600) + 3600) % 3600;
-            opxy::draw::turn(frame, node, rotation(tenths));
+            opxy::draw::turn(frame, node, view::rotated(tenths));
         }
     }
 }
